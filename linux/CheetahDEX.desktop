@@ -1,9 +1,9 @@
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=Cheetah DEX
+Name=P2Pirate
 Exec=./CheetahDEX
-Icon=./CheetahDEX.png
+Icon=./PirateWallet.png
 Categories=Office;Finance;
 Terminal=false
 StartupNotify=true
