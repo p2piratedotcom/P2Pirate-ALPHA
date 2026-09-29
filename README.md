@@ -88,11 +88,10 @@ The [Pirate Chain branding guide](https://piratechain.com/canvas/) currently
 prefers the P mark and advises against ship and skull marks. Use of a mark
 does not imply official endorsement.
 
-The inherited in-app legal text needs a separate review before a P2Pirate
-release: portions describe restrictions that conflict with the repository's
-GPL permissions and still attribute the product to other parties. No PR
-should simply rename those statements to P2Pirate without resolving the
-underlying rights and wording.
+The reference ZIP includes in-app EULA-style text that restricts copying and
+modification while the repository declares GPL-3.0. That text is not present
+in this fork baseline. Do not import it by simply renaming the product;
+review legal copy and attribution separately before a P2Pirate release.
 
 ## Upstream and P2Pirate documentation
 
