@@ -14,5 +14,10 @@ for community use. This repository does not claim ownership of Pirate Chain
 marks or imply official endorsement.
 
 The Flutter wallet code retains its upstream GPL license and attribution.
-Platform-specific icons, application IDs, data folder migration, and release
-packaging are tracked separately from this UI change.
+The Linux branding follow-up copies this same icon, unchanged, to
+`linux/PirateWallet.png`, installs it in the Flutter bundle, and uses it for
+the GTK window and desktop entry. The visible window and launcher title become
+P2Pirate. The technical executable name `CheetahDEX` and GTK application ID
+remain unchanged until their data and packaging compatibility is reviewed.
+Branding on other platforms, data folder migration, and release packaging
+are tracked separately.

@@ -57,9 +57,15 @@ static void my_application_activate(GApplication* application) {
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
 
-  // Set window icon
+  // Resolve the icon beside the executable, including mounted AppImages.
+  g_autofree gchar* executable_path = g_file_read_link("/proc/self/exe", nullptr);
+  g_autofree gchar* executable_dir = executable_path != nullptr
+      ? g_path_get_dirname(executable_path)
+      : g_get_current_dir();
+  g_autofree gchar* icon_path =
+      g_build_filename(executable_dir, "PirateWallet.png", nullptr);
   GError* error = NULL;
-  gtk_window_set_icon_from_file(window, "CheetahdexWallet.png", &error);
+  gtk_window_set_icon_from_file(window, icon_path, &error);
   if (error) {
     g_warning("Failed to set window icon: %s", error->message);
     g_error_free(error);
@@ -85,11 +91,11 @@ static void my_application_activate(GApplication* application) {
   if (use_header_bar) {
     GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
     gtk_widget_show(GTK_WIDGET(header_bar));
-    gtk_header_bar_set_title(header_bar, "CheetahdexWallet");
+    gtk_header_bar_set_title(header_bar, "P2Pirate");
     gtk_header_bar_set_show_close_button(header_bar, TRUE);
     gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
   } else {
-    gtk_window_set_title(window, "CheetahdexWallet");
+    gtk_window_set_title(window, "P2Pirate");
   }
 
   gtk_window_set_default_size(window, 1280, 720);
