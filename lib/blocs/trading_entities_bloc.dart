@@ -37,6 +37,9 @@ class TradingEntitiesBloc implements BlocBase {
   StreamSubscription<KdfUser?>? _authModeListener;
   List<MyOrder> _myOrders = [];
   List<Swap> _swaps = [];
+  WalletId? _walletId;
+  int _walletRevision = 0;
+  int _authRevision = 0;
   Timer? timer;
   bool _closed = false;
   DateTime? _lastFetchAt;
@@ -74,15 +77,17 @@ class TradingEntitiesBloc implements BlocBase {
 
   Future<void> fetch() async {
     if (_closed) return;
-    if (!await _kdfSdk.auth.isSignedIn()) {
-      _hasLoadedInitialSwaps = false;
-      _lastFetchAt = null;
-      if (_myOrders.isNotEmpty) myOrders = [];
-      if (_swaps.isNotEmpty) swaps = [];
-      return;
-    }
+    final authRevision = _authRevision;
+    final user = await _kdfSdk.auth.currentUser;
+    if (_closed || authRevision != _authRevision) return;
+    _selectWallet(user?.walletId);
+    if (user == null) return;
 
-    myOrders = await _myOrdersService.getOrders() ?? [];
+    final walletId = user.walletId;
+    final walletRevision = _walletRevision;
+    final orders = await _myOrdersService.getOrders();
+    if (!await _isCurrentWallet(walletId, walletRevision)) return;
+    myOrders = orders ?? [];
     final recentSwaps =
         await getRecentSwaps(
           MyRecentSwapsRequest(
@@ -92,9 +97,31 @@ class TradingEntitiesBloc implements BlocBase {
           ),
         ) ??
         [];
+    if (!await _isCurrentWallet(walletId, walletRevision)) return;
     _hasLoadedInitialSwaps = true;
     swaps = _mergeSwaps(_swaps, recentSwaps);
     _lastFetchAt = DateTime.now();
+  }
+
+  void _selectWallet(WalletId? walletId) {
+    if (_walletId == walletId) return;
+    _walletId = walletId;
+    _walletRevision++;
+    _hasLoadedInitialSwaps = false;
+    _lastFetchAt = null;
+    myOrders = [];
+    swaps = [];
+  }
+
+  Future<bool> _isCurrentWallet(WalletId walletId, int revision) async {
+    if (_closed || _walletRevision != revision || _walletId != walletId) {
+      return false;
+    }
+    final currentUser = await _kdfSdk.auth.currentUser;
+    return !_closed &&
+        _walletRevision == revision &&
+        _walletId == walletId &&
+        currentUser?.walletId == walletId;
   }
 
   @override
@@ -109,6 +136,15 @@ class TradingEntitiesBloc implements BlocBase {
   void runUpdate() {
     bool updateInProgress = false;
 
+    _authModeListener?.cancel();
+    _authModeListener = _kdfSdk.auth.watchCurrentUser().listen((user) {
+      if (_closed) return;
+      _authRevision++;
+      _selectWallet(user?.walletId);
+      if (user != null) unawaited(_fetchAfterAuthChange());
+    });
+
+    timer?.cancel();
     timer = Timer.periodic(_pollingInterval, (_) async {
       if (_closed) return;
       if (updateInProgress) return;
@@ -128,6 +164,17 @@ class TradingEntitiesBloc implements BlocBase {
         updateInProgress = false;
       }
     });
+  }
+
+  Future<void> _fetchAfterAuthChange() async {
+    try {
+      await fetch();
+    } catch (_) {
+      await log(
+        'Could not refresh trading history after wallet change',
+        path: 'TradingEntitiesBloc.fetch',
+      );
+    }
   }
 
   bool _shouldRunBackgroundFetch() {
