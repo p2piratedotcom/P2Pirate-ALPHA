@@ -1,7 +1,9 @@
 import 'package:app_theme/app_theme.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:rational/rational.dart';
+import 'package:web_dex/bloc/coins_bloc/coins_bloc.dart';
 import 'package:web_dex/generated/codegen_loader.g.dart';
 import 'package:web_dex/model/coin.dart';
 import 'package:web_dex/model/orderbook/order.dart';
@@ -58,6 +60,7 @@ class OrderbookSplitTable extends StatelessWidget {
       color: theme.custom.bidsColor,
       orders: bids,
       priceCoin: priceCoin,
+      priceTicker: orderbook.rel,
       volumeCoin: volumeCoin,
       highestVolume: highestVolume,
       selectedOrderUuid: selectedOrderUuid,
@@ -70,6 +73,7 @@ class OrderbookSplitTable extends StatelessWidget {
       color: theme.custom.asksColor,
       orders: asks,
       priceCoin: priceCoin,
+      priceTicker: orderbook.rel,
       volumeCoin: volumeCoin,
       highestVolume: highestVolume,
       selectedOrderUuid: selectedOrderUuid,
@@ -99,6 +103,7 @@ class _OrderSidePanel extends StatefulWidget {
     required this.color,
     required this.orders,
     required this.priceCoin,
+    required this.priceTicker,
     required this.volumeCoin,
     required this.highestVolume,
     required this.selectedOrderUuid,
@@ -110,6 +115,7 @@ class _OrderSidePanel extends StatefulWidget {
   final Color color;
   final List<Order> orders;
   final String priceCoin;
+  final String priceTicker;
   final String volumeCoin;
   final Rational highestVolume;
   final String? selectedOrderUuid;
@@ -131,6 +137,7 @@ class _OrderSidePanelState extends State<_OrderSidePanel> {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final coinsState = context.watch<CoinsBloc>().state;
     return Container(
       height: 360,
       decoration: BoxDecoration(
@@ -153,12 +160,24 @@ class _OrderSidePanelState extends State<_OrderSidePanel> {
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
-                    '${LocaleKeys.price.tr()} ${widget.priceCoin}',
-                    overflow: TextOverflow.ellipsis,
+                  child: _ColumnHeading(LocaleKeys.price.tr(), widget.priceCoin),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(child: _ColumnHeading('Price', 'USD')),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: _ColumnHeading(
+                      LocaleKeys.volume.tr(),
+                      widget.volumeCoin,
+                    ),
                   ),
                 ),
-                Text('${LocaleKeys.volume.tr()} ${widget.volumeCoin}'),
+                const SizedBox(width: 4),
+                const SizedBox(
+                  width: 40,
+                  child: Center(child: _ColumnHeading('UUID', '')),
+                ),
               ],
             ),
           ),
@@ -192,6 +211,16 @@ class _OrderSidePanelState extends State<_OrderSidePanel> {
                             'split-order-${order.direction.name}-$index-${order.uuid ?? ''}',
                           ),
                           volumeFraction: volumeFraction,
+                          large: true,
+                          showOrderDetails: true,
+                          // KDF quotes rel units per base unit. Convert that
+                          // amount using the rel coin's current USD quote.
+                          usdPrice: _usdPrice(
+                            coinsState.getUsdPriceForAmount(
+                              order.price.toDouble(),
+                              widget.priceTicker,
+                            ),
+                          ),
                           isSelected: widget.selectedOrderUuid != null &&
                               order.uuid == widget.selectedOrderUuid,
                           onClick: widget.onOrderClick,
@@ -202,6 +231,28 @@ class _OrderSidePanelState extends State<_OrderSidePanel> {
           ),
         ],
       ),
+    );
+  }
+
+  String _usdPrice(double? value) {
+    if (value == null || !value.isFinite || value <= 0) return 'N/A';
+    if (value < 0.00000001) return '<\$0.00000001';
+    return '\$${value.toStringAsFixed(value < 0.01 ? 8 : 2)}';
+  }
+}
+
+class _ColumnHeading extends StatelessWidget {
+  const _ColumnHeading(this.label, this.coin);
+
+  final String label;
+  final String coin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      '$label $coin',
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(context).textTheme.labelSmall,
     );
   }
 }
