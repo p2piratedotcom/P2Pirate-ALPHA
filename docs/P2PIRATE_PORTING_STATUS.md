@@ -30,6 +30,7 @@ reference material, not the source of this Git history.
 | Optional exact maker UUID matching | [#16](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/16) | — | Wallet #15 |
 | Missing USD quotes and partial wallet totals | [#17](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/17) | — | Base fork |
 | Recover the Swap form from pre-submit validation errors | [#19](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/19) | — | Base fork |
+| Linux window, launcher and icon branding | [#20](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/20) | — | Wallet #9 |
 
 Review stacked proposals in order within each chain. Merge independent
 proposals only after checking that they still apply cleanly to the target
@@ -47,8 +48,9 @@ mergeability indicator is not evidence of a successful Flutter build.
   Binance/CoinGecko/CoinPaprika fallback, throttling and cache behavior.
 - Linux Tor transport for KDF, Dart HTTP, images and WebView, with visible
   status and documented coverage limits.
-- Remaining native platform identity, icons, data-directory migration review,
-  UI performance changes and reproducible AppImage packaging.
+- Remaining native platform identity and icons, Linux executable/application
+  ID and data-directory migration review, UI performance changes and
+  reproducible AppImage packaging.
 - Provenance and distribution review for KDF 2.7.0-beta_968f32a, Tor and
   other bundled executables. The older Rust patch record must not be
   attributed to the ZIP's KDF binary without corresponding source evidence.
