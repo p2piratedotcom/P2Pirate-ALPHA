@@ -328,8 +328,8 @@ class _UsdBalanceText extends StatelessWidget {
           stream: balanceStream,
           builder: (context, snapshot) {
             final balance = snapshot.data?.spendable.toDouble();
-            if (balance == null || price == null) {
-              return Text('--', style: textStyle);
+            if (balance == null || price == null || price <= 0) {
+              return Text('N/A', style: textStyle);
             }
             final formatted = NumberFormat("#,##0.00").format(price * balance);
             return Text('\$$formatted', style: textStyle);

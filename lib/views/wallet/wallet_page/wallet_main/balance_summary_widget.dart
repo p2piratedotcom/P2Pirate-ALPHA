@@ -13,6 +13,7 @@ class BalanceSummaryWidget extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final bool hideBalances;
+  final String? partialLabel;
   final VoidCallback? onToggleHideBalances;
 
   const BalanceSummaryWidget({
@@ -23,6 +24,7 @@ class BalanceSummaryWidget extends StatelessWidget {
     this.onTap,
     this.onLongPress,
     this.hideBalances = false,
+    this.partialLabel,
     this.onToggleHideBalances,
   });
 
@@ -55,10 +57,18 @@ class BalanceSummaryWidget extends StatelessWidget {
                             : '\$${NumberFormat("#,##0.00").format(totalBalance!)}',
                         style: theme.textTheme.headlineSmall,
                       )
-                    : _BalancePlaceholder(),
+                    : Text('N/A', style: theme.textTheme.headlineSmall),
+                if (partialLabel != null && !hideBalances) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    '($partialLabel)',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ],
                 const SizedBox(height: 12),
                 // Change indicator using TrendPercentageText or placeholder
-                totalBalance != null && !hideBalances
+                totalBalance != null && partialLabel == null && !hideBalances
                     ? TrendPercentageText(
                         percentage: changePercentage,
                         upColor: themeCustom.increaseColor,
@@ -91,24 +101,6 @@ class BalanceSummaryWidget extends StatelessWidget {
               ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _BalancePlaceholder extends StatelessWidget {
-  const _BalancePlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      height: 32,
-      width: 160,
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(6),
       ),
     );
   }
