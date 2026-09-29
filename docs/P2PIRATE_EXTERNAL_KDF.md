@@ -59,6 +59,14 @@ select a reviewed release tag and SHA-256, and can be updated by a separate
 reviewable GUI change when another version is approved. The SDK repository is
 the release host; it is not a substitute for the Rust source provenance.
 
+The ZIP reference does not yet provide sufficient provenance for publishing
+its KDF executable as a release. Its bundled ELF has SHA-256
+`bd171eeee7a1e0d43b070c8ba6ba60a845a26b3db0ef57ca25a394a2b6c02129`,
+which matches its asset preparation script, while its KDF build notes cite
+`cf7e95b9d5170dca2b16baf7f9b5a215b916806af17cb891ad6b9aef2bf1d568`.
+These are different artifacts. Rebuild or independently identify the intended
+binary and corresponding Rust source before publication.
+
 ## Build inputs and remaining work
 
 With SDK PR #4, build-time KDF and coin downloads are disabled. KDF is a
