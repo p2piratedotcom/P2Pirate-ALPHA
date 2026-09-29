@@ -30,7 +30,9 @@ class CoinsTableContent extends StatelessWidget {
           builder: (context, coinsState) {
             final coins = prepareCoinsForTable(
               context,
-              coinsState.coins.values.toList(),
+              coinsState.walletCoins.values
+                  .where((coin) => coin.isActive)
+                  .toList(),
               searchString,
               testCoinsEnabled: context
                   .read<SettingsBloc>()
