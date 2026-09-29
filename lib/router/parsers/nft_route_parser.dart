@@ -5,19 +5,7 @@ class _NFTsRouteParser implements BaseRouteParser {
   const _NFTsRouteParser();
 
   @override
-  AppRoutePath getRoutePath(Uri uri) {
-    if (uri.pathSegments.length == 2) {
-      if (uri.pathSegments[1] == 'receive') {
-        return NftRoutePath.nftReceive();
-      } else if (uri.pathSegments[1] == 'transactions') {
-        return NftRoutePath.nftTransactions();
-      } else if (uri.pathSegments[1].isNotEmpty) {
-        return NftRoutePath.nftDetails(uri.pathSegments[1], false);
-      }
-    }
-
-    return NftRoutePath.nfts();
-  }
+  AppRoutePath getRoutePath(Uri uri) => WalletRoutePath.wallet();
 }
 
 const nftRouteParser = _NFTsRouteParser();
