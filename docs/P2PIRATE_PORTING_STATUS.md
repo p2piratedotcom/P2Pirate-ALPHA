@@ -29,6 +29,7 @@ reference material, not the source of this Git history.
 | Order-book USD estimates and copyable maker UUID | [#15](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/15) | — | Wallet #14 |
 | Optional exact maker UUID matching | [#16](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/16) | — | Wallet #15 |
 | Missing USD quotes and partial wallet totals | [#17](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/17) | — | Base fork |
+| Recover the Swap form from pre-submit validation errors | [#19](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/19) | — | Base fork |
 
 Review stacked proposals in order within each chain. Merge independent
 proposals only after checking that they still apply cleanly to the target
@@ -38,8 +39,8 @@ mergeability indicator is not evidence of a successful Flutter build.
 
 ## Still required for functional parity
 
-- Swap startup progress, error and timeout behavior, including verification
-  after an uncertain submit result.
+- Remaining Swap startup progress, timeout and diagnostic behavior, including
+  verification after an uncertain submit result.
 - Per-wallet swap history, outcome classification and recovery status.
 - ARRR address-detail balance refresh and remaining wallet list layout.
 - Configurable HTTPS price endpoint and USD visibility setting; robust
