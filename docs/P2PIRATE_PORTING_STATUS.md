@@ -31,6 +31,9 @@ reference material, not the source of this Git history.
 | Missing USD quotes and partial wallet totals | [#17](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/17) | — | Base fork |
 | Recover the Swap form from pre-submit validation errors | [#19](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/19) | — | Base fork |
 | Linux window, launcher and icon branding | [#20](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/20) | — | Wallet #9 |
+| Show loaded order and swap counts when History opens | [#21](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/21) | — | Base fork |
+| Clear and isolate trading history when the active wallet changes | [#22](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/22) | — | Wallet #21 |
+| Flutter 3.47.5 and Dart 3.13.4 dependency compatibility for Linux desktop | [#23](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/23) | — | Base fork |
 
 Review stacked proposals in order within each chain. Merge independent
 proposals only after checking that they still apply cleanly to the target
@@ -42,7 +45,7 @@ mergeability indicator is not evidence of a successful Flutter build.
 
 - Remaining Swap startup progress, timeout and diagnostic behavior, including
   verification after an uncertain submit result.
-- Per-wallet swap history, outcome classification and recovery status.
+- Persistent per-wallet swap history, outcome classification and recovery status.
 - ARRR address-detail balance refresh and remaining wallet list layout.
 - Configurable HTTPS price endpoint and USD visibility setting; robust
   Binance/CoinGecko/CoinPaprika fallback, throttling and cache behavior.
@@ -55,7 +58,10 @@ mergeability indicator is not evidence of a successful Flutter build.
   other bundled executables. The older Rust patch record must not be
   attributed to the ZIP's KDF binary without corresponding source evidence.
 
-No funded swap, Flutter build or Dart static analysis has been performed for
-this PR series in the current workspace: the Flutter/Dart toolchain is absent.
+Flutter 3.47.5 and Dart 3.13.4 are installed locally. An offline locked
+dependency resolution passed on wallet #23. Targeted Dart static analysis
+found no errors in wallet #16, #17, #19, #21 and #22; it reported only style
+suggestions in #16 and #17. No funded swap or integrated Linux desktop build
+has been performed for this PR series.
 The current state is a reviewable source port in progress, not a release or a
 claim that the fork matches the ZIP in full.
