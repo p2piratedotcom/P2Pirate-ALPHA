@@ -55,8 +55,8 @@ class CoinFiatBalance extends StatelessWidget {
           stream: balanceStream,
           builder: (context, snapshot) {
             final balance = snapshot.data?.spendable.toDouble();
-            if (balance == null || price == null) {
-              final balanceStr = ' ($kBalancePlaceholder)';
+            if (balance == null || price == null || price <= 0) {
+              const balanceStr = ' (N/A)';
               return isAutoScrollEnabled
                   ? AutoScrollText(
                       text: balanceStr,

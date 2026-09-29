@@ -14,8 +14,8 @@ import 'package:web_dex/bloc/settings/settings_event.dart';
 import 'package:web_dex/common/screen.dart';
 import 'package:web_dex/generated/codegen_loader.g.dart';
 import 'package:web_dex/shared/constants.dart';
-import 'package:web_dex/shared/utils/balance_utils.dart';
 import 'package:web_dex/shared/utils/utils.dart';
+import 'package:web_dex/views/wallet/common/wallet_usd_valuation.dart';
 import 'package:web_dex/views/wallet/wallet_page/wallet_main/balance_summary_widget.dart';
 
 // TODO(@takenagain): Please clean up the widget structure and bloc usage for
@@ -75,11 +75,12 @@ class _WalletOverviewState extends State<WalletOverview> {
         // Calculate the total balance from the SDK balances and market data
         // interfaces rather than the PortfolioGrowthBloc - limited coin
         // coverage and dependent on OHLC API request limits.
-        final double? totalBalance = computeWalletTotalUsd(
-          coins: state.walletCoins.values,
-          coinsState: state,
-          sdk: context.sdk,
+        final valuation = walletUsdValuation(
+          state.walletCoins.values,
+          context.sdk,
+          state,
         );
+        final double? totalBalance = valuation.knownTotal;
 
         if (!_logged && stateWithData != null && totalBalance != null) {
           context.read<AnalyticsBloc>().logEvent(
@@ -109,6 +110,7 @@ class _WalletOverviewState extends State<WalletOverview> {
 
                 return BalanceSummaryWidget(
                   totalBalance: totalBalance,
+                  partialLabel: valuation.partialLabel,
                   changeAmount: totalChange24h,
                   changePercentage: percentageChange24h,
                   onTap: widget.onAssetsPressed,
@@ -133,20 +135,30 @@ class _WalletOverviewState extends State<WalletOverview> {
             StatisticCard(
               key: const Key('overview-current-value'),
               caption: SizedBox(
-                height: _desktopCaptionHeight,
+                height: valuation.isPartial ? 36 : _desktopCaptionHeight,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(LocaleKeys.yourBalance.tr()),
+                    Flexible(
+                      child: Text(
+                        valuation.partialLabel == null
+                            ? LocaleKeys.yourBalance.tr()
+                            : '${LocaleKeys.yourBalance.tr()} (${valuation.partialLabel})',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                     const SizedBox(width: 4),
                     _BalancePrivacyToggleButton(hideBalances: hideBalances),
                   ],
                 ),
               ),
               value: totalBalance,
-              valueText: hideBalances && totalBalance != null
-                  ? '\$$maskedBalanceText'
-                  : null,
+              valueText: totalBalance == null
+                  ? 'N/A'
+                  : hideBalances
+                      ? '\$$maskedBalanceText'
+                      : null,
               onTap: widget.onAssetsPressed,
               onLongPress: totalBalance != null && !hideBalances
                   ? () {
@@ -156,7 +168,7 @@ class _WalletOverviewState extends State<WalletOverview> {
                       copyToClipBoard(context, formattedValue);
                     }
                   : null,
-              trendWidget: totalBalance != null && !hideBalances
+              trendWidget: totalBalance != null && !valuation.isPartial && !hideBalances
                   ? BlocBuilder<PortfolioGrowthBloc, PortfolioGrowthState>(
                       builder: (context, state) {
                         final double totalChange =
