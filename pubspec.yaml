@@ -153,6 +153,7 @@ dependencies:
   # TODO: review required - SDK integration
   path_provider: 2.1.5 # flutter.dev
   shared_preferences: ^2.5.4 # flutter.dev
+  flutter_secure_storage: ^10.0.0 # Encrypted per-wallet completed swap history
   decimal: 3.2.1 # transitive dependency that is required to fix breaking changes in rational package
   rational: 2.2.3 # sdk depends on decimal ^3.0.2, which depends on rational ^2.0.0
   uuid: 4.5.1 # sdk depends on this version
