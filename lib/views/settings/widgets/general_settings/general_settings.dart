@@ -5,7 +5,6 @@ import 'package:web_dex/common/screen.dart';
 import 'package:web_dex/shared/widgets/hidden_with_wallet.dart';
 import 'package:web_dex/shared/widgets/hidden_without_wallet.dart';
 import 'package:web_dex/views/settings/widgets/general_settings/import_swaps.dart';
-import 'package:web_dex/views/settings/widgets/general_settings/settings_download_logs.dart';
 import 'package:web_dex/views/settings/widgets/general_settings/settings_hide_balances.dart';
 import 'package:web_dex/views/settings/widgets/general_settings/settings_manage_diagnostic_logging.dart';
 import 'package:web_dex/views/settings/widgets/general_settings/settings_manage_test_coins.dart';
@@ -44,8 +43,6 @@ class GeneralSettings extends StatelessWidget {
           ),
         const SizedBox(height: 25),
         const SettingsManageDiagnosticLogging(),
-        const SizedBox(height: 25),
-        const HiddenWithoutWallet(child: SettingsDownloadLogs()),
         const SizedBox(height: 25),
         const HiddenWithWallet(child: SettingsResetActivatedCoins()),
         const SizedBox(height: 25),
