@@ -7,7 +7,10 @@ import 'package:web_dex/model/orderbook/order.dart';
 import 'package:web_dex/views/dex/orderbook/orderbook_view.dart';
 
 class MakerFormOrderbook extends StatelessWidget {
-  const MakerFormOrderbook({Key? key}) : super(key: key);
+  const MakerFormOrderbook({this.splitSides = false, Key? key})
+      : super(key: key);
+
+  final bool splitSides;
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +28,7 @@ class MakerFormOrderbook extends StatelessWidget {
               stream: makerFormBloc.outPrice,
               builder: (context, price) {
                 return OrderbookView(
+                  splitSides: splitSides,
                   base: makerFormBloc.sellCoin,
                   rel: makerFormBloc.buyCoin,
                   myOrder: _getMyOrder(context, price.data),

@@ -12,6 +12,7 @@ import 'package:web_dex/model/orderbook_model.dart';
 import 'package:web_dex/shared/ui/gradient_border.dart';
 import 'package:web_dex/views/dex/orderbook/orderbook_error_message.dart';
 import 'package:web_dex/views/dex/orderbook/orderbook_table.dart';
+import 'package:web_dex/views/dex/orderbook/orderbook_split_table.dart';
 import 'package:web_dex/views/dex/orderbook/orderbook_table_title.dart';
 
 class OrderbookView extends StatefulWidget {
@@ -22,6 +23,7 @@ class OrderbookView extends StatefulWidget {
     this.selectedOrderUuid,
     this.onBidClick,
     this.onAskClick,
+    this.splitSides = false,
   });
 
   final Coin? base;
@@ -30,6 +32,7 @@ class OrderbookView extends StatefulWidget {
   final String? selectedOrderUuid;
   final Function(Order)? onBidClick;
   final Function(Order)? onAskClick;
+  final bool splitSides;
 
   @override
   State<OrderbookView> createState() => _OrderbookViewState();
@@ -90,6 +93,15 @@ class _OrderbookViewState extends State<OrderbookView> {
         }
 
         final Orderbook orderbook = Orderbook.fromSdkResponse(response);
+        if (widget.splitSides) {
+          return OrderbookSplitTable(
+            orderbook,
+            myOrder: widget.myOrder,
+            selectedOrderUuid: widget.selectedOrderUuid,
+            onAskClick: widget.onAskClick,
+            onBidClick: widget.onBidClick,
+          );
+        }
         if (orderbook.asks.isEmpty && orderbook.bids.isEmpty) {
           return Center(child: Text(LocaleKeys.orderBookEmpty.tr()));
         }
