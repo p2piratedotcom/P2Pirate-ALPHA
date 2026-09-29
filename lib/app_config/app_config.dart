@@ -10,7 +10,7 @@ const double mainLayoutPadding = 29;
 const double appBarHeight = 70;
 const int scaleOnInfinitePrecision = 20; // ETH has 18 decimals, so use more
 const String allWalletsStorageKey = 'all-wallets';
-const String defaultDexCoin = 'NENG';
+const String defaultDexCoin = 'ARRR';
 const String trezorWalletNamePrefix = 'my trezor';
 const List<Locale> localeList = [Locale('en')];
 const String assetsPath = 'assets';
@@ -63,13 +63,15 @@ String get appTitle => "Cheetahdex Wallet | Non-Custodial Multi-Coin Wallet & DE
 String get appShortTitle => "Cheetahdex Wallet";
 
 Map<String, int> priorityCoinsAbbrMap = {
-  // KMD always has highest priority (special case for Komodo ecosystem)
-  'KMD': 1000,
+  // Keep ARRR first in P2Pirate's asset lists.
+  'ARRR': 1000,
 
   // Top 10 cryptocurrencies by market cap (as of current data)
   // Rank 1: Bitcoin (~$2.21 trillion)
   'BTC': 100,
   'BTC-segwit': 100,
+
+  'KMD': 90,
 
   // Rank 2: Ethereum (~$335 billion)
   'ETH': 90,
@@ -116,6 +118,7 @@ Map<String, int> priorityCoinsAbbrMap = {
 /// These coins will appear first in the order specified here, before other coins.
 /// Order matters: coins are displayed in the order they appear in this list.
 const List<String> unauthenticatedUserPriorityTickers = [
+  'ARRR',
   'BTC',
   'CHTA',
   'NENG',
@@ -128,7 +131,6 @@ const List<String> unauthenticatedUserPriorityTickers = [
   'ETH',
   'BNB',
   'DGB',
-  'ARRR',
   'KMD',
   'KMDCL',
 ];
@@ -197,11 +199,8 @@ const List<String> appWalletOnlyAssetList = [
 
 /// Coins that are enabled by default on restore from seed or registration.
 /// This will not affect existing wallets.
-/// Reduced to minimize initial connections and resource usage.
-List<String> get enabledByDefaultCoins => [
-  'CHTA', // Cheetahdex meme coin
-  'NENG', // Cheetahdex default coin
-];
+/// ARRR is the only new-wallet default; existing wallet settings are retained.
+List<String> get enabledByDefaultCoins => ['ARRR'];
 
 const String logsDbName = 'logs';
 const String appFolder = 'CheetahdexWallet';
