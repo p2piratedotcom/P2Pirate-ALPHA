@@ -1,12 +1,13 @@
 # P2Pirate porting status — 29 September 2026
 
-This is a review ledger for the source archive described in
-[P2PIRATE_PORTING_PLAN.md](P2PIRATE_PORTING_PLAN.md). The links below point to
-**draft proposals**. None of these proposals is counted as delivered behavior
-until it is merged and checked in a build against the reference. The ZIP is
-reference material, not the source of this Git history.
+This is a change ledger for the source archive described in
+[P2PIRATE_PORTING_PLAN.md](P2PIRATE_PORTING_PLAN.md). All 28 GUI PRs and four
+SDK PRs listed below were merged on 29 September 2026. Merged source is not a
+validated release: an integrated Linux build and comparison with the reference
+are still required. The ZIP is reference material, not the source of this Git
+history.
 
-## Published proposals
+## Merged changes
 
 | Change | Wallet PR | SDK PR | Review dependency |
 | --- | --- | --- | --- |
@@ -42,11 +43,9 @@ reference material, not the source of this Git history.
 | Pin the SDK revision that uses external Linux KDF | [#27](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/27) | — | Wallet #26, SDK #4 |
 | Document the KDF release and first-run installation contract | [#28](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/28) | — | Wallet #27 |
 
-Review stacked proposals in order within each chain. Merge independent
-proposals only after checking that they still apply cleanly to the target
-branch. Wallet #10, #13, #26 and #27 pin SDK commits proposed in the corresponding SDK
-PRs; merge those SDK PRs before merging the wallet pins. GitHub's draft or
-mergeability indicator is not evidence of a successful Flutter build.
+Stacked proposals were merged in dependency order. Wallet #10, #13, #26 and
+#27 pin the corresponding SDK commits. GitHub's mergeability indicator is not
+evidence of a successful Flutter build.
 
 ## Still required for functional parity
 
@@ -62,9 +61,14 @@ mergeability indicator is not evidence of a successful Flutter build.
 - Remaining native platform identity and icons, Linux executable/application
   ID and data-directory migration review, UI performance changes and
   reproducible AppImage packaging.
-- Provenance and distribution review for KDF 2.7.0-beta_968f32a, Tor and
-  other executable artifacts. The older Rust patch record must not be
-  attributed to the ZIP's KDF binary without corresponding source evidence.
+- The CheetahDEX `v0.9.4` tag pins SDK commit `50d0cb8`; its config points to
+  Rust commit `968f32a` and Linux KDF archive SHA-256 `cf80e5d5…`. The
+  downloaded official archive matches that hash and contains a `kdf`
+  executable with SHA-256 `bd171eee…`, identical to the reference ZIP's KDF.
+  This identifies the release artifact, but does not independently prove a
+  reproducible source build. Review distribution terms for KDF, Tor and other
+  executable artifacts. Do not attribute the different locally built KDF hash
+  in the ZIP notes to the bundled executable.
 - Publish a reviewed KDF 2.7 Linux release in the SDK fork with source commit,
   build instructions, license, SHA-256 and compatibility metadata. The SDK
   fork currently has no KDF release asset. Then implement the GUI's first-run
@@ -85,5 +89,5 @@ it was interrupted without a completed binary. No funded swap or successful
 integrated Linux desktop build has been performed for this PR series.
 SDK #4 and wallet #27 address the observed build-time KDF download and bundling
 path at the source level; their combined Linux build remains unverified.
-The current state is a reviewable source port in progress, not a release or a
+The current state is a merged source port in progress, not a release or a
 claim that the fork matches the ZIP in full.
