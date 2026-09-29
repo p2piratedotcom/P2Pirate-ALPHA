@@ -1,11 +1,9 @@
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:web_dex/services/feedback/feedback_formatter.dart';
 import 'package:web_dex/services/feedback/feedback_provider.dart';
-import 'package:web_dex/services/logger/get_logger.dart' as app_logger;
 
 class CloudflareFeedbackProvider implements FeedbackProvider {
   final String apiKey;
@@ -69,25 +67,6 @@ class CloudflareFeedbackProvider implements FeedbackProvider {
           contentType: MediaType('image', 'png'),
         ),
       );
-
-      try {
-        final Uint8List logsBytes = await app_logger.logger
-            .exportRecentLogsBytes(maxBytes: 9 * 1024 * 1024);
-        if (logsBytes.isNotEmpty) {
-          request.files.add(
-            http.MultipartFile.fromBytes(
-              'logs',
-              logsBytes,
-              filename: 'logs.txt',
-              contentType: MediaType('text', 'plain'),
-            ),
-          );
-        }
-      } catch (e) {
-        if (kDebugMode) {
-          debugPrint('Skipping logs attachment: $e');
-        }
-      }
 
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);

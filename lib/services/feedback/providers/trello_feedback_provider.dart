@@ -1,12 +1,10 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:web_dex/services/feedback/feedback_formatter.dart';
 import 'package:web_dex/services/feedback/feedback_provider.dart';
-import 'package:web_dex/services/logger/get_logger.dart' as app_logger;
 
 class TrelloFeedbackProvider implements FeedbackProvider {
   final String apiKey;
@@ -99,38 +97,6 @@ class TrelloFeedbackProvider implements FeedbackProvider {
       throw Exception(
         'Failed to attach screenshot (${imgResp.statusCode}): ${imgResp.body}',
       );
-    }
-
-    // 3) Attach logs (<= 9MB) - optional
-    try {
-      final bytes = await app_logger.logger.exportRecentLogsBytes(
-        maxBytes: 9 * 1024 * 1024,
-      );
-      if (bytes.isEmpty) return;
-
-      final logsReq = http.MultipartRequest(
-        'POST',
-        Uri.parse('https://api.trello.com/1/cards/$cardId/attachments'),
-      );
-      logsReq.fields.addAll({'key': apiKey, 'token': token});
-      logsReq.files.add(
-        http.MultipartFile.fromBytes(
-          'file',
-          bytes,
-          filename: 'logs.txt',
-          contentType: MediaType('text', 'plain'),
-        ),
-      );
-      final logsResp = await http.Response.fromStream(await logsReq.send());
-      if (logsResp.statusCode != 200) {
-        throw Exception(
-          'Failed to attach logs (${logsResp.statusCode}): ${logsResp.body}',
-        );
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('Skipping logs attachment (Trello): $e');
-      }
     }
   }
 }
