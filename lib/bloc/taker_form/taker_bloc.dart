@@ -119,10 +119,7 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
     final sellAmount = state.sellAmount;
 
     if (sellCoin == null || selectedOrder == null || sellAmount == null) {
-      _log.warning(
-        'Attempted to start swap with incomplete state. sellCoin: '
-        '$sellCoin, selectedOrder: $selectedOrder, sellAmount: $sellAmount',
-      );
+      _log.warning('Attempted to start swap with incomplete form state');
       emit(state.copyWith(inProgress: () => false));
       add(
         TakerAddError(
@@ -184,6 +181,14 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
 
     final String? uuid = response.result?.uuid;
 
+    if (uuid == null && response.error == null) {
+      add(
+        TakerAddError(
+          DexFormError(error: LocaleKeys.dexUnableToStartSwap.tr()),
+        ),
+      );
+    }
+
     emit(
       state.copyWith(
         inProgress: uuid == null ? () => false : null,
@@ -205,9 +210,23 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
   ) async {
     emit(state.copyWith(inProgress: () => true, autovalidate: () => true));
 
-    await pauseWhile(() => _waitingForWallet || _activatingAssets);
+    bool isValid = false;
+    try {
+      await pauseWhile(() => _waitingForWallet || _activatingAssets);
+      isValid = await _validator.validate();
+    } catch (_) {
+      _log.warning('Swap form validation failed before order submission');
+      add(
+        TakerAddError(
+          DexFormError(
+            error:
+                'Unable to prepare the swap. No order was submitted. Check coin activation and connectivity.',
+          ),
+        ),
+      );
+    }
 
-    final bool isValid = await _validator.validate();
+    if (emit.isDone) return;
 
     emit(
       state.copyWith(
