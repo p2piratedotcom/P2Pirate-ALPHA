@@ -8,6 +8,8 @@ a source ZIP as small, reviewable pull requests. **The `cheetahdex` branch is
 the upstream fork baseline; the draft PRs are not yet a complete P2Pirate
 release.** See the [porting inventory](docs/P2PIRATE_PORTING_PLAN.md) and
 [open PRs](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pulls).
+The [current PR ledger](docs/P2PIRATE_PORTING_STATUS.md) lists each proposed
+change, review order, and the gaps that remain before a source release.
 
 The reference is the P2Pirate Linux x86_64 source snapshot dated 29 September
 2026. It has no original commit history, so each PR records the behavior it
