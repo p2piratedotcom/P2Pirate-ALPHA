@@ -40,7 +40,7 @@ class _HistoryItemState extends State<HistoryItem> {
     final String date = widget.swap.myInfo != null
         ? getFormattedDate(widget.swap.myInfo!.startedAt)
         : '-';
-    final bool isSuccessful = !widget.swap.isFailed;
+    final bool isSuccessful = widget.swap.isSuccessful;
     final bool isTaker = widget.swap.isTaker;
     final bool isRecoverable = widget.swap.recoverable;
     final tradingEntitiesBloc = RepositoryProvider.of<TradingEntitiesBloc>(

@@ -96,7 +96,7 @@ class Swap extends Equatable {
 
   bool get isCompleted => events.any(
     (e) =>
-        e.event.type == successEvents.last ||
+        (successEvents.isNotEmpty && e.event.type == successEvents.last) ||
         errorEvents.contains(e.event.type),
   );
 
@@ -107,10 +107,10 @@ class Swap extends Equatable {
       null;
   bool get isSuccessful => isCompleted && !isFailed;
   SwapStatus get status {
+    if (isFailed) return SwapStatus.failed;
+    if (isSuccessful) return SwapStatus.successful;
     bool started = false, negotiated = false;
     for (SwapEventItem ev in events) {
-      if (errorEvents.contains(ev.event.type)) return SwapStatus.failed;
-      if (ev.event.type == 'Finished') return SwapStatus.successful;
       if (ev.event.type == 'Started') started = true;
       if (ev.event.type == 'Negotiated') negotiated = true;
     }
