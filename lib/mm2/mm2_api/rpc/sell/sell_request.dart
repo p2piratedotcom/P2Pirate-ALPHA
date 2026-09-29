@@ -8,6 +8,7 @@ class SellRequest {
     required this.volume,
     required this.price,
     required this.orderType,
+    this.makerOrderUuid,
   });
 
   factory SellRequest.fromJson(Map<String, dynamic> json) {
@@ -40,6 +41,15 @@ class SellRequest {
   final String base;
   final String rel;
   final SellBuyOrderType orderType;
+  final String? makerOrderUuid;
+
+  static bool isValidOrderUuid(String? value) =>
+      value != null &&
+      RegExp(
+        r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+      ).hasMatch(value) &&
+      value.toLowerCase() != '00000000-0000-0000-0000-000000000000';
+
   bool? baseNota;
   int? baseConfs;
   bool? relNota;
@@ -47,25 +57,36 @@ class SellRequest {
   final Rational price;
   final Rational volume;
 
-  Map<String, dynamic> toJson() => <String, dynamic>{
-        'userpass': userpass,
-        'method': method,
-        'base': base,
-        'rel': rel,
-        'volume': {
-          'numer': volume.numerator.toString(),
-          'denom': volume.denominator.toString()
-        },
-        'price': {
-          'numer': price.numerator.toString(),
-          'denom': price.denominator.toString()
-        },
-        'order_type': {
-          'type': orderType == SellBuyOrderType.fillOrKill
-              ? 'FillOrKill'
-              : 'GoodTillCancelled'
-        },
-      };
+  Map<String, dynamic> toJson() {
+    if (makerOrderUuid != null && !isValidOrderUuid(makerOrderUuid)) {
+      throw ArgumentError.value(makerOrderUuid, 'makerOrderUuid');
+    }
+    return <String, dynamic>{
+      'userpass': userpass,
+      'method': method,
+      'base': base,
+      'rel': rel,
+      'match_by': makerOrderUuid == null
+          ? {'type': 'Any'}
+          : {
+              'type': 'Orders',
+              'data': [makerOrderUuid],
+            },
+      'volume': {
+        'numer': volume.numerator.toString(),
+        'denom': volume.denominator.toString(),
+      },
+      'price': {
+        'numer': price.numerator.toString(),
+        'denom': price.denominator.toString(),
+      },
+      'order_type': {
+        'type': orderType == SellBuyOrderType.fillOrKill
+            ? 'FillOrKill'
+            : 'GoodTillCancelled',
+      },
+    };
+  }
 }
 
 enum SellBuyOrderType { goodTillCancelled, fillOrKill }
