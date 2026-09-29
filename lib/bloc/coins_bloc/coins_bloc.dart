@@ -574,7 +574,8 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
   /// Filters assets for initial auto-activation on login.
   ///
   /// - Keeps all non-ZHTLC assets
-  /// - Keeps ZHTLC assets only if a saved configuration already exists
+  /// - Keeps ZHTLC assets with a saved configuration
+  /// - Lets default ARRR enter the existing configuration flow on first use
   Future<List<Asset>> _filterAssetsForInitialActivation(
     List<Asset> assets,
   ) async {
@@ -589,7 +590,7 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
         final saved = await _kdfSdk.activationConfigService.getSavedZhtlc(
           asset.id,
         );
-        if (saved != null) {
+        if (saved != null || asset.id.id == defaultDexCoin) {
           filtered.add(asset);
         } else {
           _log.info(
