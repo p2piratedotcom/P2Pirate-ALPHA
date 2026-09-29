@@ -59,13 +59,18 @@ select a reviewed release tag and SHA-256, and can be updated by a separate
 reviewable GUI change when another version is approved. The SDK repository is
 the release host; it is not a substitute for the Rust source provenance.
 
-The ZIP reference does not yet provide sufficient provenance for publishing
-its KDF executable as a release. Its bundled ELF has SHA-256
-`bd171eeee7a1e0d43b070c8ba6ba60a845a26b3db0ef57ca25a394a2b6c02129`,
-which matches its asset preparation script, while its KDF build notes cite
-`cf7e95b9d5170dca2b16baf7f9b5a215b916806af17cb891ad6b9aef2bf1d568`.
-These are different artifacts. Rebuild or independently identify the intended
-binary and corresponding Rust source before publication.
+The CheetahDEX `v0.9.4` source tag pins SDK commit `50d0cb8`, whose build
+configuration points to Rust commit `968f32a6bccf20f286d1b8e2520b62ebe769522b`
+and the [official KDF `v2.7.0-beta` Linux x86-64 ZIP](https://github.com/ShorelineCrypto/komodo-defi-framework/releases/tag/v2.7.0-beta).
+The downloaded archive has SHA-256
+`cf80e5d5ae78605d6f0f6a806aa9ae5b83bbee0ef79ccd5ad85022ae2a5d7d27`;
+its `kdf` executable has SHA-256
+`bd171eeee7a1e0d43b070c8ba6ba60a845a26b3db0ef57ca25a394a2b6c02129`.
+That executable is byte-identical to the one in the ZIP reference. The local
+KDF build notes also cite `cf7e95b9d5170dca2b16baf7f9b5a215b916806af17cb891ad6b9aef2bf1d568`:
+that is a different artifact and should not be described as the bundled one.
+The matching hashes identify the published upstream artifact; they do not by
+themselves prove a reproducible build from Rust source.
 
 ## Build inputs and remaining work
 
