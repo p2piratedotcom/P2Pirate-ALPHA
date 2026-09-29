@@ -20,6 +20,7 @@ import 'package:web_dex/model/my_orders/my_order.dart';
 import 'package:web_dex/model/swap.dart';
 import 'package:web_dex/router/state/routing_state.dart';
 import 'package:web_dex/services/orders_service/my_orders_service.dart';
+import 'package:web_dex/services/swaps/swap_history_storage.dart';
 import 'package:web_dex/shared/utils/utils.dart';
 
 class TradingEntitiesBloc implements BlocBase {
@@ -34,12 +35,16 @@ class TradingEntitiesBloc implements BlocBase {
   final KomodoDefiSdk _kdfSdk;
   final MyOrdersService _myOrdersService;
   final Mm2Api _mm2Api;
+  final SwapHistoryStorage _historyStorage = const SwapHistoryStorage();
   StreamSubscription<KdfUser?>? _authModeListener;
   List<MyOrder> _myOrders = [];
   List<Swap> _swaps = [];
   WalletId? _walletId;
   int _walletRevision = 0;
   int _authRevision = 0;
+  Future<void>? _historyLoad;
+  List<Swap> _lastStoredSwaps = [];
+  bool _savingHistory = false;
   Timer? timer;
   bool _closed = false;
   DateTime? _lastFetchAt;
@@ -85,6 +90,8 @@ class TradingEntitiesBloc implements BlocBase {
 
     final walletId = user.walletId;
     final walletRevision = _walletRevision;
+    await _historyLoad;
+    if (!await _isCurrentWallet(walletId, walletRevision)) return;
     final orders = await _myOrdersService.getOrders();
     if (!await _isCurrentWallet(walletId, walletRevision)) return;
     myOrders = orders ?? [];
@@ -100,7 +107,54 @@ class TradingEntitiesBloc implements BlocBase {
     if (!await _isCurrentWallet(walletId, walletRevision)) return;
     _hasLoadedInitialSwaps = true;
     swaps = _mergeSwaps(_swaps, recentSwaps);
+    final completed = _swaps.where(_isCompletedForCache).toList();
+    if (!_savingHistory &&
+        !const ListEquality<Swap>().equals(_lastStoredSwaps, completed)) {
+      unawaited(_saveHistory(walletId, walletRevision, completed));
+    }
     _lastFetchAt = DateTime.now();
+  }
+
+  bool _isCompletedForCache(Swap swap) => swap.events.any(
+    (event) =>
+        swap.errorEvents.contains(event.event.type) ||
+        (swap.successEvents.isNotEmpty &&
+            event.event.type == swap.successEvents.last),
+  );
+
+  Future<void> _loadHistory(WalletId walletId, int revision) async {
+    try {
+      final cached = await _historyStorage.read(walletId);
+      if (!await _isCurrentWallet(walletId, revision)) return;
+      _lastStoredSwaps = cached;
+      if (cached.isNotEmpty) swaps = _mergeSwaps(_swaps, cached);
+    } catch (_) {
+      await log(
+        'Local swap history is unavailable',
+        path: 'TradingEntitiesBloc',
+      );
+    }
+  }
+
+  Future<void> _saveHistory(
+    WalletId walletId,
+    int revision,
+    List<Swap> completed,
+  ) async {
+    _savingHistory = true;
+    try {
+      await _historyStorage.write(walletId, completed);
+      if (await _isCurrentWallet(walletId, revision)) {
+        _lastStoredSwaps = completed;
+      }
+    } catch (_) {
+      await log(
+        'Could not save local swap history',
+        path: 'TradingEntitiesBloc',
+      );
+    } finally {
+      _savingHistory = false;
+    }
   }
 
   void _selectWallet(WalletId? walletId) {
@@ -109,8 +163,12 @@ class TradingEntitiesBloc implements BlocBase {
     _walletRevision++;
     _hasLoadedInitialSwaps = false;
     _lastFetchAt = null;
+    _lastStoredSwaps = [];
     myOrders = [];
     swaps = [];
+    _historyLoad = walletId == null
+        ? null
+        : _loadHistory(walletId, _walletRevision);
   }
 
   Future<bool> _isCurrentWallet(WalletId walletId, int revision) async {
