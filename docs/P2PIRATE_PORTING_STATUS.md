@@ -36,10 +36,12 @@ reference material, not the source of this Git history.
 | Flutter 3.47.5 and Dart 3.13.4 dependency compatibility for Linux desktop | [#23](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/23) | — | Base fork |
 | Encrypted per-wallet cache of completed swaps | [#24](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/24) | — | Wallet #22; wallet #23 for Flutter 3.47.5 |
 | Classify swap success and failure consistently from KDF events | [#25](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/25) | — | Wallet #24 |
+| Keep a non-null Trezor task ID across an asynchronous SDK status call | — | [#3](https://github.com/p2piratedotcom/komodo-defi-sdk-flutter/pull/3) | SDK #2 |
+| Pin the SDK commit with the Dart 3.13 Trezor fix | [#26](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/26) | — | Wallet #13, SDK #3 |
 
 Review stacked proposals in order within each chain. Merge independent
 proposals only after checking that they still apply cleanly to the target
-branch. Wallet #10 and #13 pin SDK commits proposed in the corresponding SDK
+branch. Wallet #10, #13 and #26 pin SDK commits proposed in the corresponding SDK
 PRs; merge those SDK PRs before merging the wallet pins. GitHub's draft or
 mergeability indicator is not evidence of a successful Flutter build.
 
@@ -60,11 +62,19 @@ mergeability indicator is not evidence of a successful Flutter build.
 - Provenance and distribution review for KDF 2.7.0-beta_968f32a, Tor and
   other bundled executables. The older Rust patch record must not be
   attributed to the ZIP's KDF binary without corresponding source evidence.
+- A reproducible Linux asset step: the current SDK transformer fetches KDF and
+  coin data during the build, and its coin configuration can advance to the
+  latest commit. Pin the inputs and verify their checksums and distribution
+  terms before producing a release build.
 
 Flutter 3.47.5 and Dart 3.13.4 are installed locally. An offline locked
 dependency resolution passed on wallet #23. Targeted Dart static analysis
 found no errors in wallet #16, #17, #19, #21, #22, #24 and #25; it reported only
-style suggestions in #16, #17 and #25. No funded swap or integrated Linux desktop build
-has been performed for this PR series.
+style suggestions in #16, #17 and #25. A Linux build of wallet #23 first failed
+at the SDK Trezor compiler error addressed by SDK #3. A temporary local
+combination of wallet #23 and #26 passed dependency resolution but stalled
+during the SDK's build-time asset download before compilation completed;
+it was interrupted without a completed binary. No funded swap or successful
+integrated Linux desktop build has been performed for this PR series.
 The current state is a reviewable source port in progress, not a release or a
 claim that the fork matches the ZIP in full.
