@@ -9,6 +9,7 @@ import 'package:web_dex/views/dex/common/form_plate.dart';
 import 'package:web_dex/views/dex/common/front_plate.dart';
 import 'package:web_dex/views/dex/common/section_switcher.dart';
 import 'package:web_dex/views/dex/simple/form/common/dex_flip_button_overlapper.dart';
+import 'package:web_dex/views/dex/simple/form/common/dex_flip_button.dart';
 import 'package:web_dex/views/dex/simple/form/common/dex_form_group_header.dart';
 import 'package:web_dex/views/dex/simple/form/common/dex_info_container.dart';
 import 'package:web_dex/views/dex/simple/form/maker/maker_form_buy_item.dart';
@@ -56,6 +57,68 @@ class MakerFormContent extends StatelessWidget {
             const _FormControls(),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class MakerFormDesktopSelection extends StatelessWidget {
+  const MakerFormDesktopSelection({super.key, required this.narrow});
+
+  final bool narrow;
+
+  @override
+  Widget build(BuildContext context) {
+    final makerFormBloc = RepositoryProvider.of<MakerFormBloc>(context);
+    final sell = const MakerFormSellItem();
+    final buy = const FrontPlate(
+      child: Column(
+        children: [_BuyItemHeader(), MakerFormBuyItem(), MakerFormPriceItem()],
+      ),
+    );
+    final flip = DexFlipButton(
+      onTap: () async {
+        final previousSell = makerFormBloc.sellCoin;
+        makerFormBloc.sellCoin = makerFormBloc.buyCoin;
+        makerFormBloc.buyCoin = previousSell;
+        return true;
+      },
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionSwitcher(),
+        const SizedBox(height: 12),
+        if (narrow) ...[
+          sell,
+          flip,
+          buy,
+        ] else
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(child: sell),
+              const SizedBox(width: 8),
+              flip,
+              const SizedBox(width: 8),
+              Expanded(child: buy),
+            ],
+          ),
+      ],
+    );
+  }
+}
+
+class MakerFormDesktopControls extends StatelessWidget {
+  const MakerFormDesktopControls({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const FormPlate(
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 20),
+        child: _FormControls(),
       ),
     );
   }

@@ -1,7 +1,6 @@
 import 'package:app_theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:komodo_ui_kit/komodo_ui_kit.dart';
 import 'package:web_dex/bloc/auth_bloc/auth_bloc.dart';
 import 'package:web_dex/bloc/coins_bloc/coins_repo.dart';
 import 'package:web_dex/bloc/dex_tab_bar/dex_tab_bar_bloc.dart';
@@ -13,6 +12,7 @@ import 'package:web_dex/router/state/routing_state.dart';
 import 'package:web_dex/views/dex/simple/confirm/maker_order_confirmation.dart';
 import 'package:web_dex/views/dex/simple/form/maker/maker_form_buy_coin_table.dart';
 import 'package:web_dex/views/dex/simple/form/maker/maker_form_content.dart';
+import 'package:web_dex/views/dex/simple/form/common/swap_desktop_scroll_area.dart';
 import 'package:web_dex/views/dex/simple/form/maker/maker_form_orderbook.dart';
 import 'package:web_dex/views/dex/simple/form/maker/maker_form_sell_coin_table.dart';
 
@@ -113,23 +113,18 @@ class _MakerFormDesktopLayout extends StatefulWidget {
 
 class _MakerFormDesktopLayoutState extends State<_MakerFormDesktopLayout> {
   late final ScrollController _mainScrollController;
-  late final ScrollController _orderbookScrollController;
 
   @override
   void initState() {
     super.initState();
     _mainScrollController = ScrollController();
-    _orderbookScrollController = ScrollController();
     _mainScrollController.addListener(_onScroll);
-    _orderbookScrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     _mainScrollController.removeListener(_onScroll);
-    _orderbookScrollController.removeListener(_onScroll);
     _mainScrollController.dispose();
-    _orderbookScrollController.dispose();
     super.dispose();
   }
 
@@ -140,50 +135,46 @@ class _MakerFormDesktopLayoutState extends State<_MakerFormDesktopLayout> {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.max,
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // We want to place form in the middle of the screen,
-        // and orderbook, when shown, should be on the right side
-        // (leaving the form in the middle)
-        const Expanded(flex: 3, child: SizedBox.shrink()),
-        Flexible(
-          flex: 6,
-          child: DexScrollbar(
-            scrollController: _mainScrollController,
-            isMobile: isMobile,
-            child: SingleChildScrollView(
-              key: const Key('maker-form-layout-scroll'),
-              controller: _mainScrollController,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: theme.custom.dexFormWidth,
-                ),
-                child: const Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    MakerFormContent(),
-                    MakerFormSellCoinTable(),
-                    MakerFormBuyCoinTable(),
-                  ],
-                ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final contentWidth = constraints.maxWidth - swapDesktopScrollbarGutter;
+        final narrow = contentWidth < 800;
+        final selectorWidth = narrow
+            ? contentWidth - 32
+            : (contentWidth - 88) / 2;
+        return SwapDesktopScrollArea(
+          controller: _mainScrollController,
+          scrollViewKey: const Key('maker-form-layout-scroll'),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  MakerFormDesktopSelection(narrow: narrow),
+                  const SizedBox(height: 18),
+                  const MakerFormOrderbook(splitSides: true),
+                  const SizedBox(height: 20),
+                  const Center(child: MakerFormDesktopControls()),
+                  const SizedBox(height: 24),
+                ],
               ),
-            ),
+              Positioned(
+                top: 0,
+                left: 0,
+                width: selectorWidth,
+                child: const MakerFormSellCoinTable(),
+              ),
+              Positioned(
+                top: narrow ? 138 : 0,
+                right: 0,
+                width: selectorWidth,
+                child: const MakerFormBuyCoinTable(),
+              ),
+            ],
           ),
-        ),
-        Expanded(
-          flex: 3,
-          child: Padding(
-            padding: const EdgeInsets.only(left: 20),
-            child: SingleChildScrollView(
-              controller: _orderbookScrollController,
-              child: const MakerFormOrderbook(),
-            ),
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 }

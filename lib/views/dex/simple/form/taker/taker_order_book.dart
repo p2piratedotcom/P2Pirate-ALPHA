@@ -9,7 +9,9 @@ import 'package:web_dex/model/orderbook/order.dart';
 import 'package:web_dex/views/dex/orderbook/orderbook_view.dart';
 
 class TakerOrderbook extends StatelessWidget {
-  const TakerOrderbook();
+  const TakerOrderbook({this.splitSides = false});
+
+  final bool splitSides;
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +27,7 @@ class TakerOrderbook extends StatelessWidget {
         final selectedOrder = state.selectedOrder;
 
         return OrderbookView(
+          splitSides: splitSides,
           base: state.sellCoin,
           rel: selectedOrder == null
               ? null

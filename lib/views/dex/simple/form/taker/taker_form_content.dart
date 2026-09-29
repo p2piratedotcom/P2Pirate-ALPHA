@@ -37,26 +37,7 @@ class TakerFormContent extends StatelessWidget {
           SectionSwitcher(),
           const SizedBox(height: 6),
           DexFlipButtonOverlapper(
-            onTap: () async {
-              final takerBloc = context.read<TakerBloc>();
-              final selectedOrder = takerBloc.state.selectedOrder;
-              if (selectedOrder == null) return false;
-
-              final coinsRepo = RepositoryProvider.of<CoinsRepo>(context);
-              final knownCoins = coinsRepo.getKnownCoins();
-              final buyCoin = knownCoins.firstWhereOrNull(
-                (element) => element.abbr == selectedOrder.coin,
-              );
-              if (buyCoin == null) return false;
-
-              takerBloc.add(
-                TakerSetSellCoin(
-                  buyCoin,
-                  autoSelectOrderAbbr: takerBloc.state.sellCoin?.abbr,
-                ),
-              );
-              return true;
-            },
+            onTap: () => flipTakerPair(context),
             topWidget: const TakerFormSellItem(),
             bottomWidget: const TakerFormBuyItem(),
           ),
@@ -70,6 +51,48 @@ class TakerFormContent extends StatelessWidget {
       ),
     );
   }
+}
+
+class TakerFormDesktopControls extends StatelessWidget {
+  const TakerFormDesktopControls({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const FormPlate(
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TakerFormErrorList(),
+            TakerFormExchangeInfo(),
+            SizedBox(height: 20),
+            _FormControls(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Future<bool> flipTakerPair(BuildContext context) async {
+  final takerBloc = context.read<TakerBloc>();
+  final selectedOrder = takerBloc.state.selectedOrder;
+  if (selectedOrder == null) return false;
+
+  final knownCoins = RepositoryProvider.of<CoinsRepo>(context).getKnownCoins();
+  final buyCoin = knownCoins.firstWhereOrNull(
+    (coin) => coin.abbr == selectedOrder.coin,
+  );
+  if (buyCoin == null) return false;
+
+  takerBloc.add(
+    TakerSetSellCoin(
+      buyCoin,
+      autoSelectOrderAbbr: takerBloc.state.sellCoin?.abbr,
+    ),
+  );
+  return true;
 }
 
 class _FormControls extends StatelessWidget {
