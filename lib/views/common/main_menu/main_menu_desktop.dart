@@ -13,7 +13,7 @@ import 'package:web_dex/model/authorize_mode.dart';
 import 'package:web_dex/model/main_menu_value.dart';
 import 'package:web_dex/model/wallet.dart';
 import 'package:web_dex/router/state/routing_state.dart';
-import 'package:web_dex/shared/widgets/gleec_dex_logo.dart';
+import 'package:web_dex/shared/widgets/pirate_wallet_logo.dart';
 import 'package:web_dex/views/common/main_menu/main_menu_desktop_item.dart';
 
 class MainMenuDesktop extends StatefulWidget {
@@ -74,7 +74,7 @@ class _MainMenuDesktopState extends State<MainMenuDesktop> {
                       onTap: () {
                         routingState.selectedMenu = MainMenuValue.wallet;
                       },
-                      child: const GleecDexLogo(height: 32),
+                      child: const PirateWalletLogo(height: 32),
                     ),
                   ),
 
