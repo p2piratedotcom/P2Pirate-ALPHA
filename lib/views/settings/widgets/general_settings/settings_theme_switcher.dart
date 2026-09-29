@@ -7,7 +7,7 @@ import 'package:web_dex/bloc/settings/settings_event.dart';
 import 'package:web_dex/bloc/analytics/analytics_bloc.dart';
 import 'package:web_dex/analytics/events/misc_events.dart';
 import 'package:web_dex/generated/codegen_loader.g.dart';
-import 'package:web_dex/shared/widgets/gleec_dex_logo.dart';
+import 'package:web_dex/shared/widgets/pirate_wallet_logo.dart';
 import 'package:web_dex/views/settings/widgets/common/settings_section.dart';
 
 class SettingsThemeSwitcher extends StatelessWidget {
@@ -79,7 +79,7 @@ class _SettingsModeSelector extends StatelessWidget {
               right: 8,
               top: 0,
               bottom: 0,
-              child: Center(child: GleecDexLogo(height: 20, themeMode: mode)),
+              child: Center(child: PirateWalletLogo(height: 20, themeMode: mode)),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8.0),
