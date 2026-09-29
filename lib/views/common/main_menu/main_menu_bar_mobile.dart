@@ -37,12 +37,6 @@ class MainMenuBarMobile extends StatelessWidget {
           return '';
         }
 
-        String walletOnlyTooltipMessage() {
-          return isHardwareWallet
-              ? LocaleKeys.trezorWalletOnlyTooltip.tr()
-              : '';
-        }
-
         return DecoratedBox(
           decoration: BoxDecoration(
             color: theme.currentGlobal.cardColor,
@@ -79,16 +73,6 @@ class MainMenuBarMobile extends StatelessWidget {
                   ),
                   Expanded(
                     child: Tooltip(
-                      message: walletOnlyTooltipMessage(),
-                      child: MainMenuBarMobileItem(
-                        value: MainMenuValue.fiat,
-                        enabled: currentWallet?.isHW != true,
-                        isActive: selected == MainMenuValue.fiat,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Tooltip(
                       message: tradingTooltipMessage(),
                       child: MainMenuBarMobileItem(
                         value: MainMenuValue.bridge,
@@ -108,16 +92,6 @@ class MainMenuBarMobile extends StatelessWidget {
                         ),
                       ),
                     ),
-                  Expanded(
-                    child: Tooltip(
-                      message: LocaleKeys.nftDisabledTooltip.tr(),
-                      child: MainMenuBarMobileItem(
-                        value: MainMenuValue.nft,
-                        enabled: false,
-                        isActive: selected == MainMenuValue.nft,
-                      ),
-                    ),
-                  ),
                   Expanded(
                     child: MainMenuBarMobileItem(
                       value: MainMenuValue.settings,

@@ -77,13 +77,13 @@ class AppRouterDelegate extends RouterDelegate<AppRoutePath>
     if (configurationToSet is WalletRoutePath) {
       _setNewWalletRoutePath(configurationToSet);
     } else if (configurationToSet is FiatRoutePath) {
-      _setNewFiatRoutePath(configurationToSet);
+      _setNewWalletRoutePath(WalletRoutePath.wallet());
     } else if (configurationToSet is DexRoutePath) {
       _setNewDexRoutePath(configurationToSet);
     } else if (configurationToSet is BridgeRoutePath) {
       _setNewBridgeRoutePath(configurationToSet);
     } else if (configurationToSet is NftRoutePath) {
-      _setNewNftsRoutePath(configurationToSet);
+      _setNewWalletRoutePath(WalletRoutePath.wallet());
     } else if (configurationToSet is SettingsRoutePath) {
       _setNewSettingsRoutePath(configurationToSet);
     } else if (configurationToSet is MarketMakerBotRoutePath) {
@@ -108,18 +108,6 @@ class AppRouterDelegate extends RouterDelegate<AppRoutePath>
     routingState.selectedMenu = MainMenuValue.bridge;
     routingState.bridgeState.action = path.action;
     routingState.bridgeState.uuid = path.uuid;
-  }
-
-  void _setNewNftsRoutePath(NftRoutePath path) {
-    routingState.selectedMenu = MainMenuValue.nft;
-    routingState.nftsState.uuid = path.uuid;
-    routingState.nftsState.pageState = path.pageState;
-  }
-
-  void _setNewFiatRoutePath(FiatRoutePath path) {
-    routingState.selectedMenu = MainMenuValue.fiat;
-    routingState.fiatState.action = path.action;
-    routingState.fiatState.uuid = path.uuid;
   }
 
   void _setNewDexRoutePath(DexRoutePath path) {

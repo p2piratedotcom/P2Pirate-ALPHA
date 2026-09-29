@@ -53,12 +53,6 @@ class _MainMenuDesktopState extends State<MainMenuDesktop> {
               return '';
             }
 
-            String walletOnlyTooltipMessage() {
-              return isHardwareWallet
-                  ? LocaleKeys.trezorWalletOnlyTooltip.tr()
-                  : '';
-            }
-
             return Container(
               height: double.infinity,
               child: Column(
@@ -108,18 +102,6 @@ class _MainMenuDesktopState extends State<MainMenuDesktop> {
                               ),
                             ),
                             Tooltip(
-                              message: walletOnlyTooltipMessage(),
-                              child: DesktopMenuDesktopItem(
-                                key: const Key('main-menu-fiat'),
-                                enabled: currentWallet?.isHW != true,
-                                menu: MainMenuValue.fiat,
-                                onTap: onTapItem,
-                                isSelected: _checkSelectedItem(
-                                  MainMenuValue.fiat,
-                                ),
-                              ),
-                            ),
-                            Tooltip(
                               message: tradingTooltipMessage(),
                               child: DesktopMenuDesktopItem(
                                 key: const Key('main-menu-bridge'),
@@ -144,18 +126,6 @@ class _MainMenuDesktopState extends State<MainMenuDesktop> {
                                   ),
                                 ),
                               ),
-                            Tooltip(
-                              message: LocaleKeys.nftDisabledTooltip.tr(),
-                              child: DesktopMenuDesktopItem(
-                                key: const Key('main-menu-nft'),
-                                enabled: false,
-                                menu: MainMenuValue.nft,
-                                onTap: onTapItem,
-                                isSelected: _checkSelectedItem(
-                                  MainMenuValue.nft,
-                                ),
-                              ),
-                            ),
                             const Spacer(),
                             Divider(thickness: 1),
                             DesktopMenuDesktopItem(
