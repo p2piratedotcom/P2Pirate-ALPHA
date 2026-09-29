@@ -32,6 +32,17 @@ void main() {
       final testEvent = TestAnalyticsEvent();
       await repo.queueEvent(testEvent);
     });
+
+    test('legacy opt-in cannot enable analytics in P2Pirate', () async {
+      final stored = AnalyticsSettings.fromJson({'send_allowed': true});
+      final repo = AnalyticsRepository(stored);
+      addTearDown(() async => repo.dispose());
+
+      expect(stored.isSendAllowed, false);
+      await repo.activate();
+      await repo.sendData(TestAnalyticsEvent());
+      expect(repo.isEnabled, false);
+    });
   });
 }
 

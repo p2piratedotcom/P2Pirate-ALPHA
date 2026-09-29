@@ -1,10 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:komodo_ui_kit/komodo_ui_kit.dart';
 import 'package:web_dex/app_config/app_config.dart';
-import 'package:web_dex/bloc/analytics/analytics_bloc.dart';
-import 'package:web_dex/bloc/analytics/analytics_event.dart';
 import 'package:web_dex/generated/codegen_loader.g.dart';
 
 class AlphaVersionWarning extends StatelessWidget {
@@ -52,9 +49,6 @@ class AlphaVersionWarning extends StatelessWidget {
                 text: LocaleKeys.accept.tr(),
                 onPressed: () {
                   onAccept();
-                  context.read<AnalyticsBloc>().add(
-                        const AnalyticsActivateEvent(),
-                      );
                   Navigator.of(context).pop();
                 },
               ),

@@ -2,7 +2,7 @@ class AnalyticsSettings {
   const AnalyticsSettings({required this.isSendAllowed});
 
   static AnalyticsSettings initial() {
-    return const AnalyticsSettings(isSendAllowed: true);
+    return const AnalyticsSettings(isSendAllowed: false);
   }
 
   final bool isSendAllowed;
@@ -14,16 +14,11 @@ class AnalyticsSettings {
   }
 
   static AnalyticsSettings fromJson(Map<String, dynamic>? json) {
-    if (json == null) {
-      return AnalyticsSettings.initial();
-    }
-
-    return AnalyticsSettings(
-      isSendAllowed: json['send_allowed'] ?? false,
-    );
+    // Ignore legacy opt-in values; this edition has no analytics collection.
+    return AnalyticsSettings.initial();
   }
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'send_allowed': isSendAllowed,
-      };
+    'send_allowed': isSendAllowed,
+  };
 }

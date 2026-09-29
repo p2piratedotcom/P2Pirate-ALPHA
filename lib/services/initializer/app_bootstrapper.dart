@@ -83,14 +83,8 @@ final class AppBootstrapper {
 
     _storedSettings = stored;
 
-    // Register the unified analytics repository with GetIt
-    // This will make sure we have a singleton instance across the app
-    // that handles both Firebase and Matomo analytics simultaneously
-    AnalyticsRepository.register(stored.analytics);
-
-    log(
-      'AppBootstrapper: Unified Analytics repository (Firebase + Matomo) registered with GetIt',
-    );
+    // Event callers remain compatible, but the registered repository is inert.
+    AnalyticsRepository.register();
     return;
   }
 }
