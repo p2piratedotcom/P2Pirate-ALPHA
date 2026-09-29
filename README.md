@@ -48,6 +48,9 @@ feedback.
 
 ## Developer guide.
 
+The P2Pirate fork's source provenance, behavior inventory and pull request
+sequence are recorded in [the porting plan](docs/P2PIRATE_PORTING_PLAN.md).
+
 Current Komodo Web Wallet production version is available here: https://app.komodoplatform.com
 
 ### Index
