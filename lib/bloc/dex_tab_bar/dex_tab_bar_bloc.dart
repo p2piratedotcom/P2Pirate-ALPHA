@@ -70,6 +70,10 @@ class DexTabBarBloc extends Bloc<DexTabBarEvent, DexTabBarState> {
       add(SwapsUpdated(swaps));
     });
 
+    // Broadcast streams do not replay values loaded before this tab opens.
+    add(MyOrdersUpdated(_tradingEntitiesBloc.myOrders));
+    add(SwapsUpdated(_tradingEntitiesBloc.swaps));
+
     _tradeBotOrdersSubscription = Stream.periodic(const Duration(seconds: 3))
         .asyncMap((_) => _tradingBotRepository.getTradePairs())
         .listen((orders) {
