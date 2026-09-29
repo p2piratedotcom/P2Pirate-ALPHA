@@ -4,11 +4,12 @@ The wallet uses the Flutter SDK in `sdk/` as a Git submodule. `.gitmodules`
 points to [`p2piratedotcom/komodo-defi-sdk-flutter`](https://github.com/p2piratedotcom/komodo-defi-sdk-flutter),
 which preserves the upstream SDK history and carries P2Pirate changes in
 separate pull requests. This wallet commit pins SDK commit
-`12edb00544714267dbecaad392e09e42d96351e2` from
-[SDK PR #1](https://github.com/p2piratedotcom/komodo-defi-sdk-flutter/pull/1).
-That commit makes P2Pirate's KDF NetID `8762` explicit and rejects conflicting
-startup configuration. The pin is an exact commit; it does not track the tip of
-any SDK branch.
+`a5037132b86b54b44930a02cbcc2dd174acc46d4` from
+[SDK PR #2](https://github.com/p2piratedotcom/komodo-defi-sdk-flutter/pull/2),
+which builds on [SDK PR #1](https://github.com/p2piratedotcom/komodo-defi-sdk-flutter/pull/1).
+These commits make P2Pirate's KDF NetID `8762` explicit, reject conflicting
+startup configuration, and remove the implicit GLEEC price endpoint. The pin
+is an exact commit; it does not track the tip of any SDK branch.
 
 ## Clone and check the pin
 
