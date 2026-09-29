@@ -60,6 +60,10 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
     on<TakerOrderSelectorOpen>(_onOrderSelectorOpen);
     on<TakerSetSellCoin>(_onSetSellCoin, transformer: restartable());
     on<TakerSelectOrder>(_onSelectOrder);
+    on<TakerMatchSelectedOrderChanged>((event, emit) {
+      if (state.inProgress || state.step != TakerStep.form) return;
+      emit(state.copyWith(matchSelectedOrderOnly: event.enabled));
+    });
     on<TakerAddError>(_onAddError);
     on<TakerClearErrors>(_onClearErrors);
     on<TakerUpdateBestOrders>(_onUpdateBestOrders);
@@ -128,6 +132,19 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
       return;
     }
 
+    if (state.matchSelectedOrderOnly &&
+        !SellRequest.isValidOrderUuid(selectedOrder.uuid)) {
+      emit(state.copyWith(inProgress: () => false));
+      add(
+        TakerAddError(
+          DexFormError(
+            error: 'Select a maker order with a valid UUID before starting the swap.',
+          ),
+        ),
+      );
+      return;
+    }
+
     emit(state.copyWith(inProgress: () => true));
 
     final int callStart = DateTime.now().millisecondsSinceEpoch;
@@ -138,6 +155,9 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
         volume: sellAmount,
         price: selectedOrder.price,
         orderType: SellBuyOrderType.fillOrKill,
+        makerOrderUuid: state.matchSelectedOrderOnly
+            ? selectedOrder.uuid
+            : null,
       ),
     );
     final int durationMs = DateTime.now().millisecondsSinceEpoch - callStart;

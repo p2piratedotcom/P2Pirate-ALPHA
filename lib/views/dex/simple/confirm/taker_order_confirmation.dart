@@ -74,6 +74,14 @@ class _TakerOrderConfirmationState extends State<TakerOrderConfirmation> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   _buildTitle(),
+                  if (state.matchSelectedOrderOnly)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: SelectableText(
+                        'Match this maker order only:\n${state.selectedOrder?.uuid ?? "Unavailable"}',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                   const SizedBox(height: 37),
                   _buildReceive(buyCoin, buyAmount),
                   _buildFiatReceive(

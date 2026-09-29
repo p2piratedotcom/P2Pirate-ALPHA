@@ -11,6 +11,7 @@ class TakerState {
     required this.inProgress,
     this.sellCoin,
     this.selectedOrder,
+    this.matchSelectedOrderOnly = false,
     this.bestOrders,
     required this.showCoinSelector,
     required this.showOrderSelector,
@@ -48,6 +49,7 @@ class TakerState {
   bool inProgress;
   Coin? sellCoin;
   BestOrder? selectedOrder;
+  final bool matchSelectedOrderOnly;
   BestOrders? bestOrders;
   bool showCoinSelector;
   bool showOrderSelector;
@@ -69,6 +71,7 @@ class TakerState {
     bool Function()? inProgress,
     Coin? Function()? sellCoin,
     BestOrder? Function()? selectedOrder,
+    bool? matchSelectedOrderOnly,
     BestOrders? Function()? bestOrders,
     bool Function()? showCoinSelector,
     bool Function()? showOrderSelector,
@@ -83,6 +86,8 @@ class TakerState {
     AvailableBalanceState Function()? availableBalanceState,
   }) {
     return TakerState(
+      matchSelectedOrderOnly:
+          matchSelectedOrderOnly ?? this.matchSelectedOrderOnly,
       step: step == null ? this.step : step(),
       inProgress: inProgress == null ? this.inProgress : inProgress(),
       sellCoin: sellCoin == null ? this.sellCoin : sellCoin(),

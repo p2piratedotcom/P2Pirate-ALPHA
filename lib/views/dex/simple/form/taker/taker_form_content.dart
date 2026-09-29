@@ -12,6 +12,7 @@ import 'package:web_dex/bloc/taker_form/taker_state.dart';
 import 'package:web_dex/bloc/trading_status/trading_status_bloc.dart';
 import 'package:web_dex/common/screen.dart';
 import 'package:web_dex/generated/codegen_loader.g.dart';
+import 'package:web_dex/mm2/mm2_api/rpc/sell/sell_request.dart';
 import 'package:web_dex/shared/ui/ui_light_button.dart';
 import 'package:web_dex/shared/widgets/connect_wallet/connect_wallet_wrapper.dart';
 import 'package:web_dex/views/dex/common/form_plate.dart';
@@ -42,6 +43,7 @@ class TakerFormContent extends StatelessWidget {
             bottomWidget: const TakerFormBuyItem(),
           ),
           const TakerFormErrorList(),
+          const TakerOrderMatchingControl(),
           const SizedBox(height: 24),
           const TakerFormExchangeInfo(),
           const SizedBox(height: 24),
@@ -65,12 +67,56 @@ class TakerFormDesktopControls extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             TakerFormErrorList(),
+            TakerOrderMatchingControl(),
             TakerFormExchangeInfo(),
             SizedBox(height: 20),
             _FormControls(),
           ],
         ),
       ),
+    );
+  }
+}
+
+class TakerOrderMatchingControl extends StatelessWidget {
+  const TakerOrderMatchingControl({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<TakerBloc, TakerState>(
+      builder: (context, state) {
+        final uuid = state.selectedOrder?.uuid;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Match selected UUID only'),
+              subtitle: Text(
+                state.matchSelectedOrderOnly
+                    ? 'Only the selected maker order can match. No fallback to other orders.'
+                    : 'Automatic matching: KDF selects the best eligible offer.',
+              ),
+              value: state.matchSelectedOrderOnly,
+              onChanged: state.inProgress || state.step != TakerStep.form
+                  ? null
+                  : (enabled) => context.read<TakerBloc>().add(
+                      TakerMatchSelectedOrderChanged(enabled),
+                    ),
+            ),
+            if (state.matchSelectedOrderOnly)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: SelectableText(
+                  SellRequest.isValidOrderUuid(uuid)
+                      ? 'Maker order UUID: $uuid'
+                      : 'Select a maker order with a valid UUID in the order book.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

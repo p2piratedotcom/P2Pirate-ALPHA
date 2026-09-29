@@ -97,6 +97,12 @@ class TakerBackButtonClick extends TakerEvent {}
 
 class TakerStartSwap extends TakerEvent {}
 
+class TakerMatchSelectedOrderChanged extends TakerEvent {
+  TakerMatchSelectedOrderChanged(this.enabled);
+
+  final bool enabled;
+}
+
 class TakerReInit extends TakerEvent {}
 
 class TakerSetInProgress extends TakerEvent {
