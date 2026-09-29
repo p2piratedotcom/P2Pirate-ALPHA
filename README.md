@@ -1,72 +1,103 @@
-# Cheetahdex Wallet on Web/Mobile/Desktop
+# P2Pirate ALPHA
 
-<p align="center">
-    <a href="https://github.com/ShorelineCrypto/cheetahdex-wallet-web" alt="Cheetahdex Web Wallet">
-        <img width="420" alt="cheetahdex-wallet-logo_dark-theme" src="https://raw.githubusercontent.com/ShorelineCrypto/cheetahdex-wallet-desktop/cheetahdex/assets/logo/dex-logo.png">
-    </a>
-</p>
+P2Pirate is a community fork of
+[ShorelineCrypto/cheetahdex-wallet-web](https://github.com/ShorelineCrypto/cheetahdex-wallet-web),
+a Flutter non-custodial wallet and decentralized exchange. This repository
+preserves the upstream Git history. P2Pirate behavior is being reapplied from
+a source ZIP as small, reviewable pull requests. **The `cheetahdex` branch is
+the upstream fork baseline; the draft PRs are not yet a complete P2Pirate
+release.** See the [porting inventory](docs/P2PIRATE_PORTING_PLAN.md) and
+[open PRs](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pulls).
 
-Cheetahdex Wallet is open-sourced non-custodian wallet & DEX with 100% account seed compatibility with Komodo Wallet. This is unified code base for all platforms (Web/Mobile/Desktop). 
+The reference is the P2Pirate Linux x86_64 source snapshot dated 29 September
+2026. It has no original commit history, so each PR records the behavior it
+recreates and any intentional difference. The ZIP and its bundled AppImage
+are reference material; they are not committed as a source release here.
 
-Welcome to the Cheetahdex Wallet open-source repository! This cutting-edge project is brought to you by ShorelineCrypto, providing a mighty decentralised wallet and exchange all in one. Take control of your cryptocurrencies and trade seamlessly in DEX with personal sovereignty. Not your keys, not your coins!
+## Repository map
 
-### Web App 
-- ShorelineCrypto Live Web App:  https://app.shorelinecrypto.com
-- Self-hosted at your home linux server/cloud: follow `INSTALL.md` and below Komodo Developer guide to run your own cheetahdex web wallet app at your home or at cloud VPS
+| Path | Purpose | Provenance |
+| --- | --- | --- |
+| `lib/` | Flutter wallet, DEX screens, state and services | CheetahDEX upstream, with P2Pirate edits in separate PRs |
+| `app_theme/`, `packages/` | App theme and local Flutter packages | Upstream, then reviewed P2Pirate edits |
+| `sdk/` | Komodo DeFi Flutter SDK Git submodule | Upstream pin initially; [P2Pirate SDK fork](https://github.com/p2piratedotcom/komodo-defi-sdk-flutter) and pin proposed in a separate PR |
+| `assets/` | Wallet graphics, coin data, translations | Mixed; new art must carry its own source and license record |
+| `android/`, `ios/`, `linux/`, `macos/`, `web/`, `windows/` | Platform runners and packaging metadata | Upstream until platform-specific branding PRs are merged |
+| `docs/`, `test/`, `test_units/`, `test_integration/` | Build guidance and checks | Upstream plus P2Pirate inventory and focused additions |
+| `LICENSE`, `licenses/` | Source license and component notices | Retain upstream GPL-3.0 text and third-party notices |
 
-### Android App
-- Download/Install apk file from our [releases](https://github.com/ShorelineCrypto/cheetahdex-wallet-web/releases) into any android device. 
-- Self-built your own apk file by following `INSTALL.md` guide.
+Build output and downloaded executables belong outside source control. The
+reference ZIP's KDF, Tor, torsocks and AppImage binaries must have separately
+identified versions, licenses, checksums and corresponding source before a
+public binary release.
 
-### Desktop App
-- Download/Install binary release files from our [releases](https://github.com/ShorelineCrypto/cheetahdex-wallet-web/releases) for windows 11 or linux desktop. 
-- Self-built your own release files (windows or linux) by following `INSTALL.md` guide.
+## What is being ported
 
+The [inventory](docs/P2PIRATE_PORTING_PLAN.md) groups the work into ARRR
+defaults and activation; P2Pirate identity; navigation and privacy; Swap
+layout, diagnostics and order matching; history and recovery; ARRR balance
+refresh; USD prices; Linux Tor transport; performance; and reproducible
+packaging. A row is complete only after its PR is merged and checked against
+the reference behavior. A PR does not imply that a funded swap was tested.
 
-Notes - for latest links and information on Cheetahdex wallet products on web, on desktop (linux/macOS/windows) or on mobile, please checkout Cheetahdex page at:
-https://cheetahdex.shorelinecrypto.com/
+P2Pirate's SDK configuration uses KDF NetID `8762`. The reference ZIP uses
+the official CheetahDEX KDF `2.7.0-beta_968f32a` executable from release
+`v0.9.4` (SHA-256
+`bd171eeee7a1e0d43b070c8ba6ba60a845a26b3db0ef57ca25a394a2b6c02129`).
+The SDK source pin and the KDF binary are separate dependencies. The ZIP does
+not establish that older custom Rust patches are in that executable. The
+existing KDF Market Maker Bot project records the same KDF version and NetID,
+but its runtime and wallet profile are distinct; shared version numbers do
+not prove end-to-end trading compatibility.
 
-----
+## Build and run from source
 
-### Support on Cheetahdex Wallet
+Use Flutter `>=3.41.4 <4.0.0` and Dart `>=3.8.1 <4.0.0`, as declared in
+`pubspec.yaml`, plus the native tools for your target platform. Clone the
+desired wallet branch with the exact SDK commit recorded by that branch:
 
-Please join below discord server for support, discussions and general UI/UX
-feedback.
+```sh
+git clone --recurse-submodules https://github.com/p2piratedotcom/P2Pirate-ALPHA.git
+cd P2Pirate-ALPHA
+git checkout <reviewed-wallet-branch-or-commit>
+git submodule sync --recursive
+git submodule update --init --recursive
+git ls-tree HEAD sdk
+git -C sdk rev-parse HEAD
+flutter pub get --enforce-lockfile
+flutter run -d linux
+```
 
-- ShorelineCrypto Discord Server: https://discord.com/invite/jZMyhKm
-- Komodo Wallet Discord Server: https://komodoplatform.com/discord
+The two SDK SHA outputs should match. Choose the Flutter device and build
+target for your host; the upstream [setup](docs/PROJECT_SETUP.md),
+[run](docs/BUILD_RUN_APP.md) and [release](docs/BUILD_RELEASE.md) guides cover
+platform prerequisites. They are upstream documentation and are not evidence
+that the current draft P2Pirate stack builds on every platform. Supplying and
+verifying the KDF 2.7 runtime is a separate release step. Do not package the
+reference ZIP's binaries as a new release solely from these commands.
 
-## Useful links
+## License, artwork and attribution
 
-- :speech_balloon: [Cheetahdex Wallet Discord](https://discord.com/invite/jZMyhKm)
-- :notebook_with_decorative_cover: [ShorelineCrypto Reddit](https://www.reddit.com/r/shorelinecrypto/)
-- :hammer_and_wrench: [ShorelineCrypto X](https://x.com/shorelinecrypto)
-- :book: [Atomicdex Wallet Documentation](https://developers.komodoplatform.com/basic-docs/atomicdex/atomicdex-tutorials/introduction-to-atomicdex.html)
-- :link: [Komodo Wallet Website](https://komodoplatform.com/en/wallet/)
-- :speech_balloon: [Komodo Wallet Discord](https://komodoplatform.com/discord)
+The wallet keeps the upstream [GPL-3.0 license](LICENSE) and Git history.
+P2Pirate PRs should retain copyright notices and identify modified files.
+Third-party components can have different licenses, recorded in `licenses/`
+and their own repositories. The Pirate Chain P mark proposed for the UI is
+from the [official media kit](https://github.com/PirateNetwork/mediakit),
+with its MIT notice and precise source commit documented in the branding PR.
+The [Pirate Chain branding guide](https://piratechain.com/canvas/) currently
+prefers the P mark and advises against ship and skull marks. Use of a mark
+does not imply official endorsement.
 
+The inherited in-app legal text needs a separate review before a P2Pirate
+release: portions describe restrictions that conflict with the repository's
+GPL permissions and still attribute the product to other parties. No PR
+should simply rename those statements to P2Pirate without resolving the
+underlying rights and wording.
 
-## Developer guide.
+## Upstream and P2Pirate documentation
 
-The P2Pirate fork's source provenance, behavior inventory and pull request
-sequence are recorded in [the porting plan](docs/P2PIRATE_PORTING_PLAN.md).
-
-Current Komodo Web Wallet production version is available here: https://app.komodoplatform.com
-
-### Index
-- [Code of Conduct](docs/CODE_OF_CONDUCT.md)
-- [Project setup](docs/PROJECT_SETUP.md)
-- [Firebase Setup](docs/FIREBASE_SETUP.md)
-- [Coins config, update](docs/COINS_CONFIG.md)
-- [App version, update](docs/UPDATE_APP_VERSION.md)
-- [Run the App](docs/BUILD_RUN_APP.md)
-- [Build release version of the App](docs/BUILD_RELEASE.md)
-- [Manual testing and debugging](docs/MANUAL_TESTING_DEBUGGING.md)
-- [Localization](docs/LOCALIZATION.md)
-- [Unit testing](docs/UNIT_TESTING.md)
-- [Integration testing](docs/INTEGRATION_TESTING.md)
-- [SDK Dependency Management](docs/SDK_DEPENDENCY_MANAGEMENT.md)
-- [Gitflow and branching strategy](docs/GITFLOW_BRANCHING.md)
-- [Issue: create and maintain](docs/ISSUE.md) ...in progress
-- [Contribution guide](docs/CONTRIBUTION_GUIDE.md)
-
+- [Porting record and source provenance](docs/P2PIRATE_PORTING_PLAN.md)
+- [SDK submodule management](docs/SDK_SUBMODULE_MANAGEMENT.md)
+- [Upstream project setup](docs/PROJECT_SETUP.md)
+- [Upstream build and run guide](docs/BUILD_RUN_APP.md)
+- [Upstream contribution guide](docs/CONTRIBUTION_GUIDE.md)
