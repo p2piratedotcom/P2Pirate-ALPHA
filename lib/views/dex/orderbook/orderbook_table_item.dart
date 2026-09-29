@@ -1,5 +1,6 @@
 import 'package:app_theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:web_dex/bloc/coins_bloc/coins_repo.dart';
 import 'package:web_dex/model/orderbook/order.dart';
@@ -13,12 +14,18 @@ class OrderbookTableItem extends StatefulWidget {
     required this.volumeFraction,
     this.isSelected = false,
     this.onClick,
+    this.large = false,
+    this.showOrderDetails = false,
+    this.usdPrice,
   }) : super(key: key);
 
   final Order order;
   final double volumeFraction;
   final bool isSelected;
   final Function(Order)? onClick;
+  final bool large;
+  final bool showOrderDetails;
+  final String? usdPrice;
 
   @override
   State<OrderbookTableItem> createState() => _OrderbookTableItemState();
@@ -37,7 +44,10 @@ class _OrderbookTableItemState extends State<OrderbookTableItem> {
     _isPreview = widget.order.uuid == orderPreviewUuid;
     _isTradeWithSelf = widget.order.address ==
         coinsRepository.getCoin(widget.order.rel)?.address;
-    _style = const TextStyle(fontSize: 11, fontWeight: FontWeight.w500);
+    _style = TextStyle(
+      fontSize: widget.large ? 13 : 11,
+      fontWeight: FontWeight.w500,
+    );
     _color = _isPreview
         ? theme.custom.targetColor
         : widget.order.direction == OrderDirection.ask
@@ -117,9 +127,9 @@ class _OrderbookTableItemState extends State<OrderbookTableItem> {
 
   Widget _buildChartBar() {
     return FractionallySizedBox(
-      widthFactor: widget.volumeFraction,
+      widthFactor: widget.volumeFraction.clamp(0.0, 1.0).toDouble(),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 21),
+        constraints: BoxConstraints(minHeight: widget.large ? 34 : 21),
         child: Container(
           color: _color.withValues(alpha: 0.1),
         ),
@@ -154,11 +164,62 @@ class _OrderbookTableItemState extends State<OrderbookTableItem> {
             ),
           ),
           const SizedBox(width: 10),
-          Text(formatAmt(widget.order.maxVolume.toDouble()),
-              style: _style.copyWith(
-                color: _isPreview ? _color : null,
-              )),
+          if (widget.showOrderDetails && widget.usdPrice != null)
+            Expanded(
+              child: Text(
+                widget.usdPrice!,
+                overflow: TextOverflow.ellipsis,
+                style: _style,
+              ),
+            ),
+          if (widget.showOrderDetails)
+            Expanded(
+              child: Text(
+                formatAmt(widget.order.maxVolume.toDouble()),
+                textAlign: TextAlign.right,
+                overflow: TextOverflow.ellipsis,
+                style: _style.copyWith(color: _isPreview ? _color : null),
+              ),
+            )
+          else
+            Text(
+              formatAmt(widget.order.maxVolume.toDouble()),
+              style: _style.copyWith(color: _isPreview ? _color : null),
+            ),
           const SizedBox(width: 4),
+          if (widget.showOrderDetails)
+            SizedBox(
+              width: 40,
+              height: 34,
+              child: widget.order.uuid == null ||
+                      widget.order.uuid!.isEmpty ||
+                      _isPreview
+                  ? const Center(child: Text('-'))
+                  : IconButton(
+                      padding: EdgeInsets.zero,
+                      iconSize: 16,
+                      tooltip: 'Maker order UUID: ${widget.order.uuid}\nClick to copy',
+                      icon: const Icon(Icons.copy_outlined),
+                      onPressed: () async {
+                        try {
+                          await Clipboard.setData(
+                            ClipboardData(text: widget.order.uuid!),
+                          );
+                          if (!mounted) return;
+                          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                            const SnackBar(content: Text('Order UUID copied')),
+                          );
+                        } catch (_) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                            const SnackBar(
+                              content: Text('Unable to copy order UUID'),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+            ),
         ],
       ),
     );
