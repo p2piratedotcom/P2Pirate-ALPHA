@@ -69,8 +69,18 @@ its `kdf` executable has SHA-256
 That executable is byte-identical to the one in the ZIP reference. The local
 KDF build notes also cite `cf7e95b9d5170dca2b16baf7f9b5a215b916806af17cb891ad6b9aef2bf1d568`:
 that is a different artifact and should not be described as the bundled one.
+The [official CheetahDEX `v0.9.4` Linux bundle](https://github.com/ShorelineCrypto/cheetahdex-wallet-web/releases/tag/v0.9.4)
+has SHA-256 `0076d840918b3af37a6c891f49d83c11cd323464c832b6707df6ad1707509cb0`;
+its `lib/kdf` also has SHA-256 `bd171eeee7a1e0d43b070c8ba6ba60a845a26b3db0ef57ca25a394a2b6c02129`.
 The matching hashes identify the published upstream artifact; they do not by
 themselves prove a reproducible build from Rust source.
+
+Before republishing KDF in the SDK fork, review both
+[`LEGAL/COPYING`](https://github.com/ShorelineCrypto/komodo-defi-framework/blob/v2.7.0-beta/LEGAL/COPYING)
+and [`LEGAL/LICENSE-COPYRIGHT-NOTICE`](https://github.com/ShorelineCrypto/komodo-defi-framework/blob/v2.7.0-beta/LEGAL/LICENSE-COPYRIGHT-NOTICE)
+at the source tag. The latter sets conditions for distribution and modification
+in addition to the GPL text. Source and binary attribution alone do not settle
+those conditions.
 
 ## Build inputs and remaining work
 
