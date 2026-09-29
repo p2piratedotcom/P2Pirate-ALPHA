@@ -68,12 +68,10 @@ class _SwapDetailsPageState extends State<SwapDetailsPage> {
 
   String get _headerText {
     if (_isFailed) return LocaleKeys.tradingDetailsTitleFailed.tr();
-    final haveEvents = widget.swapStatus.events.isNotEmpty;
-    if (haveEvents) {
-      final isSuccess =
-          widget.swapStatus.events.last.event.type ==
-          widget.swapStatus.successEvents.last;
-      if (isSuccess) return LocaleKeys.tradingDetailsTitleCompleted.tr();
+    if (widget.swapStatus.isSuccessful) {
+      return LocaleKeys.tradingDetailsTitleCompleted.tr();
+    }
+    if (widget.swapStatus.events.isNotEmpty) {
       return LocaleKeys.tradingDetailsTitleInProgress.tr();
     }
     return LocaleKeys.tradingDetailsTitleOrderMatching.tr();
@@ -87,12 +85,8 @@ class _SwapDetailsPageState extends State<SwapDetailsPage> {
   }
 
   int get _progress {
-    return min(
-      100,
-      (100 *
-              widget.swapStatus.events.length /
-              (widget.swapStatus.successEvents.length - 1))
-          .ceil(),
-    );
+    final steps = widget.swapStatus.successEvents.length - 1;
+    if (steps <= 0) return 0;
+    return min(100, (100 * widget.swapStatus.events.length / steps).ceil());
   }
 }
