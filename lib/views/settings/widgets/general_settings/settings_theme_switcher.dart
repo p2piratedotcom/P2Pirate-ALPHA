@@ -22,7 +22,7 @@ class SettingsThemeSwitcher extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 340),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18.0),
-          color: Theme.of(context).colorScheme.onSurface,
+          color: Theme.of(context).colorScheme.surface,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.max,
@@ -79,7 +79,9 @@ class _SettingsModeSelector extends StatelessWidget {
               right: 8,
               top: 0,
               bottom: 0,
-              child: Center(child: PirateWalletLogo(height: 20, themeMode: mode)),
+              child: Center(
+                child: PirateWalletLogo(height: 20, themeMode: mode),
+              ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8.0),

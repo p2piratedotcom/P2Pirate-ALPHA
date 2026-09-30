@@ -188,7 +188,7 @@ class FiatInputsState extends State<FiatInputs> {
         ),
         Card(
           margin: EdgeInsets.zero,
-          color: Theme.of(context).colorScheme.onSurface,
+          color: Theme.of(context).colorScheme.surface,
           child: ListTile(
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
@@ -307,9 +307,7 @@ class FiatInputsState extends State<FiatInputs> {
                 final item = itemList.elementAt(index);
                 return FiatCurrencyItem(
                   key: Key('fiat-onramp-currency-item-${item.symbol}'),
-                  foregroundColor: Theme.of(
-                    context,
-                  ).colorScheme.onSurfaceVariant,
+                  foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
                   disabled: false,
                   currency: item,
                   icon: icon,

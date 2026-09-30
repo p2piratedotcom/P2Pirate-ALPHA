@@ -1,6 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:web_dex/common/app_assets.dart';
 import 'package:web_dex/common/screen.dart';
 import 'package:web_dex/generated/codegen_loader.g.dart';
 import 'package:web_dex/shared/utils/utils.dart';
@@ -30,8 +29,8 @@ class SupportPage extends StatelessWidget {
       margin: isMobile
           ? const EdgeInsets.symmetric(horizontal: 15)
           : isTablet
-              ? const EdgeInsets.all(30)
-              : const EdgeInsets.all(0.0),
+          ? const EdgeInsets.all(30)
+          : const EdgeInsets.all(0.0),
       padding: isMobile
           ? null
           : const EdgeInsets.symmetric(horizontal: 25, vertical: 20),
@@ -47,64 +46,51 @@ class SupportPage extends StatelessWidget {
             visible: !isMobile,
             child: SelectableText(
               LocaleKeys.support.tr(),
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
           ),
-          const SizedBox(
-            height: 16,
-          ),
+          const SizedBox(height: 16),
           Container(
             width: double.infinity,
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(18.0),
             ),
-            child: Stack(
-              children: [
-                const _DiscordIcon(),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 18.0,
-                    horizontal: 5,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                vertical: 18.0,
+                horizontal: 5,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SelectableText(
+                    LocaleKeys.supportAskSpan.tr(),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: EdgeInsets.only(right: isMobile ? 0 : 160),
-                        child: SelectableText(
-                          LocaleKeys.supportAskSpan.tr(),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(
-                        height: 12,
-                      ),
-                      UiBorderButton(
-                        backgroundColor: Theme.of(context).colorScheme.surface,
-                        prefix: Icon(
-                          Icons.discord,
-                          color: Theme.of(context).textTheme.bodyMedium?.color,
-                        ),
-                        text: LocaleKeys.supportDiscordButton.tr(),
-                        fontSize: isMobile ? 13 : 14,
-                        width: 400,
-                        height: 40,
-                        allowMultiline: true,
-                        onPressed: () {
-                          launchURLString('https://www.gleec.com/contact');
-                        },
-                      ),
-                    ],
+                  const SizedBox(height: 12),
+                  UiBorderButton(
+                    backgroundColor: Theme.of(context).colorScheme.surface,
+                    prefix: Icon(
+                      Icons.open_in_new,
+                      color: Theme.of(context).textTheme.bodyMedium?.color,
+                    ),
+                    text: LocaleKeys.supportDiscordButton.tr(),
+                    fontSize: isMobile ? 13 : 14,
+                    width: 400,
+                    height: 40,
+                    allowMultiline: true,
+                    onPressed: () {
+                      launchURLString(
+                        'https://github.com/p2piratedotcom/P2Pirate-ALPHA',
+                      );
+                    },
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 20),
@@ -135,36 +121,11 @@ class SupportPage extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(0, 0, 12, 0),
             child: Column(
               children: supportInfo.asMap().entries.map((entry) {
-                return SupportItem(
-                  data: entry.value,
-                );
+                return SupportItem(data: entry.value);
               }).toList(),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _DiscordIcon extends StatelessWidget {
-  const _DiscordIcon();
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      right: -100,
-      top: -85,
-      child: Visibility(
-        visible: !isMobile,
-        child: const SizedBox(
-          width: 285,
-          height: 220,
-          child: Opacity(
-            opacity: 0.1,
-            child: DexSvgImage(path: Assets.discord),
-          ),
-        ),
       ),
     );
   }
@@ -206,10 +167,6 @@ final List<SupportItemData> supportInfo = [
   SupportItemData(
     title: LocaleKeys.supportInfoTitle9.tr(),
     content: LocaleKeys.supportInfoContent9.tr(),
-  ),
-  SupportItemData(
-    title: LocaleKeys.supportInfoTitle10.tr(),
-    content: LocaleKeys.supportInfoContent10.tr(),
   ),
   SupportItemData(
     title: LocaleKeys.myCoinsMissing.tr(),

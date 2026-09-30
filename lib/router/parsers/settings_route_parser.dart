@@ -18,12 +18,8 @@ class _SettingsRouteParser implements BaseRouteParser {
       return SettingsRoutePath.security();
     }
 
-    if (uri.pathSegments[1] == 'privacy') {
-      return SettingsRoutePath.privacy();
-    }
-
-    if (uri.pathSegments[1] == 'kyc') {
-      return SettingsRoutePath.kyc();
+    if (uri.pathSegments[1] == 'privacy' || uri.pathSegments[1] == 'kyc') {
+      return SettingsRoutePath.general();
     }
 
     // TODO: Remove since the feedback is now handled by `BetterFeedback`

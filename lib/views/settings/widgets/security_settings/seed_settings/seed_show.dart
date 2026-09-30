@@ -128,7 +128,7 @@ class _PrivateKeysList extends StatelessWidget {
             final key = privKeys[coin]!;
 
             return Card(
-              color: Theme.of(context).colorScheme.onSurface,
+              color: Theme.of(context).colorScheme.surface,
               margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
               elevation: 0,
               shape: RoundedRectangleBorder(

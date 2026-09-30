@@ -68,7 +68,7 @@ class _MainMenuDesktopState extends State<MainMenuDesktop> {
                       onTap: () {
                         routingState.selectedMenu = MainMenuValue.wallet;
                       },
-                      child: const PirateWalletLogo(height: 32),
+                      child: const PirateWalletLogo(height: 72, stacked: true),
                     ),
                   ),
 

@@ -3,7 +3,7 @@ import 'theme_custom_light.dart';
 
 ThemeData get themeGlobalLight {
   const Color inputBackgroundColor = Color.fromRGBO(243, 245, 246, 1);
-  const Color textColor = Color.fromRGBO(69, 96, 120, 1);
+  const Color textColor = Color(0xFF242424);
 
   OutlineInputBorder outlineBorderLight(Color lightAccentColor) =>
       OutlineInputBorder(
@@ -12,13 +12,12 @@ ThemeData get themeGlobalLight {
       );
 
   final ColorScheme colorScheme = const ColorScheme.light().copyWith(
-    primary: const Color(0xFF8C41FF), // GLEEC Purple primary
-    inversePrimary: const Color(0xFFB87DFF), // Lighter purple for gradients
-    secondary: const Color(0xFF666666), // Muted gray for accents
-    tertiary: const Color.fromARGB(255, 192, 225, 255),
+    primary: const Color(0xFFBB9645),
+    secondary: const Color(0xFF000000),
+    tertiary: const Color(0xFFF7F1E4),
     surface: const Color.fromRGBO(255, 255, 255, 1),
     onSurface: const Color.fromRGBO(251, 251, 251, 1),
-    error: const Color.fromRGBO(229, 33, 103, 1),
+    error: const Color(0xFFB33430),
   );
 
   final TextTheme textTheme = TextTheme(
@@ -56,24 +55,24 @@ ThemeData get themeGlobalLight {
   );
 
   SnackBarThemeData snackBarThemeLight() => SnackBarThemeData(
-        elevation: 12.0,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(12)),
-        ),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: colorScheme.primaryContainer,
-        contentTextStyle: textTheme.bodyLarge!.copyWith(
-          color: colorScheme.onPrimaryContainer,
-        ),
-        actionTextColor: colorScheme.onPrimaryContainer,
-        showCloseIcon: true,
-        closeIconColor: colorScheme.onPrimaryContainer.withAlpha(179), // 70%
-      );
+    elevation: 12.0,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.all(Radius.circular(12)),
+    ),
+    behavior: SnackBarBehavior.floating,
+    backgroundColor: colorScheme.primaryContainer,
+    contentTextStyle: textTheme.bodyLarge!.copyWith(
+      color: colorScheme.onPrimaryContainer,
+    ),
+    actionTextColor: colorScheme.onPrimaryContainer,
+    showCloseIcon: true,
+    closeIconColor: colorScheme.onPrimaryContainer.withAlpha(179), // 70%
+  );
 
   final customTheme = ThemeCustomLight();
   final theme = ThemeData(
     useMaterial3: false,
-    fontFamily: 'Manrope',
+    fontFamily: 'Roboto',
     scaffoldBackgroundColor: colorScheme.onSurface,
     cardColor: colorScheme.surface,
     cardTheme: CardThemeData(
@@ -100,9 +99,9 @@ ThemeData get themeGlobalLight {
     hintColor: const Color.fromRGBO(183, 187, 191, 1),
     snackBarTheme: snackBarThemeLight(),
     textSelectionTheme: TextSelectionThemeData(
-      cursorColor: const Color(0xFF8C41FF), // GLEEC Purple primary
-      selectionColor: const Color(0xFF8C41FF).withAlpha(77), // 0.3 * 255
-      selectionHandleColor: const Color(0xFF8C41FF), // GLEEC Purple primary
+      cursorColor: const Color(0xFFBB9645),
+      selectionColor: const Color(0xFFBB9645).withAlpha(77), // 0.3 * 255
+      selectionHandleColor: const Color(0xFFBB9645),
     ),
     inputDecorationTheme: InputDecorationTheme(
       enabledBorder: outlineBorderLight(Colors.transparent),
@@ -152,7 +151,7 @@ ThemeData get themeGlobalLight {
       // remove icons shift
       type: BottomNavigationBarType.fixed,
       backgroundColor: colorScheme.surface,
-      selectedItemColor: const Color(0xFF8C41FF), // GLEEC Purple primary
+      selectedItemColor: const Color(0xFFBB9645),
       unselectedItemColor: textColor,
       unselectedLabelStyle: const TextStyle(
         fontSize: 12,
@@ -164,27 +163,27 @@ ThemeData get themeGlobalLight {
       ),
     ),
     switchTheme: SwitchThemeData(
-      trackColor: WidgetStateProperty.resolveWith<Color?>(
-        (Set<WidgetState> states) {
-          if (states.contains(WidgetState.selected)) {
-            return colorScheme.primary.withOpacity(0.5);
-          }
-          return const Color(0xFFD1D1D1);
-        },
-      ),
-      thumbColor: WidgetStateProperty.resolveWith<Color?>(
-        (Set<WidgetState> states) {
-          if (states.contains(WidgetState.selected)) {
-            return colorScheme.primary;
-          }
-          return Colors.white;
-        },
-      ),
+      trackColor: WidgetStateProperty.resolveWith<Color?>((
+        Set<WidgetState> states,
+      ) {
+        if (states.contains(WidgetState.selected)) {
+          return colorScheme.primary.withOpacity(0.5);
+        }
+        return const Color(0xFFD1D1D1);
+      }),
+      thumbColor: WidgetStateProperty.resolveWith<Color?>((
+        Set<WidgetState> states,
+      ) {
+        if (states.contains(WidgetState.selected)) {
+          return colorScheme.primary;
+        }
+        return Colors.white;
+      }),
     ),
     segmentedButtonTheme: SegmentedButtonThemeData(
       style: SegmentedButton.styleFrom(
         backgroundColor: const Color.fromRGBO(243, 245, 246, 1),
-        surfaceTintColor: Colors.purple,
+        surfaceTintColor: const Color(0xFFBB9645),
         selectedBackgroundColor: colorScheme.primary,
         foregroundColor: textColor.withAlpha(179), // 0.7 * 255
         selectedForegroundColor: Colors.white,

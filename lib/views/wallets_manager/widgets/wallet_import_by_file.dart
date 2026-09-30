@@ -13,7 +13,6 @@ import 'package:web_dex/shared/constants.dart';
 import 'package:web_dex/shared/screenshot/screenshot_sensitivity.dart';
 import 'package:web_dex/shared/ui/ui_gradient_icon.dart';
 import 'package:web_dex/shared/utils/encryption_tool.dart';
-import 'package:web_dex/shared/widgets/disclaimer/eula_tos_checkboxes.dart';
 import 'package:web_dex/shared/widgets/password_visibility_control.dart';
 import 'package:web_dex/shared/widgets/quick_login_switch.dart';
 import 'package:web_dex/views/wallets_manager/widgets/custom_seed_checkbox.dart';
@@ -56,7 +55,6 @@ class _WalletImportByFileState extends State<WalletImportByFile> {
   bool _isObscured = true;
   bool _isHdMode = true;
   bool _isHdOptionEnabled = true;
-  bool _eulaAndTosChecked = false;
   bool _rememberMe = false;
   bool _allowCustomSeed = false;
   bool _showCustomSeedToggle = false;
@@ -70,7 +68,6 @@ class _WalletImportByFileState extends State<WalletImportByFile> {
 
   // Intentionally do not check wallet name here, because it is done on button
   // click and a dialog is shown to rename the wallet if there are issues.
-  bool get _isButtonEnabled => _eulaAndTosChecked;
 
   @override
   Widget build(BuildContext context) {
@@ -170,16 +167,6 @@ class _WalletImportByFileState extends State<WalletImportByFile> {
                         });
                       },
                     ),
-                  const SizedBox(height: 15),
-                  EulaTosCheckboxes(
-                    key: const Key('import-wallet-eula-checks'),
-                    isChecked: _eulaAndTosChecked,
-                    onCheck: (isChecked) {
-                      setState(() {
-                        _eulaAndTosChecked = isChecked;
-                      });
-                    },
-                  ),
                   const SizedBox(height: 20),
                   QuickLoginSwitch(
                     value: _rememberMe,
@@ -192,7 +179,7 @@ class _WalletImportByFileState extends State<WalletImportByFile> {
                     key: const Key('confirm-password-button'),
                     height: 50,
                     text: LocaleKeys.import.tr(),
-                    onPressed: _isButtonEnabled ? _onImport : null,
+                    onPressed: _onImport,
                   ),
                   const SizedBox(height: 20),
                   UiUnderlineTextButton(

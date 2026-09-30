@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'theme_custom_dark.dart';
 
 ThemeData get themeGlobalDark {
-  const Color inputBackgroundColor = Color.fromRGBO(51, 57, 72, 1);
+  const Color inputBackgroundColor = Color(0xFF171717);
   const Color textColor = Color.fromRGBO(255, 255, 255, 1);
 
   OutlineInputBorder outlineBorderLight(Color lightAccentColor) =>
@@ -14,13 +14,13 @@ ThemeData get themeGlobalDark {
   //TODO! Implement all light-theme equivalent properties
   final ColorScheme colorScheme = ColorScheme.fromSeed(
     brightness: Brightness.dark,
-    seedColor: const Color(0xFF8C41FF), // GLEEC Purple primary
-    primary: const Color(0xFF8C41FF), // GLEEC Purple primary
-    // secondary: const Color(0xFF00C3AA),
-    tertiary: const Color(0xFF0A0A0A), // CORRECTED - darker for sidebar/header
-    surface: const Color(0xFF141414), // Card color (correct)
-    onSurface: const Color(0xFF000000), // Pure black main background
-    error: const Color.fromRGBO(202, 78, 61, 1),
+    seedColor: const Color(0xFFBB9645),
+    primary: const Color(0xFFBB9645),
+    secondary: const Color(0xFFFFFFFF),
+    tertiary: const Color(0xFF0B0B0B),
+    surface: const Color(0xFF141414),
+    onSurface: const Color(0xFFFFFFFF),
+    error: const Color(0xFFB33430),
   );
 
   final TextTheme textTheme = TextTheme(
@@ -75,8 +75,8 @@ ThemeData get themeGlobalDark {
   final customTheme = ThemeCustomDark();
   final theme = ThemeData(
     useMaterial3: false,
-    fontFamily: 'Manrope',
-    scaffoldBackgroundColor: colorScheme.onSurface,
+    fontFamily: 'Roboto',
+    scaffoldBackgroundColor: const Color(0xFF000000),
     cardColor: colorScheme.surface,
     cardTheme: CardThemeData(
       color: colorScheme.surface,
@@ -104,9 +104,9 @@ ThemeData get themeGlobalDark {
     hintColor: const Color.fromRGBO(183, 187, 191, 1),
     snackBarTheme: snackBarThemeLight(),
     textSelectionTheme: TextSelectionThemeData(
-      cursorColor: const Color(0xFF8C41FF), // GLEEC Purple primary
-      selectionColor: const Color(0xFF8C41FF).withAlpha(77), // 0.3 * 255
-      selectionHandleColor: const Color(0xFF8C41FF), // GLEEC Purple primary
+      cursorColor: const Color(0xFFBB9645),
+      selectionColor: const Color(0xFFBB9645).withAlpha(77), // 0.3 * 255
+      selectionHandleColor: const Color(0xFFBB9645),
     ),
     inputDecorationTheme: InputDecorationTheme(
       enabledBorder: outlineBorderLight(Colors.transparent),
@@ -141,7 +141,7 @@ ThemeData get themeGlobalDark {
     segmentedButtonTheme: SegmentedButtonThemeData(
       style: SegmentedButton.styleFrom(
         backgroundColor: colorScheme.surfaceContainerLowest,
-        surfaceTintColor: Colors.purple,
+        surfaceTintColor: const Color(0xFFBB9645),
         selectedBackgroundColor: colorScheme.primary,
         foregroundColor: textColor.withAlpha(179), // 0.7 * 255
         selectedForegroundColor: textColor,

@@ -172,7 +172,7 @@ class _HwWalletTile extends StatelessWidget {
               : theme.custom.noColor,
         ),
         borderRadius: BorderRadius.circular(20),
-        color: theme.currentGlobal.colorScheme.onSurface,
+        color: theme.currentGlobal.colorScheme.surface,
       ),
       child: Opacity(
         opacity: disabled ? 0.4 : 1,
