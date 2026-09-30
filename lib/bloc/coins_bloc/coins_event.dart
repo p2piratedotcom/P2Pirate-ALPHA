@@ -41,6 +41,14 @@ final class CoinsDeactivated extends CoinsEvent {
 
 final class CoinsPricesUpdated extends CoinsEvent {}
 
+final class CoinPriceRequested extends CoinsEvent {
+  const CoinPriceRequested(this.ticker);
+  final String ticker;
+
+  @override
+  List<Object> get props => [ticker];
+}
+
 /// Emitted when a coin's balance has changed (real-time from SDK)
 final class CoinsBalanceChanged extends CoinsEvent {
   const CoinsBalanceChanged(this.coin);

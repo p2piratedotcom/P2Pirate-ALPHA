@@ -6,8 +6,18 @@ which is the Dart/Flutter adapter used to communicate with KDF. The adapter
 does **not** contain KDF's Rust source. The upstream Rust project is
 [`ShorelineCrypto/komodo-defi-framework`](https://github.com/ShorelineCrypto/komodo-defi-framework).
 The SDK fork is the intended P2Pirate release location for a separately
-installed Linux KDF executable. It has no KDF release asset as of 29 September
-2026, so automatic installation is not yet available.
+installed Linux KDF executable. It had no KDF release asset when the first-run
+installer was added. On Linux x86-64, the GUI therefore offers an explicit
+download from the original ShorelineCrypto `v2.7.0-beta` release. This avoids
+republishing that binary before the source and license review is complete.
+
+The installer uses a reviewed, fixed release URL and verifies both the ZIP
+SHA-256 (`cf80e5d5ae78605d6f0f6a806aa9ae5b83bbee0ef79ccd5ad85022ae2a5d7d27`)
+and executable SHA-256 (`bd171eeee7a1e0d43b070c8ba6ba60a845a26b3db0ef57ca25a394a2b6c02129`).
+It asks before downloading, accepts only GitHub HTTPS redirects, limits archive
+size, and installs into a versioned per-user directory. The `current` link
+changes only after verification succeeds. Existing external KDF installations
+remain usable. No automatic upgrade to an unreviewed future release occurs.
 
 ## Current behavior
 
@@ -21,9 +31,9 @@ pins that SDK revision. The Linux search order is:
 2. `$HOME/.local/share/p2pirate/kdf/current/kdf`.
 3. `/usr/local/bin/kdf`, `/usr/bin/kdf`, then `$HOME/.local/bin/kdf`.
 
-The GUI does not run KDF initialization successfully if none of these paths
-contains an executable. Old copies in the checkout or Flutter bundle are
-deliberately excluded on Linux.
+If none of these paths contains an executable, the Linux GUI shows the
+first-run download screen before KDF initialization. Old copies in the
+checkout or Flutter bundle are deliberately excluded on Linux.
 
 For a development installation, set `P2PIRATE_KDF_PATH` to the absolute path of
 an independently obtained, executable, compatible KDF 2.7 binary before
@@ -32,10 +42,10 @@ external KDF into the SDK *at build time*; that explains why the older GUI
 worked on a machine with KDF supplied separately, despite the final bundle
 containing KDF.
 
-## Release contract needed for first-run installation
+## Release contract for moving downloads to the SDK fork
 
-Before enabling a GUI download button, publish a Linux x86-64 KDF 2.7 release
-in the SDK fork with:
+Before changing the GUI download source to the SDK fork, publish a Linux
+x86-64 KDF 2.7 release there with:
 
 - the exact Rust source repository URL and commit, build instructions, license,
   and any corresponding source distribution obligations;
@@ -44,14 +54,10 @@ in the SDK fork with:
 - a stable release tag and an explicit indication whether it is suitable for
   P2Pirate's NetID 8762 configuration.
 
-The GUI should show the latest **compatible** published release on first run,
-ask before downloading, verify HTTPS origin and a digest recorded in a reviewed
-GUI compatibility manifest, then place the verified binary in a per-user,
-versioned directory under `$HOME/.local/share/p2pirate/kdf/`. It should switch
-`current` only after download, verification, and an executable check succeed.
-An existing working KDF should remain available for rollback. A failed or
-declined download must leave the GUI in a clear setup state; it must never run
-an unchecked file or change the active binary silently.
+The current installer uses a fixed, reviewed version and asks before
+downloading. Once the SDK fork publishes a compatible release, update the URL,
+hashes, source provenance and compatibility together in a separate reviewable
+GUI change. A failed or declined download leaves the setup screen visible.
 
 Fetching GitHub's unfiltered `latest` release would permit a future
 incompatible KDF version to replace 2.7. The GUI compatibility manifest must
@@ -90,5 +96,7 @@ stage the reviewed `coins.json`, `coins_config.json`, `seed_nodes.json`, and
 `coin_icons/png/` beneath `sdk/packages/komodo_defi_framework/assets/` before
 building. Those paths are ignored by Git. The ZIP snapshot's coin files can be
 used locally for comparison; their distribution terms still need review before
-they are republished. The project has not yet produced a verified Linux release
-build with this split, and no automatic first-run KDF installer has been merged.
+they are republished. The GUI can now be built locally with this split and
+offers first-run installation from the original publisher. A public KDF
+release in the SDK fork and a public GUI binary release still need their
+source and license review.

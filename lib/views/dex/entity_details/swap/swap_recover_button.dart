@@ -1,17 +1,12 @@
-import 'package:app_theme/app_theme.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:komodo_ui_kit/komodo_ui_kit.dart';
-import 'package:web_dex/bloc/coins_bloc/coins_repo.dart';
 import 'package:web_dex/blocs/trading_entities_bloc.dart';
 import 'package:web_dex/generated/codegen_loader.g.dart';
-import 'package:web_dex/mm2/mm2_api/rpc/recover_funds_of_swap/recover_funds_of_swap_response.dart';
-import 'package:web_dex/model/coin.dart';
-import 'package:web_dex/shared/utils/utils.dart';
 
 class SwapRecoverButton extends StatefulWidget {
-  const SwapRecoverButton({Key? key, required this.uuid}) : super(key: key);
+  const SwapRecoverButton({super.key, required this.uuid});
 
   final String uuid;
 
@@ -21,112 +16,71 @@ class SwapRecoverButton extends StatefulWidget {
 
 class _SwapRecoverButtonState extends State<SwapRecoverButton> {
   bool _isLoading = false;
-  bool _isFailedRecover = false;
-  String _message = '';
-  RecoverFundsOfSwapResponse? _recoverResponse;
+  bool _resultUnconfirmed = false;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Flexible(child: SelectableText(LocaleKeys.swapRecoverButtonTitle.tr())),
-        const SizedBox(
-          height: 10,
-        ),
-        Flexible(
-          child: _isLoading
-              ? const Center(
-                  child: UiSpinner(
-                    width: 48,
-                    height: 48,
-                  ),
-                )
-              : UiPrimaryButton(
-                  text: LocaleKeys.swapRecoverButtonText.tr(),
-                  onPressed: () async {
-                    if (_isLoading) {
-                      return;
-                    }
-                    setState(() {
-                      _isLoading = true;
-                      _isFailedRecover = false;
-                      _recoverResponse = null;
-                      _message = '';
-                    });
-                    final tradingEntitiesBloc =
-                        RepositoryProvider.of<TradingEntitiesBloc>(context);
-                    final response = await tradingEntitiesBloc
-                        .recoverFundsOfSwap(widget.uuid);
-                    await Future<dynamic>.delayed(const Duration(seconds: 1));
-                    if (response == null) {
-                      setState(() {
-                        _message =
-                            LocaleKeys.swapRecoverButtonErrorMessage.tr();
-                        _isFailedRecover = true;
-                      });
-                    } else {
-                      setState(() {
-                        _message =
-                            LocaleKeys.swapRecoverButtonSuccessMessage.tr();
-                        _recoverResponse = response;
-                        _isFailedRecover = false;
-                      });
-                    }
-                    setState(() {
-                      _isLoading = false;
-                    });
-                  },
+    final bloc = RepositoryProvider.of<TradingEntitiesBloc>(context);
+    return StreamBuilder<void>(
+      stream: bloc.outRecoveries,
+      builder: (context, _) {
+        if (bloc.isRecoveryConfirmed(widget.uuid)) {
+          return const SizedBox.shrink();
+        }
+        if (bloc.isRecoveryPending(widget.uuid)) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                LocaleKeys.swapRecoveryInProgress.tr(),
+                style: TextStyle(color: Theme.of(context).colorScheme.primary),
+              ),
+              const SizedBox(height: 6),
+              Text(LocaleKeys.swapRecoverButtonSuccessMessage.tr()),
+            ],
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(LocaleKeys.swapRecoverButtonTitle.tr()),
+            const SizedBox(height: 10),
+            UiPrimaryButton(
+              text: LocaleKeys.swapRecoverButtonText.tr(),
+              onPressed: _isLoading ? null : () => _recover(bloc),
+            ),
+            if (_resultUnconfirmed)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  LocaleKeys.swapRecoveryUnconfirmed.tr(),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(top: 5.0),
-          child: _message.isNotEmpty ? _buildMessage() : const SizedBox(),
-        ),
-      ],
+              ),
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildMessage() {
-    final ThemeData themeData = Theme.of(context);
-    final RecoverFundsOfSwapResponse? response = _recoverResponse;
-    if (_isFailedRecover) {
-      return SelectableText(
-        _message,
-        style: TextStyle(
-          fontWeight: FontWeight.w500,
-          color: themeData.colorScheme.error,
-        ),
-      );
+  Future<void> _recover(TradingEntitiesBloc bloc) async {
+    if (_isLoading) return;
+    setState(() {
+      _isLoading = true;
+      _resultUnconfirmed = false;
+    });
+    try {
+      final response = await bloc.recoverFundsOfSwap(widget.uuid);
+      if (!mounted) return;
+      setState(() => _resultUnconfirmed = response == null);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _resultUnconfirmed = true);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-    final coinsRepository = RepositoryProvider.of<CoinsRepo>(context);
-    final Coin? coin = coinsRepository.getCoin(response?.result.coin ?? '');
-    if (coin == null || response == null) {
-      return const SizedBox();
-    }
-    final String url = getTxExplorerUrl(coin, response.result.txHash);
-
-    return Column(
-      children: [
-        SelectableText(
-          _message,
-          style: TextStyle(
-            fontWeight: FontWeight.w500,
-            color: theme.custom.successColor,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(top: 5.0),
-          child: InkWell(
-            child: Text(
-              '${LocaleKeys.transactionHash.tr()}: ${response.result.txHash}',
-            ),
-            onTap: () {
-              launchURLString(url);
-            },
-          ),
-        ),
-      ],
-    );
   }
 }

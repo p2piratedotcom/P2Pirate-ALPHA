@@ -36,6 +36,8 @@ import 'package:web_dex/services/arrr_activation/arrr_activation_service.dart';
 import 'package:web_dex/services/fd_monitor_service.dart';
 import 'package:web_dex/services/feedback/app_feedback_wrapper.dart';
 import 'package:web_dex/services/logger/get_logger.dart';
+import 'package:web_dex/services/kdf_install/kdf_install_service.dart';
+import 'package:web_dex/services/kdf_install/kdf_setup_screen.dart';
 import 'package:web_dex/services/logger/ui_performance_diagnostics.dart';
 import 'package:web_dex/services/storage/get_storage.dart';
 import 'package:web_dex/services/tor/pirate_tor_service.dart';
@@ -67,6 +69,7 @@ Future<void> main() async {
     };
 
     final stored = await SettingsRepository.loadStoredSettings();
+    mm2.configurePriceApi(stored.customPriceApiUrl);
     final torRequested =
         stored.torEnabled &&
         !kIsWeb &&
@@ -91,6 +94,7 @@ Future<void> main() async {
               await SettingsRepository().updateSettings(
                 stored.copyWith(torEnabled: false),
               );
+              await _ensureKdfReady();
               await _startWalletApp();
             },
           ),
@@ -99,6 +103,7 @@ Future<void> main() async {
       }
     }
 
+    await _ensureKdfReady();
     try {
       if (torRequested) {
         await _startWalletApp().timeout(const Duration(minutes: 2));
@@ -122,6 +127,23 @@ Future<void> main() async {
       );
     }
   }, catchUnhandledExceptions);
+}
+
+Future<void> _ensureKdfReady() async {
+  if (kIsWeb ||
+      defaultTargetPlatform != TargetPlatform.linux ||
+      await KdfInstallService.hasExecutable()) {
+    return;
+  }
+  final ready = Completer<void>();
+  runApp(
+    KdfSetupScreen(
+      onReady: () {
+        if (!ready.isCompleted) ready.complete();
+      },
+    ),
+  );
+  await ready.future;
 }
 
 Future<void> _startWalletApp() async {

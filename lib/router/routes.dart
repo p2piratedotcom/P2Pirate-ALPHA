@@ -139,6 +139,9 @@ class SettingsRoutePath implements AppRoutePath {
   SettingsRoutePath.security()
     : location = '/${firstUriSegment.settings}/security',
       selectedMenu = SettingsMenuValue.security;
+  SettingsRoutePath.appInfo()
+    : location = '/${firstUriSegment.settings}/app-info',
+      selectedMenu = SettingsMenuValue.appInfo;
   SettingsRoutePath.passwordUpdate()
     : location = '/${firstUriSegment.settings}/security/passwordUpdate',
       selectedMenu = SettingsMenuValue.security;

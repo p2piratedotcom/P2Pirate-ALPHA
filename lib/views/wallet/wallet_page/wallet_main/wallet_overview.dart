@@ -51,6 +51,9 @@ class _WalletOverviewState extends State<WalletOverview> {
 
   @override
   Widget build(BuildContext context) {
+    if (!context.watch<SettingsBloc>().state.showWalletUsdValues) {
+      return const SizedBox.shrink();
+    }
     final themeCustom = Theme.of(context).brightness == Brightness.dark
         ? Theme.of(context).extension<ThemeCustomDark>()!
         : Theme.of(context).extension<ThemeCustomLight>()!;
@@ -157,8 +160,8 @@ class _WalletOverviewState extends State<WalletOverview> {
               valueText: totalBalance == null
                   ? 'N/A'
                   : hideBalances
-                      ? '\$$maskedBalanceText'
-                      : null,
+                  ? '\$$maskedBalanceText'
+                  : null,
               onTap: widget.onAssetsPressed,
               onLongPress: totalBalance != null && !hideBalances
                   ? () {
@@ -168,7 +171,8 @@ class _WalletOverviewState extends State<WalletOverview> {
                       copyToClipBoard(context, formattedValue);
                     }
                   : null,
-              trendWidget: totalBalance != null && !valuation.isPartial && !hideBalances
+              trendWidget:
+                  totalBalance != null && !valuation.isPartial && !hideBalances
                   ? BlocBuilder<PortfolioGrowthBloc, PortfolioGrowthState>(
                       builder: (context, state) {
                         final double totalChange =
