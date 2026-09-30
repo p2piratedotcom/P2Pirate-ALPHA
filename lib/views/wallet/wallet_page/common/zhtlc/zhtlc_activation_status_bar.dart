@@ -203,8 +203,8 @@ class _ZhtlcActivationStatusBarState extends State<ZhtlcActivationStatusBar> {
                           ) {
                             return _ActivationStatusDetails(
                               assetId: assetId,
-                              progressPercentage:
-                                  progressPercentage?.toDouble() ?? 0,
+                              progressPercentage: progressPercentage
+                                  ?.toDouble(),
                               statusMessage:
                                   statusMessage ?? LocaleKeys.inProgress.tr(),
                               onCancel: () {
@@ -233,15 +233,16 @@ class _ActivationStatusDetails extends StatelessWidget {
   });
 
   final AssetId assetId;
-  final double progressPercentage;
+  final double? progressPercentage;
   final String statusMessage;
   final VoidCallback onCancel;
 
   @override
   Widget build(BuildContext context) {
-    final statusDetailsText =
-        '${assetId.id}: $statusMessage '
-        '(${progressPercentage.toStringAsFixed(0)}%)';
+    final percentage = progressPercentage;
+    final statusDetailsText = percentage == null
+        ? '${assetId.id}: $statusMessage'
+        : '${assetId.id}: $statusMessage (${percentage.toStringAsFixed(0)}%)';
 
     return Padding(
       padding: const EdgeInsets.only(left: 24.0),

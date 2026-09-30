@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:rational/rational.dart';
 import 'package:web_dex/bloc/coins_bloc/coins_bloc.dart';
+import 'package:web_dex/bloc/settings/settings_bloc.dart';
 import 'package:web_dex/generated/codegen_loader.g.dart';
 import 'package:web_dex/model/coin.dart';
 import 'package:web_dex/model/orderbook/order.dart';
@@ -35,15 +36,11 @@ class OrderbookSplitTable extends StatelessWidget {
     if (myOrder?.direction == OrderDirection.bid) bids.add(myOrder!);
     asks.sort((a, b) {
       final byPrice = a.price.compareTo(b.price);
-      return byPrice != 0
-          ? byPrice
-          : b.maxVolume.compareTo(a.maxVolume);
+      return byPrice != 0 ? byPrice : b.maxVolume.compareTo(a.maxVolume);
     });
     bids.sort((a, b) {
       final byPrice = b.price.compareTo(a.price);
-      return byPrice != 0
-          ? byPrice
-          : b.maxVolume.compareTo(a.maxVolume);
+      return byPrice != 0 ? byPrice : b.maxVolume.compareTo(a.maxVolume);
     });
 
     var highestVolume = Rational.zero;
@@ -137,7 +134,14 @@ class _OrderSidePanelState extends State<_OrderSidePanel> {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final showUsd = context.select<SettingsBloc, bool>(
+      (bloc) => bloc.state.showWalletUsdValues,
+    );
     final coinsState = context.watch<CoinsBloc>().state;
+    final quoteCoin = coinsState.coins[widget.priceTicker];
+    final quoteUsd = quoteCoin == null
+        ? null
+        : coinsState.getPriceForAsset(quoteCoin.id)?.price?.toDouble();
     return Container(
       height: 360,
       decoration: BoxDecoration(
@@ -152,7 +156,9 @@ class _OrderSidePanelState extends State<_OrderSidePanel> {
             padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
             child: Text(
               widget.title,
-              style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              style: textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
           Padding(
@@ -160,10 +166,14 @@ class _OrderSidePanelState extends State<_OrderSidePanel> {
             child: Row(
               children: [
                 Expanded(
-                  child: _ColumnHeading(LocaleKeys.price.tr(), widget.priceCoin),
+                  child: _ColumnHeading(
+                    LocaleKeys.price.tr(),
+                    widget.priceCoin,
+                  ),
                 ),
                 const SizedBox(width: 10),
-                const Expanded(child: _ColumnHeading('Price', 'USD')),
+                if (showUsd)
+                  const Expanded(child: _ColumnHeading('Price', 'USD')),
                 Expanded(
                   child: Align(
                     alignment: Alignment.centerRight,
@@ -215,13 +225,9 @@ class _OrderSidePanelState extends State<_OrderSidePanel> {
                           showOrderDetails: true,
                           // KDF quotes rel units per base unit. Convert that
                           // amount using the rel coin's current USD quote.
-                          usdPrice: _usdPrice(
-                            coinsState.getUsdPriceForAmount(
-                              order.price.toDouble(),
-                              widget.priceTicker,
-                            ),
-                          ),
-                          isSelected: widget.selectedOrderUuid != null &&
+                          usdPrice: showUsd ? _usdPrice(order, quoteUsd) : null,
+                          isSelected:
+                              widget.selectedOrderUuid != null &&
                               order.uuid == widget.selectedOrderUuid,
                           onClick: widget.onOrderClick,
                         );
@@ -234,8 +240,11 @@ class _OrderSidePanelState extends State<_OrderSidePanel> {
     );
   }
 
-  String _usdPrice(double? value) {
-    if (value == null || !value.isFinite || value <= 0) return 'N/A';
+  String _usdPrice(Order order, double? quoteUsd) {
+    if (quoteUsd == null || !quoteUsd.isFinite || quoteUsd <= 0) return 'N/A';
+    // KDF quotes rel units per one base unit on both sides.
+    final value = order.price.toDouble() * quoteUsd;
+    if (!value.isFinite || value <= 0) return 'N/A';
     if (value < 0.00000001) return '<\$0.00000001';
     return '\$${value.toStringAsFixed(value < 0.01 ? 8 : 2)}';
   }
