@@ -69,8 +69,9 @@ local approval. The SDK change is a separate prerequisite of GUI #38.
 
 A Linux release GUI build with these branches succeeded on 30 September. The
 rebuilt GUI and separate official KDF 2.7 executable reached the dashboard in
-an isolated profile with Tor disabled. The fresh-profile Tor startup and
-network behavior remain under local verification; no funded swap was made.
+an isolated profile with Tor disabled. Tor bootstrap timed out after two
+minutes in this environment; the app showed its explicit no-direct-connection
+screen, and its opt-out then opened the dashboard. No funded swap was made.
 The AppImage packaging script has not been run because `appimagetool` is not
 installed. The first-run KDF downloader has not been exercised end to end.
 
