@@ -49,6 +49,17 @@ class TradingEntitiesBloc implements BlocBase {
   bool _closed = false;
   DateTime? _lastFetchAt;
   bool _hasLoadedInitialSwaps = false;
+  Map<String, SwapRecoveryReceipt> _recoveries = {};
+  final Set<String> _submittingRecoveries = {};
+  DateTime? _lastRecoveryCheck;
+  bool _checkingRecoveries = false;
+  final StreamController<void> _recoveryController =
+      StreamController<void>.broadcast();
+  Stream<void> get outRecoveries => _recoveryController.stream;
+  bool isRecoveryPending(String uuid) =>
+      _submittingRecoveries.contains(uuid) ||
+      (_recoveries[uuid] != null && !_recoveries[uuid]!.confirmed);
+  bool isRecoveryConfirmed(String uuid) => _recoveries[uuid]?.confirmed == true;
 
   static const Duration _pollingInterval = Duration(seconds: 10);
   static const Duration _backgroundFetchInterval = Duration(seconds: 45);
@@ -113,6 +124,7 @@ class TradingEntitiesBloc implements BlocBase {
       unawaited(_saveHistory(walletId, walletRevision, completed));
     }
     _lastFetchAt = DateTime.now();
+    unawaited(_checkRecoveryConfirmations(walletId, walletRevision));
   }
 
   bool _isCompletedForCache(Swap swap) => swap.events.any(
@@ -131,6 +143,17 @@ class TradingEntitiesBloc implements BlocBase {
     } catch (_) {
       await log(
         'Local swap history is unavailable',
+        path: 'TradingEntitiesBloc',
+      );
+    }
+    try {
+      final recoveries = await _historyStorage.readRecoveries(walletId);
+      if (!await _isCurrentWallet(walletId, revision)) return;
+      _recoveries = recoveries;
+      _recoveryController.add(null);
+    } catch (_) {
+      await log(
+        'Local recovery status is unavailable',
         path: 'TradingEntitiesBloc',
       );
     }
@@ -164,6 +187,10 @@ class TradingEntitiesBloc implements BlocBase {
     _hasLoadedInitialSwaps = false;
     _lastFetchAt = null;
     _lastStoredSwaps = [];
+    _recoveries = {};
+    _submittingRecoveries.clear();
+    _lastRecoveryCheck = null;
+    _recoveryController.add(null);
     myOrders = [];
     swaps = [];
     _historyLoad = walletId == null
@@ -189,6 +216,7 @@ class TradingEntitiesBloc implements BlocBase {
     timer?.cancel();
     _myOrdersController.close();
     _swapsController.close();
+    _recoveryController.close();
   }
 
   void runUpdate() {
@@ -344,18 +372,111 @@ class TradingEntitiesBloc implements BlocBase {
   }
 
   Future<RecoverFundsOfSwapResponse?> recoverFundsOfSwap(String uuid) async {
+    if (_closed || isRecoveryPending(uuid) || isRecoveryConfirmed(uuid)) {
+      return null;
+    }
+    final walletId = _walletId;
+    final revision = _walletRevision;
+    if (walletId == null || !await _isCurrentWallet(walletId, revision)) {
+      return null;
+    }
+    _submittingRecoveries.add(uuid);
+    _recoveryController.add(null);
     final RecoverFundsOfSwapRequest request = RecoverFundsOfSwapRequest(
       uuid: uuid,
     );
-    final RecoverFundsOfSwapResponse? response = await _mm2Api
-        .recoverFundsOfSwap(request);
-    if (response != null) {
-      log(
-        response.toJson().toString(),
-        path: 'swaps_service => recoverFundsOfSwap',
-      );
+    try {
+      final response = await _mm2Api.recoverFundsOfSwap(request);
+      if (response != null && await _isCurrentWallet(walletId, revision)) {
+        _recoveries[uuid] = SwapRecoveryReceipt(
+          coin: response.result.coin,
+          txHash: response.result.txHash,
+          confirmed: false,
+        );
+        _lastRecoveryCheck = null;
+        _recoveryController.add(null);
+        try {
+          await _historyStorage.writeRecoveries(walletId, _recoveries);
+        } catch (_) {
+          await log(
+            'Could not save local recovery status',
+            path: 'TradingEntitiesBloc',
+          );
+        }
+        unawaited(_checkRecoveryConfirmations(walletId, revision));
+      }
+      return response;
+    } finally {
+      _submittingRecoveries.remove(uuid);
+      if (!_closed) _recoveryController.add(null);
     }
-    return response;
+  }
+
+  Future<void> _checkRecoveryConfirmations(
+    WalletId walletId,
+    int revision,
+  ) async {
+    if (_checkingRecoveries ||
+        !await _isCurrentWallet(walletId, revision) ||
+        !_recoveries.values.any((receipt) => !receipt.confirmed)) {
+      return;
+    }
+    final now = DateTime.now();
+    if (_lastRecoveryCheck != null &&
+        now.difference(_lastRecoveryCheck!) < const Duration(minutes: 5)) {
+      return;
+    }
+    _lastRecoveryCheck = now;
+    _checkingRecoveries = true;
+    try {
+      var changed = false;
+      final pending = _recoveries.entries
+          .where((entry) => !entry.value.confirmed)
+          .toList();
+      for (final coin in pending.map((entry) => entry.value.coin).toSet()) {
+        if (!await _isCurrentWallet(walletId, revision)) return;
+        final assets = _kdfSdk.assets.findAssetsByConfigId(coin);
+        if (assets.isEmpty) continue;
+        try {
+          final page = await _kdfSdk.transactions.getTransactionHistory(
+            assets.first,
+            pagination: const PagePagination(pageNumber: 1, itemsPerPage: 200),
+          );
+          if (!await _isCurrentWallet(walletId, revision)) return;
+          for (final entry in pending.where(
+            (entry) => entry.value.coin == coin,
+          )) {
+            final confirmed = page.transactions.any(
+              (tx) =>
+                  tx.txHash?.toLowerCase() ==
+                      entry.value.txHash.toLowerCase() &&
+                  tx.confirmations > 0,
+            );
+            if (confirmed) {
+              changed = true;
+              _recoveries[entry.key] = SwapRecoveryReceipt(
+                coin: coin,
+                txHash: entry.value.txHash,
+                confirmed: true,
+              );
+            }
+          }
+        } catch (_) {
+          // Transaction history can be unavailable until activation completes.
+        }
+      }
+      if (changed && await _isCurrentWallet(walletId, revision)) {
+        _recoveryController.add(null);
+        await _historyStorage.writeRecoveries(walletId, _recoveries);
+      }
+    } catch (_) {
+      await log(
+        'Could not verify recovery confirmations',
+        path: 'TradingEntitiesBloc',
+      );
+    } finally {
+      _checkingRecoveries = false;
+    }
   }
 
   Future<Rational?> getMaxTakerVolume(String coinAbbr) async {

@@ -41,6 +41,14 @@ final class CoinsDeactivated extends CoinsEvent {
 
 final class CoinsPricesUpdated extends CoinsEvent {}
 
+final class CoinPriceRequested extends CoinsEvent {
+  const CoinPriceRequested(this.ticker);
+  final String ticker;
+
+  @override
+  List<Object> get props => [ticker];
+}
+
 /// Emitted when a coin's balance has changed (real-time from SDK)
 final class CoinsBalanceChanged extends CoinsEvent {
   const CoinsBalanceChanged(this.coin);
@@ -84,10 +92,11 @@ final class CoinsWalletCoinUpdated extends CoinsEvent {
 
 // TODO! Refactor to remove this so that the pubkeys are loaded with the coins
 class CoinsPubkeysRequested extends CoinsEvent {
-  const CoinsPubkeysRequested(this.coinId);
+  const CoinsPubkeysRequested(this.coinId, {this.forceRefresh = false});
 
   final String coinId;
+  final bool forceRefresh;
 
   @override
-  List<Object> get props => [coinId];
+  List<Object> get props => [coinId, forceRefresh];
 }

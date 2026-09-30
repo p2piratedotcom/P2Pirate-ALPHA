@@ -38,6 +38,9 @@ class MainLayoutTopBar extends StatelessWidget {
         elevation: 0,
         leading: BlocBuilder<CoinsBloc, CoinsState>(
           builder: (context, state) {
+            if (!context.watch<SettingsBloc>().state.showWalletUsdValues) {
+              return const SizedBox.shrink();
+            }
             final totalBalance = computeWalletTotalUsd(
               coins: state.walletCoins.values,
               coinsState: state,

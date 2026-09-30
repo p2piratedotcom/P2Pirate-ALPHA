@@ -65,3 +65,19 @@ class TorEnabledChanged extends SettingsEvent {
   @override
   List<Object> get props => [torEnabled];
 }
+
+class ShowWalletUsdValuesChanged extends SettingsEvent {
+  const ShowWalletUsdValuesChanged(this.showWalletUsdValues);
+  final bool showWalletUsdValues;
+
+  @override
+  List<Object> get props => [showWalletUsdValues];
+}
+
+class CustomPriceApiUrlChanged extends SettingsEvent {
+  const CustomPriceApiUrlChanged(this.url);
+  final String url;
+
+  @override
+  List<Object> get props => [url];
+}

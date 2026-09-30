@@ -36,6 +36,9 @@ import 'package:web_dex/services/arrr_activation/arrr_activation_service.dart';
 import 'package:web_dex/services/fd_monitor_service.dart';
 import 'package:web_dex/services/feedback/app_feedback_wrapper.dart';
 import 'package:web_dex/services/logger/get_logger.dart';
+import 'package:web_dex/services/kdf_install/kdf_install_service.dart';
+import 'package:web_dex/services/kdf_install/kdf_setup_screen.dart';
+import 'package:web_dex/services/logger/ui_performance_diagnostics.dart';
 import 'package:web_dex/services/storage/get_storage.dart';
 import 'package:web_dex/services/tor/pirate_tor_service.dart';
 import 'package:web_dex/services/tor/pirate_tor_status.dart';
@@ -60,12 +63,14 @@ Future<void> main() async {
     WidgetsFlutterBinding.ensureInitialized();
     Bloc.observer = AppBlocObserver();
     PerformanceAnalytics.init();
+    UiPerformanceDiagnostics.start();
 
     FlutterError.onError = (FlutterErrorDetails details) {
       catchUnhandledExceptions(details.exception, details.stack);
     };
 
     final stored = await SettingsRepository.loadStoredSettings();
+    mm2.configurePriceApi(stored.customPriceApiUrl);
     final torRequested =
         stored.torEnabled &&
         !kIsWeb &&
@@ -88,6 +93,7 @@ Future<void> main() async {
     }
 
     try {
+      await _ensureKdfReady();
       if (torRequested) {
         await _startWalletApp().timeout(const Duration(minutes: 2));
       } else {
@@ -115,6 +121,23 @@ Future<void> main() async {
       _showTorFailure(error.toString(), stored);
     }
   }, catchUnhandledExceptions);
+}
+
+Future<void> _ensureKdfReady() async {
+  if (kIsWeb ||
+      defaultTargetPlatform != TargetPlatform.linux ||
+      await KdfInstallService.hasExecutable()) {
+    return;
+  }
+  final ready = Completer<void>();
+  runApp(
+    KdfSetupScreen(
+      onReady: () {
+        if (!ready.isCompleted) ready.complete();
+      },
+    ),
+  );
+  await ready.future;
 }
 
 void _showTorFailure(String error, StoredSettings stored) {

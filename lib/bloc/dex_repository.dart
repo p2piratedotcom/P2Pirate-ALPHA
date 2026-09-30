@@ -26,6 +26,7 @@ import 'package:web_dex/model/main_menu_value.dart';
 import 'package:web_dex/model/text_error.dart';
 import 'package:web_dex/model/trade_preimage.dart';
 import 'package:web_dex/services/mappers/trade_preimage_mappers.dart';
+import 'package:web_dex/services/logger/swap_attempt_diagnostics.dart';
 import 'package:web_dex/shared/utils/utils.dart';
 
 class DexRepository {
@@ -39,11 +40,21 @@ class DexRepository {
   static const Duration _minVolumeCacheTtl = Duration(seconds: 10);
 
   Future<SellResponse> sell(SellRequest request) async {
+    final diagnostics = SwapAttemptDiagnostics('sell_rpc');
     try {
       final Map<String, dynamic> response = await _mm2Api.sell(request);
-      return SellResponse.fromJson(response);
+      final result = SellResponse.fromJson(response);
+      diagnostics.finish(result.error == null ? 'accepted' : 'rejected');
+      return result;
     } catch (e) {
-      return SellResponse(error: TextError.fromString(e.toString()));
+      diagnostics.finish('outcome_unknown', error: e);
+      return SellResponse(
+        error: TextError(
+          error:
+              'Swap submission result is unknown. Check active swaps and history before trying again.',
+        ),
+        outcomeUnknown: true,
+      );
     }
   }
 
@@ -62,6 +73,7 @@ class DexRepository {
       cacheKey,
       ttl: _tradePreimageCacheTtl,
       request: () async {
+        final diagnostics = SwapAttemptDiagnostics('trade_preimage_rpc');
         final request = TradePreimageRequest(
           base: base,
           rel: rel,
@@ -75,26 +87,37 @@ class DexRepository {
           TradePreimageResponseResult,
           Map<String, dynamic>
         >
-        response = await _mm2Api.getTradePreimage(request);
+        response = await _mm2Api.getTradePreimage(request).catchError((
+          Object error,
+        ) {
+          diagnostics.finish('transport_error', error: error);
+          throw error;
+        });
 
         final Map<String, dynamic>? error = response.error;
         final TradePreimageResponseResult? result = response.result;
         if (error != null) {
+          diagnostics.finish('rejected');
           return DataFromService(
             error: tradePreimageErrorFactory.getError(error, response.request),
           );
         }
         if (result == null) {
+          diagnostics.finish('missing_result');
           return DataFromService(error: TextError(error: 'Something wrong'));
         }
         try {
-          return DataFromService(
-            data: mapTradePreimageResponseResultToTradePreimage(
-              result,
-              response.request,
-            ),
-          );
+          final DataFromService<TradePreimage, BaseError> preimage =
+              DataFromService(
+                data: mapTradePreimageResponseResultToTradePreimage(
+                  result,
+                  response.request,
+                ),
+              );
+          diagnostics.finish('accepted');
+          return preimage;
         } catch (e, s) {
+          diagnostics.finish('mapping_error', error: e);
           log(
             e.toString(),
             path:

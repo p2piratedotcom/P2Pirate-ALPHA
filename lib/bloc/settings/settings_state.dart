@@ -13,6 +13,8 @@ class SettingsState extends Equatable {
     required this.diagnosticLoggingEnabled,
     required this.hideBalances,
     required this.torEnabled,
+    required this.showWalletUsdValues,
+    required this.customPriceApiUrl,
   });
 
   factory SettingsState.fromStored(StoredSettings stored) {
@@ -25,6 +27,8 @@ class SettingsState extends Equatable {
       diagnosticLoggingEnabled: stored.diagnosticLoggingEnabled,
       hideBalances: stored.hideBalances,
       torEnabled: stored.torEnabled,
+      showWalletUsdValues: stored.showWalletUsdValues,
+      customPriceApiUrl: stored.customPriceApiUrl,
     );
   }
 
@@ -36,6 +40,8 @@ class SettingsState extends Equatable {
   final bool diagnosticLoggingEnabled;
   final bool hideBalances;
   final bool torEnabled;
+  final bool showWalletUsdValues;
+  final String customPriceApiUrl;
 
   @override
   List<Object?> get props => [
@@ -47,6 +53,8 @@ class SettingsState extends Equatable {
     diagnosticLoggingEnabled,
     hideBalances,
     torEnabled,
+    showWalletUsdValues,
+    customPriceApiUrl,
   ];
 
   SettingsState copyWith({
@@ -58,6 +66,8 @@ class SettingsState extends Equatable {
     bool? diagnosticLoggingEnabled,
     bool? hideBalances,
     bool? torEnabled,
+    bool? showWalletUsdValues,
+    String? customPriceApiUrl,
   }) {
     return SettingsState(
       themeMode: mode ?? themeMode,
@@ -70,6 +80,8 @@ class SettingsState extends Equatable {
           diagnosticLoggingEnabled ?? this.diagnosticLoggingEnabled,
       hideBalances: hideBalances ?? this.hideBalances,
       torEnabled: torEnabled ?? this.torEnabled,
+      showWalletUsdValues: showWalletUsdValues ?? this.showWalletUsdValues,
+      customPriceApiUrl: customPriceApiUrl ?? this.customPriceApiUrl,
     );
   }
 }

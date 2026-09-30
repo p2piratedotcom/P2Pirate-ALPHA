@@ -15,6 +15,8 @@ class StoredSettings {
     required this.diagnosticLoggingEnabled,
     required this.hideBalances,
     required this.torEnabled,
+    required this.showWalletUsdValues,
+    required this.customPriceApiUrl,
   });
 
   final ThemeMode mode;
@@ -26,6 +28,8 @@ class StoredSettings {
   final bool diagnosticLoggingEnabled;
   final bool hideBalances;
   final bool torEnabled;
+  final bool showWalletUsdValues;
+  final String customPriceApiUrl;
 
   static bool get defaultTorEnabled =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.linux;
@@ -41,6 +45,8 @@ class StoredSettings {
       diagnosticLoggingEnabled: false,
       hideBalances: false,
       torEnabled: defaultTorEnabled,
+      showWalletUsdValues: true,
+      customPriceApiUrl: '',
     );
   }
 
@@ -59,6 +65,8 @@ class StoredSettings {
       diagnosticLoggingEnabled: json['diagnosticLoggingEnabled'] ?? false,
       hideBalances: json['hideBalances'] ?? false,
       torEnabled: json['torEnabled'] ?? defaultTorEnabled,
+      showWalletUsdValues: json['showWalletUsdValues'] ?? true,
+      customPriceApiUrl: json['customPriceApiUrl'] ?? '',
     );
   }
 
@@ -73,6 +81,8 @@ class StoredSettings {
       'diagnosticLoggingEnabled': diagnosticLoggingEnabled,
       'hideBalances': hideBalances,
       'torEnabled': torEnabled,
+      'showWalletUsdValues': showWalletUsdValues,
+      'customPriceApiUrl': customPriceApiUrl,
     };
   }
 
@@ -100,6 +110,8 @@ class StoredSettings {
     bool? diagnosticLoggingEnabled,
     bool? hideBalances,
     bool? torEnabled,
+    bool? showWalletUsdValues,
+    String? customPriceApiUrl,
   }) {
     return StoredSettings(
       mode: mode ?? this.mode,
@@ -114,6 +126,8 @@ class StoredSettings {
           diagnosticLoggingEnabled ?? this.diagnosticLoggingEnabled,
       hideBalances: hideBalances ?? this.hideBalances,
       torEnabled: torEnabled ?? this.torEnabled,
+      showWalletUsdValues: showWalletUsdValues ?? this.showWalletUsdValues,
+      customPriceApiUrl: customPriceApiUrl ?? this.customPriceApiUrl,
     );
   }
 }

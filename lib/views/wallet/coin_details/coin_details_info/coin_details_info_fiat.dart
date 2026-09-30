@@ -1,16 +1,15 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:komodo_defi_sdk/komodo_defi_sdk.dart';
 import 'package:app_theme/src/dark/theme_custom_dark.dart';
 import 'package:app_theme/src/light/theme_custom_light.dart';
 import 'package:komodo_ui/komodo_ui.dart' show TrendPercentageText;
 import 'package:web_dex/bloc/coins_bloc/coins_bloc.dart';
+import 'package:web_dex/bloc/settings/settings_bloc.dart';
 import 'package:web_dex/generated/codegen_loader.g.dart';
 import 'package:web_dex/model/coin.dart';
 import 'package:web_dex/shared/widgets/coin_fiat_balance.dart';
 import 'package:web_dex/shared/utils/formatters.dart';
-import 'package:web_dex/shared/utils/extensions/legacy_coin_migration_extensions.dart';
 
 class CoinDetailsInfoFiat extends StatelessWidget {
   const CoinDetailsInfoFiat({
@@ -24,6 +23,9 @@ class CoinDetailsInfoFiat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!context.watch<SettingsBloc>().state.showWalletUsdValues) {
+      return const SizedBox.shrink();
+    }
     return Container(
       padding: isMobile ? null : const EdgeInsets.fromLTRB(0, 6, 4, 0),
       child: Flex(
@@ -54,11 +56,12 @@ class _AssetFiatPrice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Use the same approach as main wallet page
-    final sdk = context.read<KomodoDefiSdk>();
-    final double? usdPrice = coin.lastKnownUsdPrice(sdk);
-
-    if (usdPrice == null || usdPrice == 0) return const SizedBox();
+    final double? usdPrice = context
+        .watch<CoinsBloc>()
+        .state
+        .getPriceForAsset(coin.id)
+        ?.price
+        ?.toDouble();
 
     final TextStyle style = TextStyle(
       fontSize: isMobile ? 16 : 14,
@@ -78,15 +81,12 @@ class _AssetFiatPrice extends StatelessWidget {
           ),
         ),
         isMobile ? const SizedBox(height: 3) : const SizedBox(width: 10),
-        Row(
-          children: [
-            Text('\$', style: style),
-            Text(
-              formatAmt(usdPrice),
-              key: Key('fiat-price-${coin.abbr.toLowerCase()}'),
-              style: style,
-            ),
-          ],
+        Text(
+          usdPrice == null || usdPrice <= 0
+              ? 'N/A'
+              : '\$${formatAmt(usdPrice)}',
+          key: Key('fiat-price-${coin.abbr.toLowerCase()}'),
+          style: style,
         ),
       ],
     );

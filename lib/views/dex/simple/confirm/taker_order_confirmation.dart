@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:app_theme/app_theme.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -45,14 +47,22 @@ class _TakerOrderConfirmationState extends State<TakerOrderConfirmation> {
       padding: EdgeInsets.only(top: isMobile ? 18.0 : 9.00),
       constraints: BoxConstraints(maxWidth: theme.custom.dexFormWidth),
       child: BlocConsumer<TakerBloc, TakerState>(
-        listenWhen: (prev, current) => current.swapUuid != null,
+        listenWhen: (prev, current) =>
+            current.swapUuid != null && prev.swapUuid != current.swapUuid,
         listener: _onSwapStarted,
         buildWhen: (prev, current) {
-          return prev.tradePreimage != current.tradePreimage;
+          return prev.tradePreimage != current.tradePreimage ||
+              prev.errors != current.errors ||
+              prev.inProgress != current.inProgress;
         },
         builder: (context, state) {
           final TradePreimage? preimage = state.tradePreimage;
-          if (preimage == null) return const UiSpinner();
+          if (preimage == null) {
+            return _PreimageLoading(
+              errors: state.errors,
+              backButton: _buildBackButton(),
+            );
+          }
 
           final Coin? sellCoin = coinsBloc.getCoin(preimage.request.base);
           final Coin? buyCoin = coinsBloc.getCoin(preimage.request.rel);
@@ -97,6 +107,7 @@ class _TakerOrderConfirmationState extends State<TakerOrderConfirmation> {
                   const SizedBox(height: 10),
                   const TakerFormTotalFees(),
                   const SizedBox(height: 24),
+                  if (state.inProgress) const _SwapSubmissionProgress(),
                   _buildError(),
                   Flexible(child: _buildButtons(sellCoin, buyCoin)),
                 ],
@@ -109,9 +120,12 @@ class _TakerOrderConfirmationState extends State<TakerOrderConfirmation> {
   }
 
   Widget _buildBackButton() {
-    return BlocSelector<TakerBloc, TakerState, bool>(
-      selector: (state) => state.inProgress,
-      builder: (context, inProgress) {
+    return BlocBuilder<TakerBloc, TakerState>(
+      buildWhen: (previous, current) =>
+          previous.inProgress != current.inProgress ||
+          previous.submissionOutcomeUnknown != current.submissionOutcomeUnknown,
+      builder: (context, state) {
+        final inProgress = state.inProgress;
         return UiLightButton(
           onPressed: inProgress
               ? null
@@ -139,9 +153,12 @@ class _TakerOrderConfirmationState extends State<TakerOrderConfirmation> {
       buyCoin.id,
     ]);
 
-    return BlocSelector<TakerBloc, TakerState, bool>(
-      selector: (state) => state.inProgress,
-      builder: (context, inProgress) {
+    return BlocBuilder<TakerBloc, TakerState>(
+      buildWhen: (previous, current) =>
+          previous.inProgress != current.inProgress ||
+          previous.submissionOutcomeUnknown != current.submissionOutcomeUnknown,
+      builder: (context, state) {
+        final inProgress = state.inProgress;
         return Opacity(
           opacity: inProgress ? 0.8 : 1,
           child: UiPrimaryButton(
@@ -157,7 +174,8 @@ class _TakerOrderConfirmationState extends State<TakerOrderConfirmation> {
                     ),
                   )
                 : null,
-            onPressed: inProgress || !tradingEnabled
+            onPressed:
+                inProgress || state.submissionOutcomeUnknown || !tradingEnabled
                 ? null
                 : () => _startSwap(context),
             text: tradingEnabled
@@ -370,5 +388,108 @@ class _TakerOrderConfirmationState extends State<TakerOrderConfirmation> {
     // Give MM2/KDF a short moment to register the swap before first fetch
     await Future<dynamic>.delayed(const Duration(seconds: 1));
     await tradingEntitiesBloc.fetch();
+  }
+}
+
+class _PreimageLoading extends StatefulWidget {
+  const _PreimageLoading({required this.errors, required this.backButton});
+
+  final List<DexFormError> errors;
+  final Widget backButton;
+
+  @override
+  State<_PreimageLoading> createState() => _PreimageLoadingState();
+}
+
+class _PreimageLoadingState extends State<_PreimageLoading> {
+  late final Timer _timeout;
+  bool _timedOut = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _timeout = Timer(const Duration(seconds: 30), () {
+      if (mounted) setState(() => _timedOut = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timeout.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasError = widget.errors.isNotEmpty;
+    final message = hasError
+        ? widget.errors.first.error
+        : _timedOut
+        ? LocaleKeys.swapQuoteTimeout.tr()
+        : LocaleKeys.swapQuotePending.tr();
+
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!hasError && !_timedOut) const UiSpinner(),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: hasError || _timedOut
+                  ? Theme.of(context).colorScheme.error
+                  : null,
+            ),
+          ),
+          const SizedBox(height: 16),
+          widget.backButton,
+        ],
+      ),
+    );
+  }
+}
+
+class _SwapSubmissionProgress extends StatefulWidget {
+  const _SwapSubmissionProgress();
+
+  @override
+  State<_SwapSubmissionProgress> createState() =>
+      _SwapSubmissionProgressState();
+}
+
+class _SwapSubmissionProgressState extends State<_SwapSubmissionProgress> {
+  late final Timer _timeout;
+  bool _timedOut = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _timeout = Timer(const Duration(minutes: 1), () {
+      if (mounted) setState(() => _timedOut = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timeout.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Text(
+        _timedOut
+            ? LocaleKeys.swapSubmissionDelayed.tr()
+            : LocaleKeys.swapStartPending.tr(),
+        textAlign: TextAlign.center,
+        style: _timedOut
+            ? TextStyle(color: Theme.of(context).colorScheme.error)
+            : null,
+      ),
+    );
   }
 }

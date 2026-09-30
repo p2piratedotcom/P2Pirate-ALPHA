@@ -154,6 +154,7 @@ abstract class LocaleKeys {
   static const settingsMenuGeneral = 'settingsMenuGeneral';
   static const settingsMenuLanguage = 'settingsMenuLanguage';
   static const settingsMenuSecurity = 'settingsMenuSecurity';
+  static const settingsMenuAppInfo = 'settingsMenuAppInfo';
   static const settingsMenuAbout = 'settingsMenuAbout';
   static const seedPhraseSettingControlsViewSeed =
       'seedPhraseSettingControlsViewSeed';
@@ -198,6 +199,8 @@ abstract class LocaleKeys {
   static const swapRecoverButtonTitle = 'swapRecoverButtonTitle';
   static const swapRecoverButtonText = 'swapRecoverButtonText';
   static const swapRecoverButtonErrorMessage = 'swapRecoverButtonErrorMessage';
+  static const swapRecoveryInProgress = 'swapRecoveryInProgress';
+  static const swapRecoveryUnconfirmed = 'swapRecoveryUnconfirmed';
   static const swapRecoverButtonSuccessMessage =
       'swapRecoverButtonSuccessMessage';
   static const swapProgressStatusFailed = 'swapProgressStatusFailed';
@@ -448,6 +451,10 @@ abstract class LocaleKeys {
   static const notEnoughFundsError = 'notEnoughFundsError';
   static const dexErrorMessage = 'dexErrorMessage';
   static const dexUnableToStartSwap = 'dexUnableToStartSwap';
+  static const swapQuotePending = 'swapQuotePending';
+  static const swapQuoteTimeout = 'swapQuoteTimeout';
+  static const swapStartPending = 'swapStartPending';
+  static const swapSubmissionDelayed = 'swapSubmissionDelayed';
   static const seedConfirmInitialText = 'seedConfirmInitialText';
   static const seedConfirmIncorrectText = 'seedConfirmIncorrectText';
   static const mnemonicInvalidWordError = 'mnemonicInvalidWordError';

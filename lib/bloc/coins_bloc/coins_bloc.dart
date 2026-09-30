@@ -29,6 +29,7 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     on<CoinsActivated>(_onCoinsActivated, transformer: concurrent());
     on<CoinsDeactivated>(_onCoinsDeactivated, transformer: concurrent());
     on<CoinsPricesUpdated>(_onPricesUpdated, transformer: droppable());
+    on<CoinPriceRequested>(_onCoinPriceRequested, transformer: concurrent());
     on<CoinsSessionStarted>(_onLogin, transformer: restartable());
     on<CoinsSessionEnded>(_onLogout, transformer: restartable());
     on<CoinsWalletCoinUpdated>(_onWalletCoinUpdated, transformer: sequential());
@@ -44,6 +45,47 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
   final TradingStatusService _tradingStatusService;
 
   final _log = Logger('CoinsBloc');
+  final Set<String> _pendingPrices = {};
+
+  Future<void> _onCoinPriceRequested(
+    CoinPriceRequested event,
+    Emitter<CoinsState> emit,
+  ) async {
+    final coin = state.coins[event.ticker];
+    if (coin == null) return;
+    final key = coin.id.symbol.configSymbol.toUpperCase();
+    final cached = state.getPriceForAsset(coin.id);
+    if (cached != null &&
+        DateTime.now().difference(cached.lastUpdated) <
+            const Duration(minutes: 1)) {
+      return;
+    }
+    if (!_pendingPrices.add(key)) return;
+    try {
+      final value = await _kdfSdk.marketData
+          .maybeFiatPrice(coin.id)
+          .timeout(const Duration(seconds: 45));
+      if (emit.isDone ||
+          value == null ||
+          value.toDouble() <= 0 ||
+          !value.toDouble().isFinite) {
+        return;
+      }
+      final price = CexPrice(
+        assetId: coin.id,
+        price: value,
+        change24h: cached?.change24h,
+        lastUpdated: DateTime.now(),
+      );
+      emit(state.copyWith(prices: {...state.prices, key: price}));
+    } catch (_) {
+      // Keep the last valid quote; the freshness check will expire it.
+    } finally {
+      _pendingPrices.remove(key);
+    }
+  }
+
+  final Set<String> _refreshingPubkeys = {};
 
   StreamSubscription<Coin>? _enabledCoinsSubscription;
   StreamSubscription<Coin>? _balanceChangesSubscription;
@@ -65,6 +107,7 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     CoinsPubkeysRequested event,
     Emitter<CoinsState> emit,
   ) async {
+    if (event.forceRefresh && !_refreshingPubkeys.add(event.coinId)) return;
     try {
       if (_isInitialActivationInProgress) {
         _log.info(
@@ -87,12 +130,17 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
 
       // Get pubkeys from the SDK through the repo
       final asset = _kdfSdk.assets.available[coin.id]!;
+      if (event.forceRefresh) {
+        await _kdfSdk.pubkeys.precachePubkeys(asset);
+      }
       final pubkeys = await _kdfSdk.pubkeys.getPubkeys(asset);
 
       // Update state with new pubkeys
       emit(state.copyWith(pubkeys: {...state.pubkeys, event.coinId: pubkeys}));
     } catch (e, s) {
       _log.shout('Failed to get pubkeys for ${event.coinId}', e, s);
+    } finally {
+      if (event.forceRefresh) _refreshingPubkeys.remove(event.coinId);
     }
   }
 
@@ -113,11 +161,6 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     await _tradingStatusService.initialStatusReady;
 
     emit(state.copyWith(coins: _coinsRepo.getKnownCoinsMap()));
-
-    final existingUser = await _kdfSdk.auth.currentUser;
-    if (existingUser != null) {
-      add(CoinsSessionStarted(existingUser));
-    }
 
     add(CoinsPricesUpdated());
     _updatePricesTimer?.cancel();
@@ -145,6 +188,13 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     _balanceChangesSubscription = _coinsRepo.balanceChanges.stream.listen(
       (Coin coin) => add(CoinsBalanceChanged(coin)),
     );
+
+    // An already enabled ARRR coin can broadcast its active state immediately.
+    // Start listening before kicking off activation for an existing session.
+    final existingUser = await _kdfSdk.auth.currentUser;
+    if (existingUser != null) {
+      add(CoinsSessionStarted(existingUser));
+    }
   }
 
   Future<void> _onCoinsRefreshed(
@@ -220,6 +270,13 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
         coins: {...state.coins, assetId: merged},
       ),
     );
+
+    // Refresh expanded address balances after a live ARRR total update.
+    // Avoid work for wallets whose address details are not open yet.
+    if (merged.abbr.toUpperCase() == 'ARRR' &&
+        state.pubkeys.containsKey(assetId)) {
+      add(CoinsPubkeysRequested(assetId, forceRefresh: true));
+    }
   }
 
   Future<void> _onCoinsBalanceMonitoringStopped(
@@ -331,9 +388,10 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
         return;
       }
 
-      final prices = Map<String, CexPrice>.unmodifiable(
-        Map<String, CexPrice>.from(fetchedPrices),
-      );
+      final prices = Map<String, CexPrice>.unmodifiable({
+        ...state.prices,
+        ...fetchedPrices,
+      });
       final didPricesChange = !const MapEquality().equals(state.prices, prices);
       if (!didPricesChange) {
         _log.info('Coin prices list unchanged');
@@ -618,9 +676,13 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
           })
           .where((coin) => coin != null)
           .cast<Coin>()
-          // Do not pre-populate zhtlc coins, as they require configuration
-          // and longer activation times, and are handled separately.
-          .where((coin) => coin.id.subClass != CoinSubClass.zhtlc),
+          // Show default ARRR while its longer ZHTLC activation is pending.
+          // Other ZHTLC coins still wait for their configuration flow.
+          .where(
+            (coin) =>
+                coin.id.subClass != CoinSubClass.zhtlc ||
+                coin.id.id == defaultDexCoin,
+          ),
       key: (element) => (element as Coin).id.id,
     );
     return state.copyWith(
