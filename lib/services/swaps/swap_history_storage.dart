@@ -5,6 +5,41 @@ import 'package:komodo_defi_types/komodo_defi_types.dart';
 import 'package:web_dex/model/swap.dart';
 import 'package:web_dex/shared/utils/utils.dart';
 
+class SwapRecoveryReceipt {
+  const SwapRecoveryReceipt({
+    required this.coin,
+    required this.txHash,
+    required this.confirmed,
+  });
+
+  final String coin;
+  final String txHash;
+  final bool confirmed;
+
+  Map<String, dynamic> toJson() => {
+    'coin': coin,
+    'tx_hash': txHash,
+    'confirmed': confirmed,
+  };
+
+  static SwapRecoveryReceipt? fromJson(Object? value) {
+    if (value is! Map) return null;
+    final coin = value['coin'];
+    final txHash = value['tx_hash'];
+    if (coin is! String ||
+        txHash is! String ||
+        coin.isEmpty ||
+        txHash.isEmpty) {
+      return null;
+    }
+    return SwapRecoveryReceipt(
+      coin: coin,
+      txHash: txHash,
+      confirmed: value['confirmed'] == true,
+    );
+  }
+}
+
 /// A bounded, per-wallet copy of completed swaps for the History screen.
 class SwapHistoryStorage {
   const SwapHistoryStorage({FlutterSecureStorage? storage})
@@ -14,6 +49,34 @@ class SwapHistoryStorage {
 
   String _key(WalletId walletId) =>
       'pirate_swap_history_v1_${walletId.compoundId}';
+  String _recoveryKey(WalletId walletId) =>
+      'pirate_swap_recovery_v1_${walletId.compoundId}';
+
+  Future<Map<String, SwapRecoveryReceipt>> readRecoveries(
+    WalletId walletId,
+  ) async {
+    final raw = await _storage.read(key: _recoveryKey(walletId));
+    if (raw == null) return {};
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) return {};
+    final receipts = <String, SwapRecoveryReceipt>{};
+    for (final entry in decoded.entries) {
+      if (entry.key is! String) continue;
+      final receipt = SwapRecoveryReceipt.fromJson(entry.value);
+      if (receipt != null) receipts[entry.key as String] = receipt;
+    }
+    return receipts;
+  }
+
+  Future<void> writeRecoveries(
+    WalletId walletId,
+    Map<String, SwapRecoveryReceipt> recoveries,
+  ) => _storage.write(
+    key: _recoveryKey(walletId),
+    value: jsonEncode(
+      recoveries.map((uuid, receipt) => MapEntry(uuid, receipt.toJson())),
+    ),
+  );
 
   Future<List<Swap>> read(WalletId walletId) async {
     final raw = await _storage.read(key: _key(walletId));

@@ -29,6 +29,8 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     on<DiagnosticLoggingChanged>(_onDiagnosticLoggingChanged);
     on<HideBalancesChanged>(_onHideBalancesChanged);
     on<TorEnabledChanged>(_onTorEnabledChanged);
+    on<ShowWalletUsdValuesChanged>(_onShowWalletUsdValuesChanged);
+    on<CustomPriceApiUrlChanged>(_onCustomPriceApiUrlChanged);
   }
 
   late StoredSettings _storedSettings;
@@ -129,5 +131,34 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     _storedSettings = _storedSettings.copyWith(torEnabled: event.torEnabled);
     await _settingsRepo.updateSettings(_storedSettings);
     emitter(state.copyWith(torEnabled: event.torEnabled));
+  }
+
+  Future<void> _onShowWalletUsdValuesChanged(
+    ShowWalletUsdValuesChanged event,
+    Emitter<SettingsState> emitter,
+  ) async {
+    _storedSettings = _storedSettings.copyWith(
+      showWalletUsdValues: event.showWalletUsdValues,
+    );
+    await _settingsRepo.updateSettings(_storedSettings);
+    emitter(state.copyWith(showWalletUsdValues: event.showWalletUsdValues));
+  }
+
+  Future<void> _onCustomPriceApiUrlChanged(
+    CustomPriceApiUrlChanged event,
+    Emitter<SettingsState> emitter,
+  ) async {
+    final url = event.url.trim();
+    final uri = Uri.tryParse(url);
+    if (url.isNotEmpty &&
+        (uri == null ||
+            uri.scheme != 'https' ||
+            uri.host.isEmpty ||
+            uri.userInfo.isNotEmpty)) {
+      return;
+    }
+    _storedSettings = _storedSettings.copyWith(customPriceApiUrl: url);
+    await _settingsRepo.updateSettings(_storedSettings);
+    emitter(state.copyWith(customPriceApiUrl: url));
   }
 }

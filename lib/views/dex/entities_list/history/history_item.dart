@@ -42,65 +42,78 @@ class _HistoryItemState extends State<HistoryItem> {
         : '-';
     final bool isSuccessful = widget.swap.isSuccessful;
     final bool isTaker = widget.swap.isTaker;
-    final bool isRecoverable = widget.swap.recoverable;
     final tradingEntitiesBloc = RepositoryProvider.of<TradingEntitiesBloc>(
       context,
     );
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (isMobile)
-          Text(
-            tradingEntitiesBloc.getTypeString(isTaker),
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: _typeColor,
-            ),
-          ),
-        FocusableWidget(
-          key: Key('swap-item-$uuid'),
-          onTap: widget.onClick,
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(6, 12, 6, 12),
-            margin: const EdgeInsets.only(bottom: 12),
-            decoration: BoxDecoration(
+    return StreamBuilder<void>(
+      stream: tradingEntitiesBloc.outRecoveries,
+      builder: (context, _) {
+        final recoveryPending = tradingEntitiesBloc.isRecoveryPending(uuid);
+        final recoveryAllowed =
+            widget.swap.recoverable &&
+            !recoveryPending &&
+            !tradingEntitiesBloc.isRecoveryConfirmed(uuid);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (isMobile)
+              Text(
+                tradingEntitiesBloc.getTypeString(isTaker),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: _typeColor,
+                ),
+              ),
+            FocusableWidget(
+              key: Key('swap-item-$uuid'),
+              onTap: widget.onClick,
               borderRadius: BorderRadius.circular(10),
-              color: Theme.of(context).colorScheme.surface,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(6, 12, 6, 12),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  color: Theme.of(context).colorScheme.surface,
+                ),
+                child: isMobile
+                    ? _HistoryItemMobile(
+                        key: Key('swap-item-$uuid-mobile'),
+                        swap: widget.swap,
+                        uuid: uuid,
+                        isRecovering: _isRecovering,
+                        buyAmount: buyAmount,
+                        buyCoin: buyCoin,
+                        date: date,
+                        isSuccessful: isSuccessful,
+                        sellAmount: sellAmount,
+                        sellCoin: sellCoin,
+                        onRecoverPressed: recoveryAllowed
+                            ? _onRecoverPressed
+                            : null,
+                      )
+                    : _HistoryItemDesktop(
+                        key: Key('swap-item-$uuid-desktop'),
+                        uuid: uuid,
+                        isRecovering: _isRecovering,
+                        buyAmount: buyAmount,
+                        buyCoin: buyCoin,
+                        date: date,
+                        isSuccessful: isSuccessful,
+                        isTaker: isTaker,
+                        sellAmount: sellAmount,
+                        sellCoin: sellCoin,
+                        typeColor: _typeColor,
+                        onRecoverPressed: recoveryAllowed
+                            ? _onRecoverPressed
+                            : null,
+                      ),
+              ),
             ),
-            child: isMobile
-                ? _HistoryItemMobile(
-                    key: Key('swap-item-$uuid-mobile'),
-                    swap: widget.swap,
-                    uuid: uuid,
-                    isRecovering: _isRecovering,
-                    buyAmount: buyAmount,
-                    buyCoin: buyCoin,
-                    date: date,
-                    isSuccessful: isSuccessful,
-                    sellAmount: sellAmount,
-                    sellCoin: sellCoin,
-                    onRecoverPressed: isRecoverable ? _onRecoverPressed : null,
-                  )
-                : _HistoryItemDesktop(
-                    key: Key('swap-item-$uuid-desktop'),
-                    uuid: uuid,
-                    isRecovering: _isRecovering,
-                    buyAmount: buyAmount,
-                    buyCoin: buyCoin,
-                    date: date,
-                    isSuccessful: isSuccessful,
-                    isTaker: isTaker,
-                    sellAmount: sellAmount,
-                    sellCoin: sellCoin,
-                    typeColor: _typeColor,
-                    onRecoverPressed: isRecoverable ? _onRecoverPressed : null,
-                  ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 
@@ -112,10 +125,11 @@ class _HistoryItemState extends State<HistoryItem> {
     final tradingEntitiesBloc = RepositoryProvider.of<TradingEntitiesBloc>(
       context,
     );
-    await tradingEntitiesBloc.recoverFundsOfSwap(widget.swap.uuid);
-    setState(() {
-      _isRecovering = false;
-    });
+    try {
+      await tradingEntitiesBloc.recoverFundsOfSwap(widget.swap.uuid);
+    } finally {
+      if (mounted) setState(() => _isRecovering = false);
+    }
   }
 
   Color get _typeColor => widget.swap.isTaker

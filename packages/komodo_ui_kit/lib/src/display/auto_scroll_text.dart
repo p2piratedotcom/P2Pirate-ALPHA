@@ -42,18 +42,12 @@ class _AutoScrollTextState extends State<AutoScrollText>
   late final AnimationController _controller;
 
   Size? _lastAvailableSize;
+  int _animationGeneration = 0;
 
   @override
   void initState() {
-    _controller = AnimationController(vsync: this);
-
     super.initState();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // TODO: Possible future refactoring to only run animation if the text
-      //  animation is shown (`isTextAnimatable`).
-      unawaited(runAnimation());
-    });
+    _controller = AnimationController(vsync: this);
   }
 
   /// Updates the animations/calculations based on the available size and
@@ -69,13 +63,15 @@ class _AutoScrollTextState extends State<AutoScrollText>
       controller: _controller,
     );
 
-    if (animation == null && _animation == null) {
-      return;
-    }
+    if (animation == null && _animation == null) return;
 
+    final generation = ++_animationGeneration;
+    _controller.stop();
+    _controller.value = 0;
     setState(() {
       _animation = animation;
     });
+    if (animation != null) unawaited(runAnimation(generation));
   }
 
   @override
@@ -110,10 +106,12 @@ class _AutoScrollTextState extends State<AutoScrollText>
 
         _lastAvailableSize = availableSize;
 
-        if (didAvailableSizeChange && isTextAnimatable) {
-          WidgetsBinding.instance.addPostFrameCallback(
-            (_) => computeAnimation(constraints.biggest),
-          );
+        if (didAvailableSizeChange) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _lastAvailableSize == availableSize) {
+              computeAnimation(availableSize);
+            }
+          });
         }
 
         if (!isTextAnimatable) {
@@ -179,33 +177,25 @@ class _AutoScrollTextState extends State<AutoScrollText>
     return _textWidth!;
   }
 
-  Future<void> runAnimation() async {
+  Future<void> runAnimation(int generation) async {
     await Future.delayed(_kInitialPause);
-    if (!mounted) return;
+    if (!mounted || generation != _animationGeneration) return;
 
-    computeAnimation(_lastAvailableSize!);
-
-    while (mounted) {
+    while (mounted && generation == _animationGeneration) {
       try {
-        await _controller.animateTo(1, duration: _kMovingDuration);
+        await _controller.animateTo(1, duration: _kMovingDuration).orCancel;
 
+        if (!mounted || generation != _animationGeneration) return;
         await Future.delayed(_kPauseBeforeReverse);
 
-        if (!mounted) break;
+        if (!mounted || generation != _animationGeneration) return;
 
-        await _controller.animateBack(0, duration: _kMovingDuration);
+        await _controller.animateBack(0, duration: _kMovingDuration).orCancel;
 
+        if (!mounted || generation != _animationGeneration) return;
         await Future.delayed(_kPauseBeforeRepeat);
-      } catch (e) {
-        // There may be a brief period after the widget is unmounted and/or
-        // the conttoller is disposed of, but before the animation is stopped.
-        // These errors can be safely ignored.
-
-        assert(
-          !mounted,
-          'AutoScrollText animation is disposed of while Widget is'
-          ' still alive (mounted). This should not happen.',
-        );
+      } on TickerCanceled {
+        return;
       }
     }
   }
@@ -218,6 +208,8 @@ class _AutoScrollTextState extends State<AutoScrollText>
     required AnimationController controller,
   }) {
     const begin = Offset.zero;
+
+    if (parentWidth <= 0 || !parentWidth.isFinite) return null;
 
     // We only want to animate the text if it's longer than the parent widget.
     // The threshold is to avoid unnecessary animations where text is only
@@ -271,6 +263,9 @@ class _AutoScrollTextState extends State<AutoScrollText>
   /// Clears all the memoized ("cached") state values. NB: Does not call
   /// setState() to rebuild the widget.
   void _resetMemoizedValues() {
+    _animationGeneration++;
+    _controller.stop();
+    _controller.value = 0;
     _animation = null;
     _lastAvailableSize = null;
     _textWidth = null;
@@ -293,6 +288,7 @@ class _AutoScrollTextState extends State<AutoScrollText>
 
   @override
   void dispose() {
+    _animationGeneration++;
     _controller.dispose();
     super.dispose();
   }

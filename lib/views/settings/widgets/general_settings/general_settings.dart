@@ -5,11 +5,11 @@ import 'package:web_dex/common/screen.dart';
 import 'package:web_dex/shared/widgets/hidden_with_wallet.dart';
 import 'package:web_dex/shared/widgets/hidden_without_wallet.dart';
 import 'package:web_dex/views/settings/widgets/general_settings/import_swaps.dart';
-import 'package:web_dex/views/settings/widgets/general_settings/app_version_number.dart';
 import 'package:web_dex/views/settings/widgets/general_settings/settings_hide_balances.dart';
 import 'package:web_dex/views/settings/widgets/general_settings/settings_manage_diagnostic_logging.dart';
 import 'package:web_dex/views/settings/widgets/general_settings/settings_manage_test_coins.dart';
 import 'package:web_dex/views/settings/widgets/general_settings/settings_manage_tor.dart';
+import 'package:web_dex/views/settings/widgets/general_settings/settings_market_prices.dart';
 import 'package:web_dex/views/settings/widgets/general_settings/settings_manage_trading_bot.dart';
 import 'package:web_dex/views/settings/widgets/general_settings/settings_manage_weak_passwords.dart';
 import 'package:web_dex/views/settings/widgets/general_settings/settings_reset_activated_coins.dart';
@@ -32,6 +32,8 @@ class GeneralSettings extends StatelessWidget {
         const SizedBox(height: 25),
         const SettingsHideBalances(),
         const SizedBox(height: 25),
+        const SettingsMarketPrices(),
+        const SizedBox(height: 25),
         const SettingsManageTestCoins(),
         const SizedBox(height: 25),
         const HiddenWithoutWallet(
@@ -52,10 +54,6 @@ class GeneralSettings extends StatelessWidget {
         const SizedBox(height: 25),
         const HiddenWithoutWallet(isHiddenForHw: true, child: ShowSwapData()),
         const HiddenWithoutWallet(isHiddenForHw: true, child: ImportSwaps()),
-        const SizedBox(height: 32),
-        const Divider(),
-        const SizedBox(height: 16),
-        const AppVersionNumber(),
         const SizedBox(height: 24),
       ],
     );
