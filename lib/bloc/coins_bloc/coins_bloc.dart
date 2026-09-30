@@ -29,6 +29,7 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     on<CoinsActivated>(_onCoinsActivated, transformer: concurrent());
     on<CoinsDeactivated>(_onCoinsDeactivated, transformer: concurrent());
     on<CoinsPricesUpdated>(_onPricesUpdated, transformer: droppable());
+    on<CoinPriceRequested>(_onCoinPriceRequested, transformer: concurrent());
     on<CoinsSessionStarted>(_onLogin, transformer: restartable());
     on<CoinsSessionEnded>(_onLogout, transformer: restartable());
     on<CoinsWalletCoinUpdated>(_onWalletCoinUpdated, transformer: sequential());
@@ -44,6 +45,46 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
   final TradingStatusService _tradingStatusService;
 
   final _log = Logger('CoinsBloc');
+  final Set<String> _pendingPrices = {};
+
+  Future<void> _onCoinPriceRequested(
+    CoinPriceRequested event,
+    Emitter<CoinsState> emit,
+  ) async {
+    final coin = state.coins[event.ticker];
+    if (coin == null) return;
+    final key = coin.id.symbol.configSymbol.toUpperCase();
+    final cached = state.getPriceForAsset(coin.id);
+    if (cached != null &&
+        DateTime.now().difference(cached.lastUpdated) <
+            const Duration(minutes: 1)) {
+      return;
+    }
+    if (!_pendingPrices.add(key)) return;
+    try {
+      final value = await _kdfSdk.marketData
+          .maybeFiatPrice(coin.id)
+          .timeout(const Duration(seconds: 45));
+      if (emit.isDone ||
+          value == null ||
+          value.toDouble() <= 0 ||
+          !value.toDouble().isFinite) {
+        return;
+      }
+      final price = CexPrice(
+        assetId: coin.id,
+        price: value,
+        change24h: cached?.change24h,
+        lastUpdated: DateTime.now(),
+      );
+      emit(state.copyWith(prices: {...state.prices, key: price}));
+    } catch (_) {
+      // Keep the last valid quote; the freshness check will expire it.
+    } finally {
+      _pendingPrices.remove(key);
+    }
+  }
+
   final Set<String> _refreshingPubkeys = {};
 
   StreamSubscription<Coin>? _enabledCoinsSubscription;
@@ -345,9 +386,10 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
         return;
       }
 
-      final prices = Map<String, CexPrice>.unmodifiable(
-        Map<String, CexPrice>.from(fetchedPrices),
-      );
+      final prices = Map<String, CexPrice>.unmodifiable({
+        ...state.prices,
+        ...fetchedPrices,
+      });
       final didPricesChange = !const MapEquality().equals(state.prices, prices);
       if (!didPricesChange) {
         _log.info('Coin prices list unchanged');

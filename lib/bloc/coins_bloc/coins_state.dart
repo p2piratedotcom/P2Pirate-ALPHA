@@ -70,7 +70,13 @@ class CoinsState extends Equatable {
   /// feed with SDK balances (`computeWalletTotalUsd`); sorting and portfolio growth may
   /// still use SDK prices until a single pricing path exists.
   CexPrice? getPriceForAsset(AssetId assetId) {
-    return prices[assetId.symbol.configSymbol.toUpperCase()];
+    final price = prices[assetId.symbol.configSymbol.toUpperCase()];
+    if (price == null ||
+        DateTime.now().difference(price.lastUpdated) >
+            const Duration(minutes: 10)) {
+      return null;
+    }
+    return price;
   }
 
   /// Gets the 24h price change percentage for a given asset ID
