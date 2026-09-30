@@ -134,6 +134,8 @@ dependencies:
   # Embedded web view
   # Approved via https://github.com/GLEECBTC/gleec-wallet/pull/3
   flutter_inappwebview: 6.1.5 # Android, iOS, macOS, Web (currently broke, open issue)
+  webview_all: 1.4.1
+  socks5_proxy: 2.1.1
 
   # Newly added, not yet reviewed
   formz: 0.8.0

@@ -9,6 +9,8 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:web_dex/bloc/bitrefill/bloc/bitrefill_bloc.dart';
 import 'package:web_dex/views/bitrefill/bitrefill_button_view.dart';
 import 'package:web_dex/shared/screenshot/screenshot_sensitivity.dart';
+import 'package:web_dex/views/common/tor_webview_page.dart';
+import 'package:web_dex/services/tor/pirate_tor_service.dart';
 
 /// A button that opens the provided url in an embedded InAppWebview widget.
 /// This widget uses the flutter_inappwebview package to open the url using
@@ -83,6 +85,31 @@ class BitrefillInAppWebviewButtonState
   }
 
   Future<void> _handlePress() async {
+    if (!kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.linux &&
+        PirateTorService.instance.httpProxyPort != null) {
+      if (widget.onPressed != null) {
+        await widget.onPressed!();
+      }
+      if (!mounted) return;
+      final uri = Uri.tryParse(widget.url);
+      if (uri == null || (uri.scheme != 'https' && uri.scheme != 'http')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bitrefill URL is invalid.')),
+        );
+        return;
+      }
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => TorWebViewPage(
+            url: uri,
+            title: widget.windowTitle,
+            onConsoleMessage: widget.onMessage,
+          ),
+        ),
+      );
+      return;
+    }
     // Call the onPressed callback first if provided
     await widget.onPressed;
 

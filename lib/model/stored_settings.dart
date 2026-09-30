@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:web_dex/model/settings/analytics_settings.dart';
 import 'package:web_dex/model/settings/market_maker_bot_settings.dart';
 import 'package:web_dex/shared/constants.dart';
@@ -13,6 +14,7 @@ class StoredSettings {
     required this.hideZeroBalanceAssets,
     required this.diagnosticLoggingEnabled,
     required this.hideBalances,
+    required this.torEnabled,
   });
 
   final ThemeMode mode;
@@ -23,6 +25,10 @@ class StoredSettings {
   final bool hideZeroBalanceAssets;
   final bool diagnosticLoggingEnabled;
   final bool hideBalances;
+  final bool torEnabled;
+
+  static bool get defaultTorEnabled =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.linux;
 
   static StoredSettings initial() {
     return StoredSettings(
@@ -34,6 +40,7 @@ class StoredSettings {
       hideZeroBalanceAssets: false,
       diagnosticLoggingEnabled: false,
       hideBalances: false,
+      torEnabled: defaultTorEnabled,
     );
   }
 
@@ -51,6 +58,7 @@ class StoredSettings {
       hideZeroBalanceAssets: json['hideZeroBalanceAssets'] ?? false,
       diagnosticLoggingEnabled: json['diagnosticLoggingEnabled'] ?? false,
       hideBalances: json['hideBalances'] ?? false,
+      torEnabled: json['torEnabled'] ?? defaultTorEnabled,
     );
   }
 
@@ -64,6 +72,7 @@ class StoredSettings {
       'hideZeroBalanceAssets': hideZeroBalanceAssets,
       'diagnosticLoggingEnabled': diagnosticLoggingEnabled,
       'hideBalances': hideBalances,
+      'torEnabled': torEnabled,
     };
   }
 
@@ -90,6 +99,7 @@ class StoredSettings {
     bool? hideZeroBalanceAssets,
     bool? diagnosticLoggingEnabled,
     bool? hideBalances,
+    bool? torEnabled,
   }) {
     return StoredSettings(
       mode: mode ?? this.mode,
@@ -103,6 +113,7 @@ class StoredSettings {
       diagnosticLoggingEnabled:
           diagnosticLoggingEnabled ?? this.diagnosticLoggingEnabled,
       hideBalances: hideBalances ?? this.hideBalances,
+      torEnabled: torEnabled ?? this.torEnabled,
     );
   }
 }

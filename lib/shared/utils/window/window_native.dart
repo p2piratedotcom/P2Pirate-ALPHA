@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:web_dex/app_config/app_config.dart';
 
 String getOriginUrl() {
-  return 'https://dex.gleec.com';
+  return const String.fromEnvironment('P2PIRATE_APP_ORIGIN');
 }
 
 /// Shows a confirmation dialog when the user attempts to close the application.

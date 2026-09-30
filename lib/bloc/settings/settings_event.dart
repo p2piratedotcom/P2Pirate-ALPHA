@@ -56,3 +56,12 @@ class HideBalancesChanged extends SettingsEvent {
   @override
   List<Object> get props => [hideBalances];
 }
+
+class TorEnabledChanged extends SettingsEvent {
+  const TorEnabledChanged({required this.torEnabled});
+
+  final bool torEnabled;
+
+  @override
+  List<Object> get props => [torEnabled];
+}

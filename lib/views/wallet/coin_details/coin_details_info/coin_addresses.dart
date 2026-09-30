@@ -16,6 +16,7 @@ import 'package:web_dex/bloc/settings/settings_bloc.dart';
 import 'package:web_dex/common/screen.dart';
 import 'package:web_dex/generated/codegen_loader.g.dart';
 import 'package:web_dex/model/coin.dart';
+import 'package:web_dex/3p_api/faucet/faucet.dart' show hasConfiguredFaucet;
 import 'package:web_dex/shared/constants.dart';
 import 'package:web_dex/shared/utils/formatters.dart';
 import 'package:web_dex/shared/utils/utils.dart';
@@ -340,7 +341,7 @@ class _MobileAddressContent extends StatelessWidget {
           children: [
             AddressCopyButton(address: address.address, coinAbbr: coin.abbr),
             QrButton(coin: coin, address: address),
-            if (coin.id.hasFaucet)
+            if (hasConfiguredFaucet && coin.id.hasFaucet)
               ConstrainedBox(
                 constraints: const BoxConstraints(minWidth: 80, maxWidth: 160),
                 child: FaucetButton(coinAbbr: coin.abbr, address: address),
@@ -399,7 +400,7 @@ class _DesktopAddressContent extends StatelessWidget {
                   coinAbbr: coin.abbr,
                 ),
                 QrButton(coin: coin, address: address),
-                if (coin.id.hasFaucet)
+                if (hasConfiguredFaucet && coin.id.hasFaucet)
                   ConstrainedBox(
                     constraints: const BoxConstraints(
                       minWidth: 80,

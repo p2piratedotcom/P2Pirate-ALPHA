@@ -86,6 +86,8 @@ installer is still pending. Coin assets must also be staged as described in
 [external KDF](docs/P2PIRATE_EXTERNAL_KDF.md). Do not package the
 reference ZIP's binaries as a new release solely from these commands.
 
+Linux Tor design, local assembly and limits are documented in [Tor transport](docs/P2PIRATE_TOR_LINUX.md).
+
 ## License, artwork and attribution
 
 The wallet keeps the upstream [GPL-3.0 license](LICENSE) and Git history.
