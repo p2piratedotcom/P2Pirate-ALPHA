@@ -1100,7 +1100,7 @@ class CoinsRepo {
       // before proceeding with activation, and doesn't broadcast activation status
       // until config parameters are received and (desktop) params files downloaded.
       final result = await _arrrActivationService.activateArrr(asset);
-      result.when(
+      await result.when<Future<void>>(
         success: (progress) async {
           _log.info('ZHTLC asset activated successfully: ${asset.id.id}');
 
@@ -1151,6 +1151,9 @@ class CoinsRepo {
           final isUserCancellation = message.contains('cancelled by user');
 
           if (isUserCancellation) {
+            if (notifyListeners) {
+              _broadcastAsset(coin.copyWith(state: CoinState.inactive));
+            }
             // Bubble up a typed cancellation so the UI can revert the toggle
             throw ZhtlcActivationCancelled(asset.id.id);
           }
