@@ -16,25 +16,28 @@ class PirateTorService {
   Process? _process;
   int? _socksPort;
   PirateTorHttpBridge? _httpBridge;
+  Future<void>? _startup;
 
   int? get socksPort => _socksPort;
   int? get httpProxyPort => _httpBridge?.port;
 
   Future<void> start() async {
+    if (_socksPort != null && _httpBridge != null) return;
+    final pending = _startup;
+    if (pending != null) return pending;
+    final startup = _startWithRetry();
+    _startup = startup;
     try {
-      await _start();
-    } catch (_) {
-      pirateTorStatus.value = PirateTorStatus.unavailable;
-      rethrow;
+      await startup;
+    } finally {
+      _startup = null;
     }
   }
 
-  Future<void> _start() async {
+  Future<void> _startWithRetry() async {
     if (!Platform.isLinux) {
       throw UnsupportedError('Bundled Tor is currently supported on Linux');
     }
-    if (_process != null) return;
-    pirateTorStatus.value = PirateTorStatus.connecting;
 
     final torBinary = _findArtifact('tor');
     final torsocksLibrary = _findArtifact('libtorsocks.so');
@@ -43,6 +46,25 @@ class PirateTorService {
       throw StateError('Bundled Tor transport is missing from P2Pirate');
     }
 
+    // A relay connection or directory fetch can fail temporarily. A fresh
+    // Tor process gets one more chance, while every network path remains
+    // blocked until bootstrap and the seed check have both succeeded.
+    for (var attempt = 0; attempt < 2; attempt++) {
+      pirateTorStatus.value = PirateTorStatus.connecting;
+      try {
+        await _start(torBinary, torsocksLibrary);
+        return;
+      } catch (error) {
+        await stop();
+        if (attempt == 1 || error is! _TorStartupFailure) {
+          pirateTorStatus.value = PirateTorStatus.unavailable;
+          rethrow;
+        }
+      }
+    }
+  }
+
+  Future<void> _start(File torBinary, File torsocksLibrary) async {
     final support = await getApplicationSupportDirectory();
     final torData = Directory(p.join(support.path, 'tor'));
     await torData.create(recursive: true);
@@ -72,10 +94,32 @@ class PirateTorService {
     ]);
     _process = process;
     final ready = Completer<void>();
+    var progress = 0;
+    Timer? stalled;
+    void armStallTimer() {
+      stalled?.cancel();
+      stalled = Timer(const Duration(seconds: 75), () {
+        if (!ready.isCompleted) {
+          ready.completeError(
+            _TorStartupFailure('Tor bootstrap stalled at $progress%'),
+          );
+        }
+      });
+    }
+
+    armStallTimer();
     process.stdout
         .transform(utf8.decoder)
         .transform(const LineSplitter())
         .listen((line) {
+          final match = RegExp(r'Bootstrapped (\d+)%').firstMatch(line);
+          if (match != null) {
+            final next = int.parse(match.group(1)!);
+            if (next > progress) {
+              progress = next;
+              armStallTimer();
+            }
+          }
           if (line.contains('Bootstrapped 100%') && !ready.isCompleted) {
             ready.complete();
           }
@@ -85,7 +129,9 @@ class PirateTorService {
       process.exitCode.then((code) {
         if (!ready.isCompleted) {
           ready.completeError(
-            StateError('Tor exited before bootstrap ($code)'),
+            _TorStartupFailure(
+              'Tor exited before bootstrap at $progress% (exit $code)',
+            ),
           );
         }
         if (identical(_process, process)) {
@@ -96,7 +142,11 @@ class PirateTorService {
     );
 
     try {
-      await ready.future.timeout(const Duration(minutes: 2));
+      await ready.future.timeout(
+        const Duration(minutes: 3),
+        onTimeout: () =>
+            throw _TorStartupFailure('Tor bootstrap timed out at $progress%'),
+      );
       KdfTorConfig.configure(
         port: port,
         libraryPath: torsocksLibrary.path,
@@ -104,18 +154,21 @@ class PirateTorService {
       );
       // Confirm that a KDF seed resolves through Tor before SDK bootstrap.
       // This exposes an unusable Tor circuit as a startup error.
-      await SeedNodeService.fetchSeedNodes().timeout(
-        const Duration(seconds: 50),
-      );
+      try {
+        await SeedNodeService.fetchSeedNodes().timeout(
+          const Duration(seconds: 50),
+        );
+      } catch (_) {
+        throw const _TorStartupFailure('Tor seed lookup failed');
+      }
       _socksPort = port;
       _httpBridge = await PirateTorHttpBridge.start(port);
-      pirateTorStatus.value = identical(_process, process)
-          ? PirateTorStatus.ready
-          : PirateTorStatus.unavailable;
-    } catch (_) {
-      await stop();
-      pirateTorStatus.value = PirateTorStatus.unavailable;
-      rethrow;
+      if (!identical(_process, process)) {
+        throw const _TorStartupFailure('Tor exited after bootstrap');
+      }
+      pirateTorStatus.value = PirateTorStatus.ready;
+    } finally {
+      stalled?.cancel();
     }
   }
 
@@ -146,4 +199,13 @@ class PirateTorService {
     }
     return null;
   }
+}
+
+class _TorStartupFailure implements Exception {
+  const _TorStartupFailure(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
 }
