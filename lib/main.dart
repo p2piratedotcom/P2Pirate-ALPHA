@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io' show HttpOverrides;
+import 'dart:io' show HttpOverrides, exit;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart'
@@ -41,6 +41,7 @@ import 'package:web_dex/services/kdf_install/kdf_setup_screen.dart';
 import 'package:web_dex/services/logger/ui_performance_diagnostics.dart';
 import 'package:web_dex/services/storage/get_storage.dart';
 import 'package:web_dex/services/tor/pirate_tor_service.dart';
+import 'package:web_dex/services/tor/pirate_tor_status.dart';
 import 'package:web_dex/services/tor/pirate_tor_http_overrides.dart';
 import 'package:web_dex/services/tor/pirate_webview_proxy.dart';
 import 'package:web_dex/shared/constants.dart';
@@ -86,45 +87,38 @@ Future<void> main() async {
         );
       } catch (error) {
         await PirateTorService.instance.stop();
-        HttpOverrides.global = null;
-        runApp(
-          _TorStartupError(
-            error: error.toString(),
-            onDisable: () async {
-              await SettingsRepository().updateSettings(
-                stored.copyWith(torEnabled: false),
-              );
-              await _ensureKdfReady();
-              await _startWalletApp();
-            },
-          ),
-        );
+        _showTorFailure(error.toString(), stored);
         return;
       }
     }
 
-    await _ensureKdfReady();
     try {
+      await _ensureKdfReady();
       if (torRequested) {
         await _startWalletApp().timeout(const Duration(minutes: 2));
       } else {
         await _startWalletApp();
       }
+      if (torRequested && !_startupAborted) {
+        // A Tor process can exit after the wallet has opened. Stop showing
+        // the wallet and ask before any direct connection can be selected.
+        void onTorStatusChanged() {
+          if (pirateTorStatus.value != PirateTorStatus.unavailable ||
+              _startupAborted) {
+            return;
+          }
+          _startupAborted = true;
+          _showTorFailure('Tor stopped while the wallet was running.', stored);
+          unawaited(mm2.dispose());
+        }
+
+        pirateTorStatus.addListener(onTorStatusChanged);
+        onTorStatusChanged();
+      }
     } catch (error) {
       if (!torRequested) rethrow;
       _startupAborted = true;
-      runApp(
-        _TorStartupError(
-          error: error.toString(),
-          buttonLabel: 'Disable Tor for next launch',
-          onDisable: () async {
-            await SettingsRepository().updateSettings(
-              stored.copyWith(torEnabled: false),
-            );
-            runApp(const _TorRestartRequired());
-          },
-        ),
-      );
+      _showTorFailure(error.toString(), stored);
     }
   }, catchUnhandledExceptions);
 }
@@ -144,6 +138,44 @@ Future<void> _ensureKdfReady() async {
     ),
   );
   await ready.future;
+}
+
+void _showTorFailure(String error, StoredSettings stored) {
+  runApp(
+    _TorStartupError(
+      error: error,
+      onRetry: () => runApp(
+        const _TorRestartRequired(
+          message: 'Close and reopen P2Pirate to retry Tor.',
+        ),
+      ),
+      onUseDirect: () async {
+        await SettingsRepository().updateSettings(
+          stored.copyWith(torEnabled: false),
+        );
+        runApp(
+          const _TorRestartRequired(
+            message:
+                'Tor is disabled for the next launch. Close and reopen P2Pirate to use a direct connection.',
+          ),
+        );
+      },
+      onClose: () async {
+        try {
+          await mm2.dispose().timeout(const Duration(seconds: 5));
+        } catch (_) {
+          // Closing still takes priority if SDK cleanup has stalled.
+        }
+        try {
+          await PirateTorService.instance.stop().timeout(
+            const Duration(seconds: 5),
+          );
+        } finally {
+          exit(0);
+        }
+      },
+    ),
+  );
 }
 
 Future<void> _startWalletApp() async {
@@ -242,16 +274,43 @@ class _TorStarting extends StatelessWidget {
   );
 }
 
-class _TorStartupError extends StatelessWidget {
+class _TorStartupError extends StatefulWidget {
   const _TorStartupError({
     required this.error,
-    required this.onDisable,
-    this.buttonLabel = 'Disable Tor and continue',
+    required this.onRetry,
+    required this.onUseDirect,
+    required this.onClose,
   });
 
   final String error;
-  final Future<void> Function() onDisable;
-  final String buttonLabel;
+  final VoidCallback onRetry;
+  final Future<void> Function() onUseDirect;
+  final Future<void> Function() onClose;
+
+  @override
+  State<_TorStartupError> createState() => _TorStartupErrorState();
+}
+
+class _TorStartupErrorState extends State<_TorStartupError> {
+  bool _busy = false;
+  String? _actionError;
+
+  Future<void> _runAction(Future<void> Function() action) async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _actionError = null;
+    });
+    try {
+      await action();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _actionError = error.toString();
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -260,24 +319,43 @@ class _TorStartupError extends StatelessWidget {
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Wallet could not start over Tor',
+                  'Wallet could not continue over Tor',
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'No direct connection was made. Check Tor connectivity and restart. You can disable Tor explicitly for the next launch.',
+                  'P2Pirate will not use a direct connection unless you choose it. How would you like to proceed?',
                 ),
                 const SizedBox(height: 12),
-                SelectableText(error),
+                SelectableText(widget.error),
+                if (_actionError != null) ...[
+                  const SizedBox(height: 12),
+                  SelectableText('Could not save your choice: $_actionError'),
+                ],
                 const SizedBox(height: 24),
-                FilledButton(onPressed: onDisable, child: Text(buttonLabel)),
+                FilledButton(
+                  onPressed: _busy ? null : widget.onRetry,
+                  child: const Text('Retry Tor after restart'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: _busy
+                      ? null
+                      : () => _runAction(widget.onUseDirect),
+                  child: const Text('Use direct connection after restart'),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: _busy ? null : () => _runAction(widget.onClose),
+                  child: const Text('Close wallet'),
+                ),
               ],
             ),
           ),
@@ -288,14 +366,14 @@ class _TorStartupError extends StatelessWidget {
 }
 
 class _TorRestartRequired extends StatelessWidget {
-  const _TorRestartRequired();
+  const _TorRestartRequired({required this.message});
+
+  final String message;
 
   @override
-  Widget build(BuildContext context) => const MaterialApp(
+  Widget build(BuildContext context) => MaterialApp(
     title: 'P2Pirate',
-    home: Scaffold(
-      body: Center(child: Text('Tor is disabled. Close and reopen P2Pirate.')),
-    ),
+    home: Scaffold(body: Center(child: Text(message))),
   );
 }
 

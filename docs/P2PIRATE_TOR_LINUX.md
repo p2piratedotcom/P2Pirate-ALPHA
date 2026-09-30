@@ -2,7 +2,16 @@
 
 Tor is enabled by default for Linux desktop installations, including migrated settings that do not have a Tor preference. **Settings > General > Tor network** stores the desired state; restart the app to apply it. The wallet header shows Tor active, connecting, unavailable, or off. The active label means Tor bootstrapped, a KDF seed resolved, and the local proxy started; it is not proof that every remote service is reachable.
 
-At startup the GUI launches a Tor client with a loopback SOCKS port and confirms that a bundled KDF seed hostname resolves through Tor. It then configures a loopback HTTP bridge for Dart `HttpClient` and the Linux WebKit view. KDF RPC on loopback stays direct. The Flutter SDK resolves KDF seed hostnames using Tor SOCKS RESOLVE, and the KDF child process uses `libtorsocks.so` through `LD_PRELOAD`. If Tor cannot start, the wallet does not start KDF and does not silently switch to a direct connection. The user may explicitly disable Tor and restart.
+At startup the GUI launches a Tor client with a loopback SOCKS port and confirms that a bundled KDF seed hostname resolves through Tor. It then configures a loopback HTTP bridge for Dart `HttpClient` and the Linux WebKit view. KDF RPC on loopback stays direct. The Flutter SDK resolves KDF seed hostnames using Tor SOCKS RESOLVE, and the KDF child process uses `libtorsocks.so` through `LD_PRELOAD`. If Tor cannot start, the wallet asks whether to retry Tor after restart, use a direct connection after restart, or close. KDF startup errors under Tor and a Tor process exit while the wallet is open show the same choice. The current session never switches to a direct connection. Only an explicit choice to use a direct connection changes the saved Tor preference, and the change takes effect on the next launch.
+
+Tor bootstrap can stall temporarily while connecting to a relay or loading
+directory information. The GUI now waits for progress rather than applying a
+single two-minute deadline: it restarts Tor once if progress stops for 75
+seconds, a Tor process exits early, or the seed lookup fails. Each attempt is
+capped at three minutes. The error screen reports the last bootstrap percentage
+or failed stage if both attempts fail. No direct connection is attempted during
+either retry. This helps transient failures; a blocked Tor network still
+requires a network remedy or an explicit user choice to turn Tor off.
 
 GUI and Flutter SDK remain in separate repositories. This GUI branch needs a matching `komodo-defi-sdk-flutter` commit that exports `KdfTorConfig` and routes KDF seed lookup and executable traffic through Tor. A GUI-only release cannot claim KDF Tor coverage.
 
