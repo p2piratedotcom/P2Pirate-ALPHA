@@ -1,7 +1,7 @@
 import 'package:web_dex/model/text_error.dart';
 
 class SellResponse {
-  SellResponse({this.error, this.result});
+  SellResponse({this.error, this.result, this.outcomeUnknown = false});
 
   factory SellResponse.fromJson(Map<String, dynamic> json) {
     return SellResponse(
@@ -12,6 +12,9 @@ class SellResponse {
 
   final TextError? error;
   final SellResponseResult? result;
+
+  /// The transport failed after submission may have reached KDF.
+  final bool outcomeUnknown;
 }
 
 class SellResponseResult {

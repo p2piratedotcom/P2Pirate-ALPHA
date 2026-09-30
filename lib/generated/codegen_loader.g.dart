@@ -448,6 +448,10 @@ abstract class LocaleKeys {
   static const notEnoughFundsError = 'notEnoughFundsError';
   static const dexErrorMessage = 'dexErrorMessage';
   static const dexUnableToStartSwap = 'dexUnableToStartSwap';
+  static const swapQuotePending = 'swapQuotePending';
+  static const swapQuoteTimeout = 'swapQuoteTimeout';
+  static const swapStartPending = 'swapStartPending';
+  static const swapSubmissionDelayed = 'swapSubmissionDelayed';
   static const seedConfirmInitialText = 'seedConfirmInitialText';
   static const seedConfirmIncorrectText = 'seedConfirmIncorrectText';
   static const mnemonicInvalidWordError = 'mnemonicInvalidWordError';

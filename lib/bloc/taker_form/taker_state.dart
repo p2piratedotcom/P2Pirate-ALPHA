@@ -23,6 +23,7 @@ class TakerState {
     this.minSellAmount,
     required this.autovalidate,
     this.swapUuid,
+    this.submissionOutcomeUnknown = false,
     required this.availableBalanceState,
   });
 
@@ -61,6 +62,7 @@ class TakerState {
   Rational? minSellAmount;
   bool autovalidate;
   String? swapUuid;
+  bool submissionOutcomeUnknown;
   AvailableBalanceState availableBalanceState;
 
   // Function arguments needed to handle nullable props
@@ -83,6 +85,7 @@ class TakerState {
     Rational? Function()? minSellAmount,
     bool Function()? autovalidate,
     String? Function()? swapUuid,
+    bool? submissionOutcomeUnknown,
     AvailableBalanceState Function()? availableBalanceState,
   }) {
     return TakerState(
@@ -91,25 +94,32 @@ class TakerState {
       step: step == null ? this.step : step(),
       inProgress: inProgress == null ? this.inProgress : inProgress(),
       sellCoin: sellCoin == null ? this.sellCoin : sellCoin(),
-      selectedOrder:
-          selectedOrder == null ? this.selectedOrder : selectedOrder(),
+      selectedOrder: selectedOrder == null
+          ? this.selectedOrder
+          : selectedOrder(),
       bestOrders: bestOrders == null ? this.bestOrders : bestOrders(),
-      showCoinSelector:
-          showCoinSelector == null ? this.showCoinSelector : showCoinSelector(),
+      showCoinSelector: showCoinSelector == null
+          ? this.showCoinSelector
+          : showCoinSelector(),
       showOrderSelector: showOrderSelector == null
           ? this.showOrderSelector
           : showOrderSelector(),
       sellAmount: sellAmount == null ? this.sellAmount : sellAmount(),
       buyAmount: buyAmount == null ? this.buyAmount : buyAmount(),
       errors: errors == null ? this.errors : errors(),
-      tradePreimage:
-          tradePreimage == null ? this.tradePreimage : tradePreimage(),
-      maxSellAmount:
-          maxSellAmount == null ? this.maxSellAmount : maxSellAmount(),
-      minSellAmount:
-          minSellAmount == null ? this.minSellAmount : minSellAmount(),
+      tradePreimage: tradePreimage == null
+          ? this.tradePreimage
+          : tradePreimage(),
+      maxSellAmount: maxSellAmount == null
+          ? this.maxSellAmount
+          : maxSellAmount(),
+      minSellAmount: minSellAmount == null
+          ? this.minSellAmount
+          : minSellAmount(),
       autovalidate: autovalidate == null ? this.autovalidate : autovalidate(),
       swapUuid: swapUuid == null ? this.swapUuid : swapUuid(),
+      submissionOutcomeUnknown:
+          submissionOutcomeUnknown ?? this.submissionOutcomeUnknown,
       availableBalanceState: availableBalanceState == null
           ? this.availableBalanceState
           : availableBalanceState(),
@@ -117,7 +127,4 @@ class TakerState {
   }
 }
 
-enum TakerStep {
-  form,
-  confirm,
-}
+enum TakerStep { form, confirm }

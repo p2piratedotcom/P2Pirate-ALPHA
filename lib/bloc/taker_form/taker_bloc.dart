@@ -135,13 +135,15 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
       add(
         TakerAddError(
           DexFormError(
-            error: 'Select a maker order with a valid UUID before starting the swap.',
+            error:
+                'Select a maker order with a valid UUID before starting the swap.',
           ),
         ),
       );
       return;
     }
 
+    if (state.submissionOutcomeUnknown) return;
     emit(state.copyWith(inProgress: () => true));
 
     final int callStart = DateTime.now().millisecondsSinceEpoch;
@@ -162,21 +164,25 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
     if (response.error != null) {
       add(TakerAddError(DexFormError(error: response.error!.message)));
 
-      // Log swap failure analytics event for immediate RPC errors
-      final walletType =
-          (await _sdk.auth.currentUser)?.wallet.config.type.name ?? 'unknown';
-      _analyticsBloc.logEvent(
-        SwapFailedEventData(
-          asset: sellCoin.abbr,
-          secondaryAsset: selectedOrder.coin,
-          network: sellCoin.protocolType,
-          secondaryNetwork:
-              _coinsRepo.getCoin(selectedOrder.coin)?.protocolType ?? 'unknown',
-          failureStage: 'order_submission',
-          hdType: walletType,
-          durationMs: durationMs,
-        ),
-      );
+      // A transport failure can occur after KDF accepted the order. Do not
+      // report it as a definite failed swap or encourage an immediate retry.
+      if (!response.outcomeUnknown) {
+        final walletType =
+            (await _sdk.auth.currentUser)?.wallet.config.type.name ?? 'unknown';
+        _analyticsBloc.logEvent(
+          SwapFailedEventData(
+            asset: sellCoin.abbr,
+            secondaryAsset: selectedOrder.coin,
+            network: sellCoin.protocolType,
+            secondaryNetwork:
+                _coinsRepo.getCoin(selectedOrder.coin)?.protocolType ??
+                'unknown',
+            failureStage: 'order_submission',
+            hdType: walletType,
+            durationMs: durationMs,
+          ),
+        );
+      }
     }
 
     final String? uuid = response.result?.uuid;
@@ -193,6 +199,7 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
       state.copyWith(
         inProgress: uuid == null ? () => false : null,
         swapUuid: () => uuid,
+        submissionOutcomeUnknown: response.outcomeUnknown,
       ),
     );
   }
@@ -201,7 +208,13 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
     TakerBackButtonClick event,
     Emitter<TakerState> emit,
   ) {
-    emit(state.copyWith(step: () => TakerStep.form, errors: () => []));
+    emit(
+      state.copyWith(
+        step: () => TakerStep.form,
+        errors: () => [],
+        submissionOutcomeUnknown: false,
+      ),
+    );
   }
 
   Future<void> _onFormSubmitClick(
