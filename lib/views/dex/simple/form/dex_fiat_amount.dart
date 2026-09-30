@@ -1,5 +1,8 @@
 import 'package:app_theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:web_dex/bloc/coins_bloc/coins_bloc.dart';
+import 'package:web_dex/bloc/settings/settings_bloc.dart';
 import 'package:rational/rational.dart';
 import 'package:web_dex/model/coin.dart';
 import 'package:web_dex/shared/utils/formatters.dart';
@@ -21,13 +24,20 @@ class DexFiatAmount extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Rational estAmount = amount ?? Rational.zero;
-    final double usdPrice = coin?.usdPrice?.price?.toDouble() ?? 0.0;
-
-    final double fiatAmount = estAmount.toDouble() * usdPrice;
+    if (!context.watch<SettingsBloc>().state.showWalletUsdValues) {
+      return const SizedBox.shrink();
+    }
+    final state = context.watch<CoinsBloc>().state;
+    final usdPrice = coin == null
+        ? null
+        : state.getPriceForAsset(coin!.id)?.price?.toDouble();
+    final fiatAmount = usdPrice == null
+        ? null
+        : estAmount.toDouble() * usdPrice;
     return Padding(
       padding: padding ?? EdgeInsets.zero,
       child: Text(
-        '~ \$${formatAmt(fiatAmount)}',
+        fiatAmount == null ? 'N/A' : '~ \$${formatAmt(fiatAmount)}',
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w500,

@@ -6,6 +6,7 @@ import 'package:web_dex/model/settings_menu_value.dart';
 import 'package:web_dex/router/state/routing_state.dart';
 import 'package:web_dex/views/common/page_header/page_header.dart';
 import 'package:web_dex/views/common/pages/page_layout.dart';
+import 'package:web_dex/views/settings/widgets/app_info/app_version_number.dart';
 import 'package:web_dex/views/settings/widgets/common/settings_content_wrapper.dart';
 import 'package:web_dex/views/settings/widgets/general_settings/general_settings.dart';
 import 'package:web_dex/views/settings/widgets/security_settings/security_settings_page.dart';
@@ -42,6 +43,8 @@ class SettingsPage extends StatelessWidget {
         return const GeneralSettings();
       case SettingsMenuValue.security:
         return SecuritySettingsPage(onBackPressed: _onBackButtonPressed);
+      case SettingsMenuValue.appInfo:
+        return const AppVersionNumber();
       case SettingsMenuValue.support:
         return SupportPage();
 
@@ -87,6 +90,7 @@ class _MobileContentLayout extends StatelessWidget {
       case SettingsMenuValue.security:
         return content;
       case SettingsMenuValue.general:
+      case SettingsMenuValue.appInfo:
       case SettingsMenuValue.support:
       case SettingsMenuValue.feedback:
         return PageLayout(

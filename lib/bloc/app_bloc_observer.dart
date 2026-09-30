@@ -1,10 +1,12 @@
 import 'package:bloc/bloc.dart';
 import 'package:flutter/foundation.dart';
+import 'package:web_dex/services/logger/ui_performance_diagnostics.dart';
 import 'package:web_dex/shared/utils/utils.dart';
 
 class AppBlocObserver extends BlocObserver {
   @override
   void onChange(BlocBase bloc, Change change) {
+    UiPerformanceDiagnostics.stateChanged(bloc.runtimeType);
     if (kDebugMode) {
       // print(change);
     }
