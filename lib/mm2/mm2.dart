@@ -56,7 +56,7 @@ final class MM2 {
     );
   }
 
-  late final KomodoDefiSdk _kdfSdk;
+  late KomodoDefiSdk _kdfSdk;
   String _configuredPriceApiUrl = '';
   String get configuredPriceApiUrl => _configuredPriceApiUrl;
   bool _isInitializing = false;

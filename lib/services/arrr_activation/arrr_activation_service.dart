@@ -170,16 +170,7 @@ class ArrrActivationService {
 
           await _cacheActivationStart(asset.id);
 
-          ActivationProgress? lastActivationProgress;
-          await for (final activationProgress in _sdk.assets.activateAsset(
-            asset,
-          )) {
-            if (_isActivationCancelled(asset.id)) {
-              throw _ActivationCancelledException();
-            }
-            await _cacheActivationProgress(asset.id, activationProgress);
-            lastActivationProgress = activationProgress;
-          }
+          final lastActivationProgress = await _watchActivation(asset);
 
           if (lastActivationProgress?.isSuccess ?? false) {
             await _cacheActivationComplete(asset.id);
@@ -231,6 +222,68 @@ class ArrrActivationService {
       );
       await _cacheActivationError(asset.id, e.toString());
       return ArrrActivationResultError(e.toString());
+    }
+  }
+
+  /// The SDK progress stream can remain pending after KDF has enabled a ZHTLC
+  /// coin. Reconcile against KDF while waiting so callers and the status bar
+  /// finish even if the final stream event is lost.
+  Future<ActivationProgress?> _watchActivation(Asset asset) async {
+    final iterator = StreamIterator<ActivationProgress>(
+      _sdk.assets.activateAsset(asset),
+    );
+    ActivationProgress? lastProgress;
+    var nextProgress = iterator.moveNext();
+
+    try {
+      while (true) {
+        final hasNext = await Future.any<bool?>([
+          nextProgress,
+          Future<bool?>.delayed(const Duration(seconds: 3)),
+        ]);
+
+        if (_isActivationCancelled(asset.id)) {
+          throw _ActivationCancelledException();
+        }
+
+        if (hasNext == true) {
+          final progress = iterator.current;
+          await _cacheActivationProgress(asset.id, progress);
+          lastProgress = progress;
+          if (progress.isComplete) return progress;
+          nextProgress = iterator.moveNext();
+          continue;
+        }
+
+        // Only an enabled coin can recover a stream whose final event is lost.
+        if (await _isEnabledInKdf(asset.id)) {
+          _log.info('KDF enabled ${asset.id.id} while progress was pending');
+          return ActivationProgress.success();
+        }
+
+        if (hasNext == false) return lastProgress;
+        // Keep the same pending read while a shielded sync is running.
+      }
+    } finally {
+      unawaited(
+        iterator.cancel().catchError((Object error) {
+          _log.warning(
+            'Could not cancel progress watcher for ${asset.id.id}: $error',
+          );
+        }),
+      );
+    }
+  }
+
+  Future<bool> _isEnabledInKdf(AssetId assetId) async {
+    try {
+      final enabled = await _sdk.assets.getEnabledCoins().timeout(
+        const Duration(seconds: 5),
+      );
+      return enabled.contains(assetId.id);
+    } catch (error) {
+      _log.warning('Could not reconcile ${assetId.id} with KDF: $error');
+      return false;
     }
   }
 
