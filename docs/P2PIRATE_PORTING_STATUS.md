@@ -47,47 +47,48 @@ Stacked proposals were merged in dependency order. Wallet #10, #13, #26 and
 #27 pin the corresponding SDK commits. GitHub's mergeability indicator is not
 evidence of a successful Flutter build.
 
-## Still required for functional parity
+## Open proposals from the 30 September comparison
 
-- Remaining Swap startup progress, timeout and diagnostic behavior, including
-  verification after an uncertain submit result.
-- Recovery request status and on-chain confirmation. The local cache in #24
-  retains completed swaps only and does not replace live KDF history.
-- ARRR address-detail balance refresh and remaining wallet list layout.
-- Configurable HTTPS price endpoint and USD visibility setting; robust
-  Binance/CoinGecko/CoinPaprika fallback, throttling and cache behavior.
-- Linux Tor transport for KDF, Dart HTTP, images and WebView, with visible
-  status and documented coverage limits.
-- Remaining native platform identity and icons, Linux executable/application
-  ID and data-directory migration review, UI performance changes and
-  reproducible AppImage packaging.
-- The CheetahDEX `v0.9.4` tag pins SDK commit `50d0cb8`; its config points to
-  Rust commit `968f32a` and Linux KDF archive SHA-256 `cf80e5d5…`. The
-  downloaded official archive matches that hash and contains a `kdf`
-  executable with SHA-256 `bd171eee…`, identical to the reference ZIP's KDF.
-  This identifies the release artifact, but does not independently prove a
-  reproducible source build. Review distribution terms for KDF, Tor and other
-  executable artifacts. Do not attribute the different locally built KDF hash
-  in the ZIP notes to the bundled executable.
-- Publish a reviewed KDF 2.7 Linux release in the SDK fork with source commit,
-  build instructions, license, SHA-256 and compatibility metadata. The SDK
-  fork currently has no KDF release asset. Then implement the GUI's first-run
-  prompt and verified download described in
-  [P2PIRATE_EXTERNAL_KDF.md](P2PIRATE_EXTERNAL_KDF.md).
-- A reproducible Linux coin-asset step: SDK #4 disables build-time downloads,
-  including coins, but the coin inputs still need a license/provenance review,
-  a pinned source and a documented way to stage them before release builds.
+These proposals are **not merged**. GUI PRs are stacked in the order shown,
+so review each PR against its parent branch and merge in that order only after
+local approval. The SDK change is a separate prerequisite of GUI #38.
 
-Flutter 3.47.5 and Dart 3.13.4 are installed locally. An offline locked
-dependency resolution passed on wallet #23. Targeted Dart static analysis
-found no errors in wallet #16, #17, #19, #21, #22, #24 and #25; it reported only
-style suggestions in #16, #17 and #25. A Linux build of wallet #23 first failed
-at the SDK Trezor compiler error addressed by SDK #3. A temporary local
-combination of wallet #23 and #26 passed dependency resolution but stalled
-during the SDK's build-time asset download before compilation completed;
-it was interrupted without a completed binary. No funded swap or successful
-integrated Linux desktop build has been performed for this PR series.
-SDK #4 and wallet #27 address the observed build-time KDF download and bundling
-path at the source level; their combined Linux build remains unverified.
-The current state is a merged source port in progress, not a release or a
-claim that the fork matches the ZIP in full.
+| Area | PR | Scope |
+| --- | --- | --- |
+| Swap progress and uncertain transport result | [GUI #33](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/33) | Diagnostics, wait messages, duplicate-submit guard |
+| ARRR address details | [GUI #34](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/34) | Refresh address pubkeys with balances |
+| UI responsiveness | [GUI #35](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/35) | Animation lifecycle and local CPU diagnostics |
+| Price controls | [GUI #36](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/36) | USD visibility and custom HTTPS API |
+| Uncertain-swap recovery | [GUI #37](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/37) | Encrypted receipts and confirmation checks |
+| Price provider reliability | [SDK #6](https://github.com/p2piratedotcom/komodo-defi-sdk-flutter/pull/6) | Timeouts, fallback, throttling and cache |
+| SDK revision | [GUI #38](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/38) | Pin SDK #6 commit |
+| Active-market price freshness | [GUI #39](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/39) | Selected quote refresh and stale USD expiry |
+| GUI-only AppImage | [GUI #40](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/40) | Local packaging script and instructions |
+| First-run KDF setup | [GUI #41](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/41) | Pinned upstream KDF 2.7 download and SHA-256 verification |
+| Linux startup | [GUI #42](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/42) | Renderer, locale and price SDK initialization fixes |
+
+A Linux release GUI build with these branches succeeded on 30 September. The
+rebuilt GUI and separate official KDF 2.7 executable reached the dashboard in
+an isolated profile with Tor disabled. The fresh-profile Tor startup and
+network behavior remain under local verification; no funded swap was made.
+The AppImage packaging script has not been run because `appimagetool` is not
+installed. The first-run KDF downloader has not been exercised end to end.
+
+## Remaining release work
+
+- Complete Tor-on first-run verification, including KDF, Dart HTTP, images and
+  WebView traffic. Document the observed limits; do not assume coverage from
+  a successful desktop build.
+- Review Linux application ID, data-directory migration, remaining native
+  icons and wallet list layout against the ZIP reference.
+- Publish a reviewed KDF 2.7 release in the SDK fork with source revision,
+  build method, license and hashes. That fork currently has no KDF executable
+  release; GUI #41 pins the reviewed ShorelineCrypto release meanwhile.
+- Pin and document coin assets for reproducible offline release builds.
+- Perform wallet-level checks with Tor enabled, then a swap/recovery exercise
+  using an appropriate low-risk environment and the user's approval.
+
+The CheetahDEX `v0.9.4` tag pins SDK commit `50d0cb8`, which points to Rust
+commit `968f32a`. Its Linux KDF archive SHA-256 is `cf80e5d5…`; the reviewed
+archive contains executable SHA-256 `bd171eee…`, matching the ZIP reference.
+That identifies the release artifact, not a reproducible source build.
