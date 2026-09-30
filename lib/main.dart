@@ -36,6 +36,7 @@ import 'package:web_dex/services/arrr_activation/arrr_activation_service.dart';
 import 'package:web_dex/services/fd_monitor_service.dart';
 import 'package:web_dex/services/feedback/app_feedback_wrapper.dart';
 import 'package:web_dex/services/logger/get_logger.dart';
+import 'package:web_dex/services/logger/ui_performance_diagnostics.dart';
 import 'package:web_dex/services/storage/get_storage.dart';
 import 'package:web_dex/services/tor/pirate_tor_service.dart';
 import 'package:web_dex/services/tor/pirate_tor_http_overrides.dart';
@@ -59,6 +60,7 @@ Future<void> main() async {
     WidgetsFlutterBinding.ensureInitialized();
     Bloc.observer = AppBlocObserver();
     PerformanceAnalytics.init();
+    UiPerformanceDiagnostics.start();
 
     FlutterError.onError = (FlutterErrorDetails details) {
       catchUnhandledExceptions(details.exception, details.stack);
