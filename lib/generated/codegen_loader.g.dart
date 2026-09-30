@@ -154,6 +154,7 @@ abstract class LocaleKeys {
   static const settingsMenuGeneral = 'settingsMenuGeneral';
   static const settingsMenuLanguage = 'settingsMenuLanguage';
   static const settingsMenuSecurity = 'settingsMenuSecurity';
+  static const settingsMenuAppInfo = 'settingsMenuAppInfo';
   static const settingsMenuAbout = 'settingsMenuAbout';
   static const seedPhraseSettingControlsViewSeed =
       'seedPhraseSettingControlsViewSeed';

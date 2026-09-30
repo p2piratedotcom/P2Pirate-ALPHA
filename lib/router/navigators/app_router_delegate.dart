@@ -233,6 +233,8 @@ class AppRouterDelegate extends RouterDelegate<AppRoutePath>
         return SettingsRoutePath.general();
       case SettingsMenuValue.security:
         return SettingsRoutePath.security();
+      case SettingsMenuValue.appInfo:
+        return SettingsRoutePath.appInfo();
       case SettingsMenuValue.support:
         return SettingsRoutePath.support();
       case SettingsMenuValue.feedback:
