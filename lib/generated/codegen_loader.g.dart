@@ -198,6 +198,8 @@ abstract class LocaleKeys {
   static const swapRecoverButtonTitle = 'swapRecoverButtonTitle';
   static const swapRecoverButtonText = 'swapRecoverButtonText';
   static const swapRecoverButtonErrorMessage = 'swapRecoverButtonErrorMessage';
+  static const swapRecoveryInProgress = 'swapRecoveryInProgress';
+  static const swapRecoveryUnconfirmed = 'swapRecoveryUnconfirmed';
   static const swapRecoverButtonSuccessMessage =
       'swapRecoverButtonSuccessMessage';
   static const swapProgressStatusFailed = 'swapProgressStatusFailed';
