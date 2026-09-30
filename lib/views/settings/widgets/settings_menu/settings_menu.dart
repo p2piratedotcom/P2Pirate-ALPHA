@@ -6,7 +6,6 @@ import 'package:web_dex/model/settings_menu_value.dart';
 import 'package:web_dex/model/wallet.dart';
 import 'package:web_dex/services/feedback/feedback_service.dart';
 import 'package:web_dex/shared/widgets/hidden_without_wallet.dart';
-import 'package:web_dex/views/settings/widgets/general_settings/app_version_number.dart';
 import 'package:web_dex/views/settings/widgets/settings_menu/settings_logout_button.dart';
 import 'package:web_dex/views/settings/widgets/settings_menu/settings_menu_item.dart';
 
@@ -51,7 +50,6 @@ class SettingsMenu extends StatelessWidget {
               if (!isMobile) const Spacer(),
               const HiddenWithoutWallet(child: SettingsLogoutButton()),
               if (isMobile) const Spacer(),
-              const AppVersionNumber(),
             ],
           ),
         );

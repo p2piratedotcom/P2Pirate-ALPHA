@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:web_dex/bloc/version_info/version_info_bloc.dart';
 import 'package:web_dex/generated/codegen_loader.g.dart';
+import 'package:web_dex/app_config/app_config.dart';
 import 'package:web_dex/shared/widgets/copied_text.dart';
 
 class AppVersionNumber extends StatelessWidget {
@@ -10,15 +11,15 @@ class AppVersionNumber extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 12),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 620),
       child: BlocBuilder<VersionInfoBloc, VersionInfoState>(
         builder: (context, state) {
           if (state is VersionInfoLoaded) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                SelectableText(LocaleKeys.komodoWallet.tr(), style: _textStyle),
+                SelectableText(appShortTitle, style: _textStyle),
                 if (state.appVersion != null)
                   _MetadataRow(
                     label: LocaleKeys.version.tr(),

@@ -12,6 +12,7 @@ class SettingsState extends Equatable {
     required this.hideZeroBalanceAssets,
     required this.diagnosticLoggingEnabled,
     required this.hideBalances,
+    required this.torEnabled,
   });
 
   factory SettingsState.fromStored(StoredSettings stored) {
@@ -23,6 +24,7 @@ class SettingsState extends Equatable {
       hideZeroBalanceAssets: stored.hideZeroBalanceAssets,
       diagnosticLoggingEnabled: stored.diagnosticLoggingEnabled,
       hideBalances: stored.hideBalances,
+      torEnabled: stored.torEnabled,
     );
   }
 
@@ -33,6 +35,7 @@ class SettingsState extends Equatable {
   final bool hideZeroBalanceAssets;
   final bool diagnosticLoggingEnabled;
   final bool hideBalances;
+  final bool torEnabled;
 
   @override
   List<Object?> get props => [
@@ -43,6 +46,7 @@ class SettingsState extends Equatable {
     hideZeroBalanceAssets,
     diagnosticLoggingEnabled,
     hideBalances,
+    torEnabled,
   ];
 
   SettingsState copyWith({
@@ -53,6 +57,7 @@ class SettingsState extends Equatable {
     bool? hideZeroBalanceAssets,
     bool? diagnosticLoggingEnabled,
     bool? hideBalances,
+    bool? torEnabled,
   }) {
     return SettingsState(
       themeMode: mode ?? themeMode,
@@ -64,6 +69,7 @@ class SettingsState extends Equatable {
       diagnosticLoggingEnabled:
           diagnosticLoggingEnabled ?? this.diagnosticLoggingEnabled,
       hideBalances: hideBalances ?? this.hideBalances,
+      torEnabled: torEnabled ?? this.torEnabled,
     );
   }
 }

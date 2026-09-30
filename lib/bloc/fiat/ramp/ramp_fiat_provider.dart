@@ -12,7 +12,7 @@ import 'package:web_dex/bloc/fiat/ramp/models/host_assets_config.dart';
 import 'package:web_dex/bloc/fiat/ramp/models/onramp_purchase_quotation/onramp_purchase_quotation.dart';
 import 'package:web_dex/bloc/fiat/ramp/ramp_api_utils.dart';
 
-const logoUrl = 'https://dex.gleec.com/icons/logo_icon.webp';
+const logoUrl = String.fromEnvironment('P2PIRATE_FIAT_LOGO_URL');
 
 class RampFiatProvider extends BaseFiatProvider {
   RampFiatProvider();

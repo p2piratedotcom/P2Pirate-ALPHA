@@ -21,6 +21,8 @@ import 'package:web_dex/model/coin.dart';
 import 'package:web_dex/model/coin_type.dart';
 import 'package:web_dex/performance_analytics/performance_analytics.dart';
 import 'package:web_dex/services/logger/get_logger.dart';
+import 'package:web_dex/services/tor/pirate_tor_service.dart';
+import 'package:web_dex/views/common/tor_webview_page.dart';
 import 'package:web_dex/shared/constants.dart';
 import 'package:web_dex/shared/widgets/information_popup.dart';
 
@@ -241,6 +243,12 @@ extension AssetExplorerUrls on Asset {
 }
 
 Future<void> openUrl(Uri uri, {bool? inSeparateTab}) async {
+  if (!kIsWeb &&
+      defaultTargetPlatform == TargetPlatform.linux &&
+      PirateTorService.instance.httpProxyPort != null) {
+    await _openThroughTor(uri);
+    return;
+  }
   if (!await canLaunchUrl(uri)) {
     throw Exception('Could not launch $uri');
   }
@@ -256,6 +264,12 @@ Future<void> openUrl(Uri uri, {bool? inSeparateTab}) async {
 
 Future<void> launchURLString(String url, {bool? inSeparateTab}) async {
   final uri = Uri.parse(url);
+  if (!kIsWeb &&
+      defaultTargetPlatform == TargetPlatform.linux &&
+      PirateTorService.instance.httpProxyPort != null) {
+    await _openThroughTor(uri);
+    return;
+  }
 
   if (await canLaunchUrl(uri)) {
     await launchUrl(
@@ -269,6 +283,24 @@ Future<void> launchURLString(String url, {bool? inSeparateTab}) async {
   } else {
     throw 'Could not launch $url';
   }
+}
+
+Future<void> _openThroughTor(Uri uri) async {
+  final context = scaffoldKey.currentContext;
+  if (context == null) {
+    throw StateError('The internal Tor browser is not ready');
+  }
+  if (uri.scheme != 'https' && uri.scheme != 'http') {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Only HTTP(S) links can open through Tor.')),
+    );
+    return;
+  }
+  await Navigator.of(context, rootNavigator: true).push(
+    MaterialPageRoute<void>(
+      builder: (_) => TorWebViewPage(url: uri, title: uri.host),
+    ),
+  );
 }
 
 // TODO: deprecate

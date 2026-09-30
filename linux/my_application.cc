@@ -8,6 +8,7 @@
 #include <gtk/gtk.h>
 
 #include "flutter/generated_plugin_registrant.h"
+#include "webview_proxy.h"
 
 #if GLIB_CHECK_VERSION(2,74,0)
   #define MY_APP_DEFAULT_FLAGS G_APPLICATION_DEFAULT_FLAGS
@@ -109,6 +110,7 @@ static void my_application_activate(GApplication* application) {
   gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
+  register_webview_proxy(view);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 

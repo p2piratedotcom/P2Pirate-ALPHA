@@ -7,7 +7,6 @@ import 'package:web_dex/bloc/settings/settings_event.dart';
 import 'package:web_dex/bloc/analytics/analytics_bloc.dart';
 import 'package:web_dex/analytics/events/misc_events.dart';
 import 'package:web_dex/generated/codegen_loader.g.dart';
-import 'package:web_dex/shared/widgets/pirate_wallet_logo.dart';
 import 'package:web_dex/views/settings/widgets/common/settings_section.dart';
 
 class SettingsThemeSwitcher extends StatelessWidget {
@@ -73,60 +72,48 @@ class _SettingsModeSelector extends StatelessWidget {
           borderRadius: BorderRadius.circular(18.0),
           color: backgroundColor,
         ),
-        child: Stack(
-          children: [
-            Positioned(
-              right: 8,
-              top: 0,
-              bottom: 0,
-              child: Center(
-                child: PirateWalletLogo(height: 20, themeMode: mode),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: Row(
-                children: [
-                  Container(
-                    width: size,
-                    height: size,
-                    padding: const EdgeInsets.all(2),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+          child: Row(
+            children: [
+              Container(
+                width: size,
+                height: size,
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Theme.of(context).primaryColor,
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: backgroundColor,
+                  ),
+                  child: DecoratedBox(
                     decoration: BoxDecoration(
+                      color: isSelected
+                          ? Theme.of(context).primaryColor
+                          : theme.custom.noColor,
                       shape: BoxShape.circle,
-                      color: Theme.of(context).primaryColor,
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: backgroundColor,
-                      ),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? Theme.of(context).primaryColor
-                              : theme.custom.noColor,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
                     ),
                   ),
-                  Flexible(
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 8.0, right: 2),
-                      child: Text(
-                        _themeName,
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          fontSize: 14,
-                          color: _getTextColor(mode, context),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ],
+              Flexible(
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 8.0, right: 2),
+                  child: Text(
+                    _themeName,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      fontSize: 14,
+                      color: _getTextColor(mode, context),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

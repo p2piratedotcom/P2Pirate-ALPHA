@@ -1,4 +1,6 @@
 dependency_overrides:
+  webview_all_linux:
+    path: ./packages/webview_all_linux
   dragon_charts_flutter:
     path: ./sdk/packages/dragon_charts_flutter
   dragon_logs:

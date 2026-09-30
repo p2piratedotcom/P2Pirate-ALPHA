@@ -8,7 +8,7 @@ import 'package:web_dex/bloc/fiat/models/models.dart';
 import 'package:web_dex/model/coin_type.dart';
 import 'package:web_dex/shared/utils/window/window.dart';
 
-const String domain = 'https://fiat-ramps.gleec.com';
+const String domain = String.fromEnvironment('P2PIRATE_FIAT_API_URL');
 
 abstract class BaseFiatProvider {
   String getProviderId();
@@ -55,6 +55,9 @@ abstract class BaseFiatProvider {
     Map<String, String>? queryParams,
     Map<String, dynamic>? body,
   }) async {
+    if (domain.isEmpty) {
+      throw StateError('No fiat provider is configured');
+    }
     final domainUri = Uri.parse(domain);
     Uri url;
 

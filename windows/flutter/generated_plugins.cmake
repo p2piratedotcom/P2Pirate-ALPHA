@@ -10,6 +10,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   local_auth_windows
   share_plus
   url_launcher_windows
+  webview_all_windows
   window_size
 )
 

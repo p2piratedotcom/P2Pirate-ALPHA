@@ -28,6 +28,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     on<HideZeroBalanceAssetsChanged>(_onHideZeroBalanceAssetsChanged);
     on<DiagnosticLoggingChanged>(_onDiagnosticLoggingChanged);
     on<HideBalancesChanged>(_onHideBalancesChanged);
+    on<TorEnabledChanged>(_onTorEnabledChanged);
   }
 
   late StoredSettings _storedSettings;
@@ -119,5 +120,14 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     );
     await _settingsRepo.updateSettings(_storedSettings);
     emitter(state.copyWith(hideBalances: event.hideBalances));
+  }
+
+  Future<void> _onTorEnabledChanged(
+    TorEnabledChanged event,
+    Emitter<SettingsState> emitter,
+  ) async {
+    _storedSettings = _storedSettings.copyWith(torEnabled: event.torEnabled);
+    await _settingsRepo.updateSettings(_storedSettings);
+    emitter(state.copyWith(torEnabled: event.torEnabled));
   }
 }
