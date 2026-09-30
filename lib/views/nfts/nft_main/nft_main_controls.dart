@@ -87,7 +87,7 @@ class _NftMainControlsState extends State<NftMainControls> {
 
     return PopupDispatcher(
       borderColor: theme.custom.specificButtonBorderColor,
-      barrierColor: isMobile ? Theme.of(context).colorScheme.onSurface : null,
+      barrierColor: isMobile ? Colors.black54 : null,
       barrierDismissible: false,
       width: 320,
       context: scaffoldKey.currentContext ?? context,

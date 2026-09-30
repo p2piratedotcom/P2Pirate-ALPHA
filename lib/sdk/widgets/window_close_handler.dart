@@ -76,7 +76,8 @@ class _WindowCloseHandlerState extends State<WindowCloseHandler>
     } else if (kIsWeb) {
       // Web platform: Use beforeunload event
       showMessageBeforeUnload(
-          'This will close Cheetahdex Wallet and stop all trading activities.');
+        'This will close P2Pirate and stop all trading activities.',
+      );
     } else {
       // Mobile platforms: Use lifecycle observer
       WidgetsBinding.instance.addObserver(this);
@@ -109,7 +110,8 @@ class _WindowCloseHandlerState extends State<WindowCloseHandler>
               return AlertDialog(
                 title: const Text('Do you really want to quit?'),
                 content: const Text(
-                    'This will close Cheetahdex Wallet and stop all trading activities.'),
+                  'This will close P2Pirate and stop all trading activities.',
+                ),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(false),

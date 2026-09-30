@@ -139,12 +139,6 @@ class SettingsRoutePath implements AppRoutePath {
   SettingsRoutePath.security()
     : location = '/${firstUriSegment.settings}/security',
       selectedMenu = SettingsMenuValue.security;
-  SettingsRoutePath.privacy()
-    : location = '/${firstUriSegment.settings}/privacy',
-      selectedMenu = SettingsMenuValue.privacy;
-  SettingsRoutePath.kyc()
-    : location = '/${firstUriSegment.settings}/kyc',
-      selectedMenu = SettingsMenuValue.kycPolicy;
   SettingsRoutePath.passwordUpdate()
     : location = '/${firstUriSegment.settings}/security/passwordUpdate',
       selectedMenu = SettingsMenuValue.security;

@@ -9,7 +9,6 @@ import 'package:web_dex/model/wallet.dart';
 import 'package:web_dex/model/wallets_manager_models.dart';
 import 'package:komodo_ui_kit/komodo_ui_kit.dart';
 
-import 'package:web_dex/shared/widgets/disclaimer/eula_tos_checkboxes.dart';
 import 'package:web_dex/shared/widgets/quick_login_switch.dart';
 import 'package:web_dex/views/wallets_manager/widgets/creation_password_fields.dart';
 import 'package:web_dex/shared/screenshot/screenshot_sensitivity.dart';
@@ -42,7 +41,6 @@ class _WalletCreationState extends State<WalletCreation> {
     text: '',
   );
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  bool _eulaAndTosChecked = false;
   bool _inProgress = false;
   bool _rememberMe = false;
   bool _arePasswordsValid = false;
@@ -107,16 +105,6 @@ class _WalletCreationState extends State<WalletCreation> {
                 ),
                 const SizedBox(height: 24),
                 _buildFields(),
-                const SizedBox(height: 22),
-                EulaTosCheckboxes(
-                  key: const Key('create-wallet-eula-checks'),
-                  isChecked: _eulaAndTosChecked,
-                  onCheck: (isChecked) {
-                    setState(() {
-                      _eulaAndTosChecked = isChecked;
-                    });
-                  },
-                ),
                 const SizedBox(height: 32),
                 UiPrimaryButton(
                   key: const Key('confirm-password-button'),
@@ -197,7 +185,6 @@ class _WalletCreationState extends State<WalletCreation> {
   }
 
   void _onCreate() async {
-    if (!_eulaAndTosChecked) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _inProgress = true);
     // Async uniqueness check before proceeding
@@ -239,9 +226,6 @@ class _WalletCreationState extends State<WalletCreation> {
       _nameController.text,
     );
     final isNameValid = nameError == null;
-    return _eulaAndTosChecked &&
-        !_inProgress &&
-        isNameValid &&
-        _arePasswordsValid;
+    return !_inProgress && isNameValid && _arePasswordsValid;
   }
 }

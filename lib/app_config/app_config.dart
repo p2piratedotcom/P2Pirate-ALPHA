@@ -16,8 +16,6 @@ const List<Locale> localeList = [Locale('en')];
 const String assetsPath = 'assets';
 const String coinsAssetsPath = 'packages/komodo_defi_framework/assets';
 
-// Note: GLEEC does not appear to have a public Discord server.
-// Using info@gleec.com as primary support contact.
 final Uri discordSupportChannelUrl = Uri.parse(
   'https://discord.com/channels/412898016371015680/429676282196787200',
 );

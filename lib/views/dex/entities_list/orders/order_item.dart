@@ -64,7 +64,7 @@ class _OrderItemState extends State<OrderItem> {
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
-              color: Theme.of(context).colorScheme.onSurface,
+              color: Theme.of(context).colorScheme.surface,
             ),
             child: isMobile
                 ? _OrderItemMobile(

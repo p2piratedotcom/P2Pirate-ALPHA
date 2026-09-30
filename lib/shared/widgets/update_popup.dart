@@ -43,7 +43,7 @@ class UpdatePopUp extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 15),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.onSurface,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -71,8 +71,9 @@ class UpdatePopUp extends StatelessWidget {
                             p: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
-                              color:
-                                  Theme.of(context).textTheme.bodyMedium?.color,
+                              color: Theme.of(
+                                context,
+                              ).textTheme.bodyMedium?.color,
                             ),
                           ),
                           data: versionInfo.changelog,
@@ -115,7 +116,7 @@ class UpdatePopUp extends StatelessWidget {
               ),
             ],
           ),
-        )
+        ),
       ],
     );
   }

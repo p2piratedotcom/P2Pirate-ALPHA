@@ -44,19 +44,19 @@ class ThemeCustomDark extends ThemeExtension<ThemeCustomDark>
   final TextStyle tradingFormDetailsContent = const TextStyle(
     fontSize: 14,
     fontWeight: FontWeight.w700,
-    color: Color.fromRGBO(106, 139, 235, 1),
+    color: Color(0xFFBB9645),
   );
   @override
   final Color fiatAmountColor = const Color.fromRGBO(168, 177, 185, 1);
   @override
-  final Color headerFloatBoxColor = const Color(0xFF8C41FF); // GLEEC primary
+  final Color headerFloatBoxColor = const Color(0xFFBB9645);
   @override
   final Color headerIconColor = const Color.fromRGBO(255, 255, 255, 1);
   @override
   final Color buttonColorDefault = const Color.fromRGBO(23, 29, 48, 1);
 
   @override
-  final Color buttonColorDefaultHover = const Color.fromRGBO(76, 128, 233, 1);
+  final Color buttonColorDefaultHover = const Color(0xFFD0B572);
   @override
   final Color buttonTextColorDefaultHover = const Color.fromRGBO(
     245,
@@ -67,9 +67,9 @@ class ThemeCustomDark extends ThemeExtension<ThemeCustomDark>
   @override
   final Color noColor = Colors.transparent;
   @override
-  final Color increaseColor = const Color(0xFF00C058); // GLEEC OK color
+  final Color increaseColor = const Color(0xFF19A974);
   @override
-  final Color decreaseColor = const Color(0xFFE52167); // GLEEC Warning color
+  final Color decreaseColor = const Color(0xFFB33430);
   @override
   final Color zebraDarkColor = const Color(0xFF0F0F0F);
   @override
@@ -85,24 +85,24 @@ class ThemeCustomDark extends ThemeExtension<ThemeCustomDark>
   );
   @override
   final Color simpleButtonBackgroundColor = const Color.fromRGBO(
-    136,
-    146,
-    235,
+    187,
+    150,
+    69,
     0.2,
   );
   @override
   final Color disabledButtonBackgroundColor = const Color.fromRGBO(
-    90,
-    104,
-    230,
+    187,
+    150,
+    69,
     0.3,
   );
   @override
   final Gradient authorizePageBackgroundColor = const RadialGradient(
     center: Alignment.bottomCenter,
     colors: [
-      Color.fromRGBO(42, 188, 241, 0.1),
-      Color.fromRGBO(42, 188, 241, 0),
+      Color.fromRGBO(187, 150, 69, 0.1),
+      Color.fromRGBO(187, 150, 69, 0),
     ],
   );
   @override
@@ -110,11 +110,11 @@ class ThemeCustomDark extends ThemeExtension<ThemeCustomDark>
   @override
   final Color defaultGradientButtonTextColor = Colors.white;
   @override
-  final Color defaultCheckboxColor = const Color.fromRGBO(81, 121, 233, 1);
+  final Color defaultCheckboxColor = const Color(0xFFBB9645);
   @override
   final Gradient defaultSwitchColor = const LinearGradient(
     stops: [0, 93],
-    colors: [Color(0xFF6B1FE0), Color(0xFF8C41FF)], // GLEEC purple gradient
+    colors: [Color(0xFF19A974), Color(0xFFBB9645)],
   );
   @override
   final Color settingsMenuItemBackgroundColor = const Color(0xFF141414);
@@ -128,7 +128,7 @@ class ThemeCustomDark extends ThemeExtension<ThemeCustomDark>
   @override
   final Color rewardBoxShadowColor = const Color.fromRGBO(0, 0, 0, 0.1);
   @override
-  final Color defaultBorderButtonBorder = const Color(0xFF8C41FF); // GLEEC primary
+  final Color defaultBorderButtonBorder = const Color(0xFFBB9645);
   @override
   final Color defaultBorderButtonBackground = const Color.fromRGBO(
     22,
@@ -158,7 +158,7 @@ class ThemeCustomDark extends ThemeExtension<ThemeCustomDark>
       blurRadius: 8,
       color: Color.fromRGBO(0, 0, 0, 0.3),
     ),
-    filterPopupItemBorderColor: Color(0xFF8C41FF), // GLEEC primary
+    filterPopupItemBorderColor: Color(0xFFBB9645),
   );
   @override
   final DexPageTheme dexPageTheme = const DexPageTheme(
@@ -167,10 +167,7 @@ class ThemeCustomDark extends ThemeExtension<ThemeCustomDark>
     activeOrderFormTab: Color.fromRGBO(255, 255, 255, 1),
     inactiveOrderFormTab: Color.fromRGBO(152, 155, 182, 1),
     formPlateGradient: LinearGradient(
-      colors: [
-        Color.fromRGBO(134, 213, 255, 1),
-        Color.fromRGBO(178, 107, 255, 1),
-      ],
+      colors: [Color(0xFFBB9645), Color(0xFF8C6F31)],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     ),
@@ -190,9 +187,9 @@ class ThemeCustomDark extends ThemeExtension<ThemeCustomDark>
     expandMore: Color.fromRGBO(153, 168, 181, 1),
   );
   @override
-  final Color asksColor = const Color(0xFFE52167); // GLEEC Warning
+  final Color asksColor = const Color(0xffe52167);
   @override
-  final Color bidsColor = const Color(0xFF00C058); // GLEEC OK color
+  final Color bidsColor = const Color(0xFF19A974);
   @override
   final Color targetColor = Colors.orange;
   @override
@@ -204,7 +201,7 @@ class ThemeCustomDark extends ThemeExtension<ThemeCustomDark>
   @override
   final Color specificButtonBackgroundColor = const Color(0xFF141414);
   @override
-  final Color balanceColor = const Color.fromRGBO(106, 139, 235, 1);
+  final Color balanceColor = const Color(0xFFBB9645);
   @override
   final Color subBalanceColor = const Color.fromRGBO(124, 136, 171, 1);
   @override
@@ -214,11 +211,11 @@ class ThemeCustomDark extends ThemeExtension<ThemeCustomDark>
   @override
   final Color filterItemBorderColor = const Color.fromRGBO(52, 56, 77, 1);
   @override
-  final Color warningColor = const Color.fromRGBO(229, 33, 103, 1);
+  final Color warningColor = const Color(0xFFB33430);
   @override
   final Color progressBarColor = const Color.fromRGBO(69, 96, 120, 0.33);
   @override
-  final Color progressBarPassedColor = const Color.fromRGBO(137, 147, 236, 1);
+  final Color progressBarPassedColor = const Color(0xFFBB9645);
   @override
   final Color progressBarNotPassedColor = const Color.fromRGBO(
     194,
@@ -230,10 +227,10 @@ class ThemeCustomDark extends ThemeExtension<ThemeCustomDark>
   final Color dexSubTitleColor = const Color.fromRGBO(255, 255, 255, 1);
   @override
   final Color selectedMenuBackgroundColor = const Color.fromRGBO(
-    46,
-    52,
-    112,
-    1,
+    187,
+    150,
+    69,
+    0.22,
   );
   @override
   final Color tabBarShadowColor = const Color.fromRGBO(255, 255, 255, 0.08);
@@ -256,7 +253,7 @@ class ThemeCustomDark extends ThemeExtension<ThemeCustomDark>
     1,
   );
   @override
-  final Color swapButtonColor = const Color.fromRGBO(64, 146, 219, 1);
+  final Color swapButtonColor = const Color(0xFFBB9645);
   @override
   final bridgeFormHeader = const TextStyle(
     fontSize: 11,

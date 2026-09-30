@@ -154,8 +154,6 @@ abstract class LocaleKeys {
   static const settingsMenuGeneral = 'settingsMenuGeneral';
   static const settingsMenuLanguage = 'settingsMenuLanguage';
   static const settingsMenuSecurity = 'settingsMenuSecurity';
-  static const settingsMenuPrivacy = 'settingsMenuPrivacy';
-  static const settingsMenuKycPolicy = 'settingsMenuKycPolicy';
   static const settingsMenuAbout = 'settingsMenuAbout';
   static const seedPhraseSettingControlsViewSeed =
       'seedPhraseSettingControlsViewSeed';
@@ -204,10 +202,6 @@ abstract class LocaleKeys {
       'swapRecoverButtonSuccessMessage';
   static const swapProgressStatusFailed = 'swapProgressStatusFailed';
   static const swapDetailsStepStatusFailed = 'swapDetailsStepStatusFailed';
-  static const disclaimerAcceptEulaCheckbox = 'disclaimerAcceptEulaCheckbox';
-  static const disclaimerAcceptTermsAndConditionsCheckbox =
-      'disclaimerAcceptTermsAndConditionsCheckbox';
-  static const disclaimerAcceptDescription = 'disclaimerAcceptDescription';
   static const swapDetailsStepStatusInProcess =
       'swapDetailsStepStatusInProcess';
   static const swapDetailsStepStatusTimeSpent =
@@ -291,8 +285,6 @@ abstract class LocaleKeys {
   static const supportInfoContent8 = 'supportInfoContent8';
   static const supportInfoTitle9 = 'supportInfoTitle9';
   static const supportInfoContent9 = 'supportInfoContent9';
-  static const supportInfoTitle10 = 'supportInfoTitle10';
-  static const supportInfoContent10 = 'supportInfoContent10';
   static const supportInfoTitle11 = 'supportInfoTitle11';
   static const supportInfoContent11 = 'supportInfoContent11';
   static const supportDiscordButton = 'supportDiscordButton';
@@ -703,7 +695,6 @@ abstract class LocaleKeys {
   static const transactionsEmptyDescription = 'transactionsEmptyDescription';
   static const transactionsNoLoginCAT = 'transactionsNoLoginCAT';
   static const loadingError = 'loadingError';
-  static const legalDocumentLoadError = 'legalDocumentLoadError';
   static const tryAgainButton = 'tryAgainButton';
   static const contractAddress = 'contractAddress';
   static const tokenID = 'tokenID';
