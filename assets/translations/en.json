@@ -148,6 +148,7 @@
   "settingsMenuGeneral": "General",
   "settingsMenuLanguage": "Change language",
   "settingsMenuSecurity": "Security",
+  "settingsMenuAppInfo": "App Info",
   "settingsMenuAbout": "About",
   "seedPhraseSettingControlsViewSeed": "View seed phrase",
   "seedPhraseSettingControlsDownloadSeed": "Download as file",
