@@ -162,11 +162,6 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
 
     emit(state.copyWith(coins: _coinsRepo.getKnownCoinsMap()));
 
-    final existingUser = await _kdfSdk.auth.currentUser;
-    if (existingUser != null) {
-      add(CoinsSessionStarted(existingUser));
-    }
-
     add(CoinsPricesUpdated());
     _updatePricesTimer?.cancel();
     _updatePricesTimer = Timer.periodic(const Duration(minutes: 3), (_) {
@@ -193,6 +188,13 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     _balanceChangesSubscription = _coinsRepo.balanceChanges.stream.listen(
       (Coin coin) => add(CoinsBalanceChanged(coin)),
     );
+
+    // An already enabled ARRR coin can broadcast its active state immediately.
+    // Start listening before kicking off activation for an existing session.
+    final existingUser = await _kdfSdk.auth.currentUser;
+    if (existingUser != null) {
+      add(CoinsSessionStarted(existingUser));
+    }
   }
 
   Future<void> _onCoinsRefreshed(
@@ -674,9 +676,13 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
           })
           .where((coin) => coin != null)
           .cast<Coin>()
-          // Do not pre-populate zhtlc coins, as they require configuration
-          // and longer activation times, and are handled separately.
-          .where((coin) => coin.id.subClass != CoinSubClass.zhtlc),
+          // Show default ARRR while its longer ZHTLC activation is pending.
+          // Other ZHTLC coins still wait for their configuration flow.
+          .where(
+            (coin) =>
+                coin.id.subClass != CoinSubClass.zhtlc ||
+                coin.id.id == defaultDexCoin,
+          ),
       key: (element) => (element as Coin).id.id,
     );
     return state.copyWith(
