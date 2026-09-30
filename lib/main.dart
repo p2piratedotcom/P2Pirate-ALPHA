@@ -67,6 +67,7 @@ Future<void> main() async {
     };
 
     final stored = await SettingsRepository.loadStoredSettings();
+    mm2.configurePriceApi(stored.customPriceApiUrl);
     final torRequested =
         stored.torEnabled &&
         !kIsWeb &&

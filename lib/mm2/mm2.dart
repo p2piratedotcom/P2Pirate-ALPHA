@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:komodo_cex_market_data/komodo_cex_market_data.dart';
 import 'package:komodo_defi_sdk/komodo_defi_sdk.dart';
 import 'package:komodo_defi_types/komodo_defi_type_utils.dart';
 import 'package:web_dex/mm2/mm2_api/rpc/version/version_request.dart';
@@ -10,19 +11,54 @@ final MM2 mm2 = MM2();
 
 final class MM2 {
   MM2() {
+    _configureSdk(const MarketDataConfig());
+  }
+
+  void configurePriceApi(String url) {
+    final customUrl = url.trim();
+    if (_isInitializing || _initCompleter.isCompleted) {
+      throw StateError('Price API must be configured before SDK startup');
+    }
+    final uri = Uri.tryParse(customUrl);
+    if (customUrl.isNotEmpty &&
+        (uri == null ||
+            uri.scheme != 'https' ||
+            uri.host.isEmpty ||
+            uri.userInfo.isNotEmpty)) {
+      throw ArgumentError.value(customUrl, 'url', 'Expected an HTTPS URL');
+    }
+    _configureSdk(
+      customUrl.isEmpty
+          ? const MarketDataConfig()
+          : MarketDataConfig(
+              enableBinance: false,
+              enableCoinGecko: false,
+              enableCoinPaprika: false,
+              komodoPriceProvider: KomodoPriceProvider(
+                mainTickersUrl: customUrl,
+              ),
+            ),
+    );
+    _configuredPriceApiUrl = customUrl;
+  }
+
+  void _configureSdk(MarketDataConfig marketDataConfig) {
     _kdfSdk = KomodoDefiSdk(
-      config: const KomodoDefiSdkConfig(
+      config: KomodoDefiSdkConfig(
         // Syncing pre-activation coin states is not yet implemented,
         // so we disable it for now.
         // TODO: sync pre-activation of coins (show activating coins in list)
         preActivateHistoricalAssets: false,
         preActivateDefaultAssets: false,
+        marketDataConfig: marketDataConfig,
       ),
       onLog: _handleSdkLog,
     );
   }
 
   late final KomodoDefiSdk _kdfSdk;
+  String _configuredPriceApiUrl = '';
+  String get configuredPriceApiUrl => _configuredPriceApiUrl;
   bool _isInitializing = false;
   final Completer<KomodoDefiSdk> _initCompleter = Completer<KomodoDefiSdk>();
 

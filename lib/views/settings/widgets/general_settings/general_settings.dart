@@ -10,6 +10,7 @@ import 'package:web_dex/views/settings/widgets/general_settings/settings_hide_ba
 import 'package:web_dex/views/settings/widgets/general_settings/settings_manage_diagnostic_logging.dart';
 import 'package:web_dex/views/settings/widgets/general_settings/settings_manage_test_coins.dart';
 import 'package:web_dex/views/settings/widgets/general_settings/settings_manage_tor.dart';
+import 'package:web_dex/views/settings/widgets/general_settings/settings_market_prices.dart';
 import 'package:web_dex/views/settings/widgets/general_settings/settings_manage_trading_bot.dart';
 import 'package:web_dex/views/settings/widgets/general_settings/settings_manage_weak_passwords.dart';
 import 'package:web_dex/views/settings/widgets/general_settings/settings_reset_activated_coins.dart';
@@ -31,6 +32,8 @@ class GeneralSettings extends StatelessWidget {
         const SettingsManageTor(),
         const SizedBox(height: 25),
         const SettingsHideBalances(),
+        const SizedBox(height: 25),
+        const SettingsMarketPrices(),
         const SizedBox(height: 25),
         const SettingsManageTestCoins(),
         const SizedBox(height: 25),
