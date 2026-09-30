@@ -102,6 +102,11 @@ class PirateTorService {
         libraryPath: torsocksLibrary.path,
         configPath: configFile.path,
       );
+      // Confirm that a KDF seed resolves through Tor before SDK bootstrap.
+      // This exposes an unusable Tor circuit as a startup error.
+      await SeedNodeService.fetchSeedNodes().timeout(
+        const Duration(seconds: 50),
+      );
       _socksPort = port;
       _httpBridge = await PirateTorHttpBridge.start(port);
       pirateTorStatus.value = identical(_process, process)
