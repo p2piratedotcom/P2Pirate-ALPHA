@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:app_theme/app_theme.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:komodo_ui_kit/komodo_ui_kit.dart';
 import 'package:web_dex/blocs/orderbook_bloc.dart';
+import 'package:web_dex/bloc/coins_bloc/coins_bloc.dart';
 import 'package:web_dex/generated/codegen_loader.g.dart';
 import 'package:web_dex/model/coin.dart';
 import 'package:web_dex/model/orderbook/order.dart';
@@ -40,6 +43,14 @@ class OrderbookView extends StatefulWidget {
 
 class _OrderbookViewState extends State<OrderbookView> {
   late OrderbookModel _model;
+  Timer? _priceTimer;
+
+  void _refreshPrices() {
+    final bloc = context.read<CoinsBloc>();
+    for (final coin in [widget.base, widget.rel]) {
+      if (coin != null) bloc.add(CoinPriceRequested(coin.abbr));
+    }
+  }
 
   @override
   void initState() {
@@ -50,11 +61,17 @@ class _OrderbookViewState extends State<OrderbookView> {
     );
 
     super.initState();
+    _refreshPrices();
+    _priceTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      _refreshPrices();
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
     _model.dispose();
+    _priceTimer?.cancel();
     super.dispose();
   }
 
@@ -62,6 +79,10 @@ class _OrderbookViewState extends State<OrderbookView> {
   void didUpdateWidget(covariant OrderbookView oldWidget) {
     if (widget.base != oldWidget.base) _model.base = widget.base;
     if (widget.rel != oldWidget.rel) _model.rel = widget.rel;
+    if (widget.base?.abbr != oldWidget.base?.abbr ||
+        widget.rel?.abbr != oldWidget.rel?.abbr) {
+      _refreshPrices();
+    }
 
     super.didUpdateWidget(oldWidget);
   }

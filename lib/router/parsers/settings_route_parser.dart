@@ -18,6 +18,10 @@ class _SettingsRouteParser implements BaseRouteParser {
       return SettingsRoutePath.security();
     }
 
+    if (uri.pathSegments[1] == 'app-info') {
+      return SettingsRoutePath.appInfo();
+    }
+
     if (uri.pathSegments[1] == 'privacy' || uri.pathSegments[1] == 'kyc') {
       return SettingsRoutePath.general();
     }
