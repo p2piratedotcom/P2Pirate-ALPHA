@@ -44,6 +44,7 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
   final TradingStatusService _tradingStatusService;
 
   final _log = Logger('CoinsBloc');
+  final Set<String> _refreshingPubkeys = {};
 
   StreamSubscription<Coin>? _enabledCoinsSubscription;
   StreamSubscription<Coin>? _balanceChangesSubscription;
@@ -65,6 +66,7 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     CoinsPubkeysRequested event,
     Emitter<CoinsState> emit,
   ) async {
+    if (event.forceRefresh && !_refreshingPubkeys.add(event.coinId)) return;
     try {
       if (_isInitialActivationInProgress) {
         _log.info(
@@ -87,12 +89,17 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
 
       // Get pubkeys from the SDK through the repo
       final asset = _kdfSdk.assets.available[coin.id]!;
+      if (event.forceRefresh) {
+        await _kdfSdk.pubkeys.precachePubkeys(asset);
+      }
       final pubkeys = await _kdfSdk.pubkeys.getPubkeys(asset);
 
       // Update state with new pubkeys
       emit(state.copyWith(pubkeys: {...state.pubkeys, event.coinId: pubkeys}));
     } catch (e, s) {
       _log.shout('Failed to get pubkeys for ${event.coinId}', e, s);
+    } finally {
+      if (event.forceRefresh) _refreshingPubkeys.remove(event.coinId);
     }
   }
 
@@ -220,6 +227,13 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
         coins: {...state.coins, assetId: merged},
       ),
     );
+
+    // Refresh expanded address balances after a live ARRR total update.
+    // Avoid work for wallets whose address details are not open yet.
+    if (merged.abbr.toUpperCase() == 'ARRR' &&
+        state.pubkeys.containsKey(assetId)) {
+      add(CoinsPubkeysRequested(assetId, forceRefresh: true));
+    }
   }
 
   Future<void> _onCoinsBalanceMonitoringStopped(
