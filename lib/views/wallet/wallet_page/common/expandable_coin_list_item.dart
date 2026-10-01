@@ -151,6 +151,9 @@ class _ExpandableCoinListItemState extends State<ExpandableCoinListItem> {
     bool hideBalances,
   ) {
     final statsTap = widget.onStatisticsTap;
+    final showUsd = context.select(
+      (SettingsBloc bloc) => bloc.state.showWalletUsdValues,
+    );
     return Container(
       alignment: Alignment.centerLeft,
       child: Row(
@@ -190,13 +193,15 @@ class _ExpandableCoinListItemState extends State<ExpandableCoinListItem> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   // Current balance in USD - using headlineMedium for bold 16px text
-                  _UsdBalanceText(
-                    coin: widget.coin,
-                    textStyle: theme.textTheme.headlineMedium,
-                  ),
-                  const SizedBox(height: 2),
+                  if (showUsd) ...[
+                    _UsdBalanceText(
+                      coin: widget.coin,
+                      textStyle: theme.textTheme.headlineMedium,
+                    ),
+                    const SizedBox(height: 2),
+                  ],
                   // Trend percentage
-                  if (!hideBalances)
+                  if (showUsd && !hideBalances)
                     BlocBuilder<CoinsBloc, CoinsState>(
                       builder: (context, state) {
                         final usdBalance = widget.coin.lastKnownUsdBalance(
@@ -246,6 +251,9 @@ class _ExpandableCoinListItemState extends State<ExpandableCoinListItem> {
     bool hideBalances,
   ) {
     final statsTap = widget.onStatisticsTap;
+    final showUsd = context.select(
+      (SettingsBloc bloc) => bloc.state.showWalletUsdValues,
+    );
     return Container(
       alignment: Alignment.centerLeft,
       child: Row(
@@ -262,7 +270,7 @@ class _ExpandableCoinListItemState extends State<ExpandableCoinListItem> {
             borderRadius: BorderRadius.circular(8),
             child: CoinBalance(coin: widget.coin),
           ),
-          if (!hideBalances)
+          if (showUsd && !hideBalances)
             BlocBuilder<CoinsBloc, CoinsState>(
               builder: (context, state) {
                 final usdBalance = widget.coin.lastKnownUsdBalance(context.sdk);

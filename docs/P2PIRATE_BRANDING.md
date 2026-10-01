@@ -56,7 +56,23 @@ Existing installations may have a legacy `PirateWallet.png` icon and desktop
 entry named `com.shorelinecrypto.CheetahDEX.desktop`. The installer removes
 that desktop entry only when it matches the old P2Pirate launcher fields; it
 does not remove a customized entry or the legacy keyring account.
-Branding on other platforms and release packaging are tracked separately.
+The macOS runner now uses the visible name `P2Pirate` and bundle identifier
+`com.p2pirate.wallet`. The Windows runner, single-instance mutex, executable,
+window title and version resource use `P2Pirate`. Upstream copyright notices
+remain in the native metadata; a product rename does not transfer ownership of
+the upstream code. The upstream Apple team and provisioning profile were
+removed from the macOS project. The Podfile accepts the team's identifier in
+`P2PIRATE_APPLE_TEAM_ID` for the production Pods configuration; release signing
+also needs the P2Pirate project's own Apple certificate and profile. macOS and
+Windows builds still require checks on
+their respective hosts. Changing the macOS bundle identifier can create a new
+keychain or app-data namespace for users of an older macOS build, so migration
+must be reviewed before distributing it as an update.
+
+The application is being scoped to desktop targets; see
+[desktop-only cleanup](DESKTOP_ONLY_SCOPE.md) before removing unused platform
+runners. This branding change does not establish KDF or Tor feature parity on
+macOS and Windows.
 
 The Settings navigation now contains only P2Pirate relevant pages. The old
 GLEEC Privacy Notice and KYC pages, GLEEC EULA/terms acceptance widgets, and

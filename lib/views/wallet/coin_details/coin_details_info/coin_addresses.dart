@@ -282,18 +282,24 @@ class _Balance extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hideBalances = context.select(
-      (SettingsBloc bloc) => bloc.state.hideBalances,
+    final settings = context.select(
+      (SettingsBloc bloc) => (
+        hideBalances: bloc.state.hideBalances,
+        showUsd: bloc.state.showWalletUsdValues,
+      ),
     );
     final balance = address.balance.total.toDouble();
-    final price = coin.lastKnownUsdPrice(context.sdk);
+    final price = settings.showUsd ? coin.lastKnownUsdPrice(context.sdk) : null;
     final usdValue = price == null ? null : price * balance;
-    final fiat = hideBalances ? maskedBalanceText : formatUsdValue(usdValue);
+    final fiat = !settings.showUsd
+        ? null
+        : settings.hideBalances
+        ? maskedBalanceText
+        : formatUsdValue(usdValue);
 
     return Text(
-      hideBalances
-          ? '$maskedBalanceText ${abbr2Ticker(coin.abbr)} ($fiat)'
-          : '${doubleToString(balance)} ${abbr2Ticker(coin.abbr)} ($fiat)',
+      '${settings.hideBalances ? maskedBalanceText : doubleToString(balance)} '
+      '${abbr2Ticker(coin.abbr)}${fiat == null ? '' : ' ($fiat)'}',
       style: TextStyle(fontSize: isMobile ? 12 : 14),
     );
   }

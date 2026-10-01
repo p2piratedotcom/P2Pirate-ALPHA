@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.komodo" "\0"
-            VALUE "FileDescription", "Cheetahdex Wallet" "\0"
+            VALUE "CompanyName", "P2Pirate contributors" "\0"
+            VALUE "FileDescription", "P2Pirate" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "cheetahdexwallet" "\0"
+            VALUE "InternalName", "P2Pirate" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2023 com.komodo. All rights reserved." "\0"
-            VALUE "OriginalFilename", "cheetahdexwallet.exe" "\0"
-            VALUE "ProductName", "Cheetahdex Wallet" "\0"
+            VALUE "OriginalFilename", "P2Pirate.exe" "\0"
+            VALUE "ProductName", "P2Pirate" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

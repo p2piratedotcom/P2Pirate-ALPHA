@@ -15,6 +15,11 @@ The reference is the P2Pirate Linux x86_64 source snapshot dated 29 September
 recreates and any intentional difference. The ZIP and its bundled AppImage
 are reference material; they are not committed as a source release here.
 
+The intended app targets are Linux, macOS and Windows desktop. Web and mobile
+runners remain temporarily while their build and source dependencies are
+audited; see [desktop-only cleanup](docs/DESKTOP_ONLY_SCOPE.md). Only Linux has
+been built locally for the P2Pirate port so far.
+
 ## Repository map
 
 | Path | Purpose | Provenance |
@@ -23,7 +28,8 @@ are reference material; they are not committed as a source release here.
 | `app_theme/`, `packages/` | App theme and local Flutter packages | Upstream, then reviewed P2Pirate edits |
 | `sdk/` | Komodo DeFi Flutter SDK Git submodule, without a bundled Linux KDF | Pinned [P2Pirate SDK fork](https://github.com/p2piratedotcom/komodo-defi-sdk-flutter) |
 | `assets/` | Wallet graphics, coin data, translations | Mixed; new art must carry its own source and license record |
-| `android/`, `ios/`, `linux/`, `macos/`, `web/`, `windows/` | Platform runners and packaging metadata | Upstream plus merged Linux branding changes |
+| `linux/`, `macos/`, `windows/` | Intended desktop runners and packaging metadata | Upstream plus P2Pirate branding changes |
+| `android/`, `ios/`, `web/` | Legacy app runners pending reviewed removal | Upstream |
 | `docs/`, `test/`, `test_units/`, `test_integration/` | Build guidance and checks | Upstream plus P2Pirate inventory and focused additions |
 | `LICENSE`, `licenses/` | Source license and component notices | Retain upstream GPL-3.0 text and third-party notices |
 
@@ -59,7 +65,7 @@ not prove end-to-end trading compatibility.
 
 ## Build and run from source
 
-Use Flutter `>=3.41.4 <4.0.0` and Dart `>=3.8.1 <4.0.0`, as declared in
+Use Flutter `>=3.47.5 <4.0.0` and Dart `>=3.11.0 <4.0.0`, as declared in
 `pubspec.yaml`, plus the native tools for your target platform. Clone the
 `cheetahdex` branch with its exact SDK commit:
 
