@@ -1,5 +1,9 @@
 # Signing builds
 
+> Upstream reference: Android and Web distribution are no longer P2Pirate
+> targets. Desktop signing must be configured for the P2Pirate project; see
+> [desktop build guidance](../INSTALL.md).
+
 ## Android
 
 1. Generate keystore file:

@@ -1,5 +1,9 @@
 # Flutter Version Management
 
+> Upstream reference: this document describes the former 3.41.4 toolchain.
+> P2Pirate currently builds with Flutter 3.47.5; see the desktop-only
+> [installation guide](../INSTALL.md).
+
 ## Supported Flutter Version
 
 This project supports Flutter `3.41.4`. We aim to keep the project up-to-date with the most recent stable Flutter versions.

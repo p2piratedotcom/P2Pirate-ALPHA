@@ -38,14 +38,13 @@
 contrib/coins_config.json
 devtools_options.yaml
 
-# Web related
-web/index.html
-web/src/*
-web/dist/*.js
-web/dist/*.wasm
-web/dist/*LICENSE.txt
-web/src/mm2/
-web/src/kdfi/
+# Generated remnants of removed app runners
+/android/local.properties
+/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+/ios/Flutter/ephemeral/
+# The shared SDK build transformer still copies these Web stubs on desktop builds.
+/web/kdf/res/kdf_wrapper.dart
+/web/kdf/res/kdflib_bootstrapper.js
 
 # Symbolication related
 app.*.symbols
@@ -85,9 +84,6 @@ AGENTS_1.md
 # .dmg Release
 dist/
  
-# KDF generated binaries
-web/kdf/kdf/bin/
-
 # AI tool local skill bundles; keep project-scoped .claude/.cursor config trackable.
 /.claude/skills/
 /.cursor/skills/

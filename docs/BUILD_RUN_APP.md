@@ -1,5 +1,8 @@
 # Build and run the App
 
+> Upstream reference: Web and Android runners have been removed from P2Pirate.
+> Use the [desktop build guide](../INSTALL.md) for current commands.
+
 Before proceeding, make sure that you have set up a working environment for your host platform according to the [guide](PROJECT_SETUP.md#host-platform-setup).
 
 There are two main commands, `flutter run` to run the app or `flutter build` to build for the specified platform.

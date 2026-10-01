@@ -1,245 +1,52 @@
-# Installation Guide for Cheetahdex Wallet Web App, Android App and Desktop App 
+# P2Pirate desktop build and installation
 
-For high level understanding of Cheetahdex Wallet code base, please checkout Komodo developer guide on README front page.
+P2Pirate targets Linux, macOS and Windows desktop. Android and Web app runners
+are no longer in this repository. The iOS runner is retained as upstream
+reference, but is not a supported P2Pirate target. Linux is the only target
+built locally for this port so far; macOS and Windows need builds and wallet
+checks on their own hosts before distribution.
 
-Cheetahdex Wallet pretty much preserved all the features in the open sourced Gleec Wallet (formerly Komodo Wallet) app, with DEX enabled and some logo/name changes.
+## Prerequisites
 
-## Hardware Requirement - proper hardware for PC, chromebook, or mobile phones
+Use Flutter `>=3.47.5 <4.0.0` with Dart `>=3.11.0 <4.0.0`, as required by
+`pubspec.yaml`. Install the native build tools for your desktop host. Flutter's
+[desktop setup guide](https://docs.flutter.dev/platform-integration/desktop)
+lists those tools; missing Android SDK or Chrome support does not prevent a
+desktop build. Keep the SDK submodule at the revision recorded by this repo.
 
-The cheetahdex web app was successfully tested in google chrome or firefox browser on multiple platforms: windows 11, macOS, linux, chromebook, android phone.
+The Linux GUI needs a separate, compatible KDF 2.7 executable. See
+[external KDF](docs/P2PIRATE_EXTERNAL_KDF.md) for the reviewed release,
+checksum, first-run installer and coin catalog inputs. Tor is enabled by
+default on Linux; its local packaging and limits are documented in
+[Tor transport](docs/P2PIRATE_TOR_LINUX.md).
 
-The cheetahdex desktop app released binary files were tested successfully in Windows 11 and linux (ubuntu 24.04) on x64 hardware. 
+## Linux build
 
-The cheetahdex android apk released file was successfully tested with google Nexus 9 pro and Samsung model phones.
-
-## Dependency Requirement for web/android/linux wallet - flutter and android-studio
-Cheetahdex Web/Android/linux Wallet app is flutter based app.  You can compile your own linux binary files, android apk, or compile and run self-hosted web app in Ubuntu 22.04 easily by meeting flutter and android-studio 
-requirement below. Check out Komodo Developer Guide on README for details.
-- Install latest version of android studio.  For easily navigate and install proper features of android-studio, a x-windows GUI on Ubuntu is recommended.
-- Install flutter on proper version under your home directory.  Too new or too old version of flutter won't compile this release.
-
-Finally, check dependency with below command:
-```commandline
-  flutter doctor -v
+```sh
+git clone --recurse-submodules https://github.com/p2piratedotcom/P2Pirate-ALPHA.git
+cd P2Pirate-ALPHA
+git checkout cheetahdex
+git submodule update --init --recursive
+flutter pub get --enforce-lockfile
+# Stage the reviewed coin catalog and icons as described in the external KDF guide.
+flutter build linux --release --no-pub
+P2PIRATE_KDF_PATH=/absolute/path/to/kdf build/linux/x64/release/bundle/P2Pirate
 ```
 
-ShorelineCrypto production web/android app was compiled successfully under below dependency versions in Ubuntu 22.04:
-```
- [!] Flutter (Channel [user-branch], 3.41.4, on Ubuntu 22.04.5 LTS 6.8.0-106-generic, locale en_US.UTF-8) [94ms]
-    ! Flutter version 3.41.4 on channel [user-branch] at /home/hlu/flutter
-      Currently on an unknown channel. Run `flutter channel` to switch to an official channel.
-      If that doesn't fix the issue, reinstall Flutter by following instructions at https://flutter.dev/setup.
-    ! Upstream repository unknown source is not a standard remote.
-      Set environment variable "FLUTTER_GIT_URL" to unknown source to dismiss this error.
-    • Framework revision ff37bef603 (7 weeks ago), 2026-03-03 16:03:22 -0800
-    • Engine revision e4b8dca3f1
-    • Dart version 3.11.1
-    • DevTools version 2.54.1
-    • Feature flags: enable-web, enable-linux-desktop, enable-macos-desktop, enable-windows-desktop, enable-android, enable-ios, cli-animations, enable-native-assets, omit-legacy-version-file,
-      enable-lldb-debugging, enable-uiscene-migration
-    • If those were intentional, you can disregard the above warnings; however it is recommended to use "git" directly to perform update checks and upgrades.
+For a distributable local Linux package, follow
+[the AppImage recipe](docs/P2PIRATE_APPIMAGE.md). Do not publish an AppImage
+until its coin, Tor/torsocks and KDF source and license requirements are
+satisfied.
 
-[✓] Android toolchain - develop for Android devices (Android SDK version 36.0.0) [2.9s]
-    • Android SDK at /home/hlu/Android/Sdk
-    • Emulator version 36.1.9.0 (build_id 13823996) (CL:N/A)
-    • Platform android-36, build-tools 36.0.0
-    • ANDROID_HOME = /home/hlu/android-studio
-    • Java binary at: /home/hlu/android-studio/jbr/bin/java
-      This is the JDK bundled with the latest Android Studio installation on this machine.
-      To manually set the JDK path, use: `flutter config --jdk-dir="path/to/jdk"`.
-    • Java version OpenJDK Runtime Environment (build 21.0.5+-12932927-b750.29)
-    • All Android licenses accepted.
+## macOS and Windows
 
-[✓] Chrome - develop for the web [22ms]
-    • Chrome at google-chrome
+Use `flutter build macos --release` on macOS or
+`flutter build windows --release` on Windows after resolving the same pinned
+SDK and build assets. These commands describe the intended desktop targets;
+they are not a claim that either build or its KDF/Tor integration has passed
+native-host verification. macOS distribution also needs the P2Pirate team's
+own signing credentials and an app-data migration review because its bundle
+ID is now `com.p2pirate.wallet`.
 
-[✓] Linux toolchain - develop for Linux desktop [536ms]
-    • Ubuntu clang version 14.0.0-1ubuntu1.1
-    • cmake version 3.22.1
-    • ninja version 1.10.1
-    • pkg-config version 0.29.2
-    • GL_EXT_framebuffer_blit: no
-    • GL_EXT_texture_format_BGRA8888: no
-
-[✓] Connected device (2 available) [177ms]
-    • Linux (desktop) • linux  • linux-x64      • Ubuntu 22.04.5 LTS 6.8.0-106-generic
-    • Chrome (web)    • chrome • web-javascript • Google Chrome 146.0.7680.153
-
-[✓] Network resources [301ms]
-    • All expected network resources are available.
-
-! Doctor found issues in 1 category.
-
-```
-
-## Dependency - github token
-Compiling web app with flutter or github action require personal access token setup at github. Without active token setup, the web compiling will generate authorization error on github api downloading step, windows app git action will fail too. 
-
-Login into github account, follow menu settings -> Credentials, setup proper personal access token (classic or fine-grained), enable read only for repo and git actions.
-
-Run below on linux terminal before compiling step, or append at your .bashrc file:
-```commandline
-export GITHUB_API_PUBLIC_READONLY_TOKEN=xxxxxx
-```
-
-
-## Cheetahdex Wallet Web App
-### Step 1 - compile cheetahdex-wallet web app
-
-To compile your self-hosted web app, run below
-
-```
-  git clone https://github.com/ShorelineCrypto/cheetahdex-wallet-web.git
-  cd cheetahdex-wallet-web && git checkout cheetahdex
-  git submodule update --init --recursive
-  flutter build web --csp --no-web-resources-cdn --wasm
-```
-
-If above command runs successfully, it will say that coins has been updated, please re-compile web app again. Now re-compile:
-
-```
-  flutter build web --csp --no-web-resources-cdn --wasm
-```
-
-Now you should see the notice that web app has been compiled successfully at terminal. 
-
-### Step 2 - Run Web App
-
-run below:
-```
-  flutter run -d  web-server  --web-hostname  localhost --web-port=8888  --release
-```
-
-Now Cheetahdex Web Wallet should be running at "http://localhost:8888" web URL.  This web URL can only be accessed from same host machine that web app runs on. 
-
-### Step 3 - Set up https with certbot/nginx
-
-The new web version of Komodo Wallet imposed security enhancement feature that can only run through localhost host. Cheetahdex Web Wallet removed geo blocker restriction of komodo web wallet, however, this localhost restriction stays.
-
-The setup of https redirection to full host name with certbot/nginx can follow similar method of electrumx WSS/SSL setup as in https://komodoplatform.com/en/docs/komodo/setup-electrumx-server/ 
-
-For example, using Ubuntu 20.04 and NGINX:
-
-```
-sudo snap install core; sudo snap refresh core
-sudo apt-get remove certbot
-sudo snap install --classic certbot
-sudo ln -s /snap/bin/certbot /usr/bin/certbot
-sudo certbot --nginx
-```
-
-Will create a cert file and key file, and update your nginx `sites-enabled` config.
-
-## Cheetahdex Wallet Android App
-### Step 1 - compile cheetahdex-wallet android app
-
-There are 3 ways to compile android apk installation file: github action CI/CD method, docker method and flutter build method. Here android apk release was obtained through flutter method.
-
-To compile your own android app apk file, make sure your linux server (ubuntu 22.04) met the flutter/android studio dependency as shown above, then run below
-
-```
-  git clone https://github.com/ShorelineCrypto/cheetahdex-wallet-web.git
-  cd cheetahdex-wallet-web && git checkout cheetahdex
-  git submodule update --init --recursive
-  flutter clean
-  flutter pub get
-  dart run flutter_launcher_icons
-  flutter build apk
-```
-
-If above command runs successfully, it may say that coins has been updated, please re-compile android app again. Now re-compile:
-
-```commandline
-    flutter build apk
-```
-
-Now your android apk files will be built successfully under 'build' folder.  Transfer apk file into your android phone/pad,  install and run the android app for Cheetahdex Wallet.
-
-### Step 2 - Trouble shoot Icon/Logo Failure
-
-If step 1 failed with message like "duplicate error on color.xml bla bla", or the new icon/logo in your local branch does not show up fresh, you can clear graddle/kotlin cache with below command:
-
-```commandline
-  cd android/
-  ./gradlew clean
-  cd ..
-  flutter clean
-  flutter pub get
-  dart run flutter_launcher_icons
-  flutter build apk
-```
-
-## Cheetahdex Wallet Windows/Linux Desktop App
-### Step 1 - fork cheetahdex-wallet-web repo
-
-Windows 11 (or linux) desktop release was obtained through github action CI/CD method. This repo source code allows you to perform the same binary file release yourself from source code.
-
-To obtain do-it-yourself your own binary compiled installation file for windows 11 desktop app from source code, you will need to fork this github repo first, then in your own forked repo, enable github action. Github action is free service provided by github for every github account. 
-
-### Step 2 - PR to cheetahdex branch to compile
-
-This source code under '.github' subfolder has all the code for github action CI/CD compiling method. The compiling will be triggered upon "pull request" to the default `cheetahdex` git branch. Try to play with your branch code and PR to cheetahdex branch to enable github Actions to compile windows/linux desktop app binary release. 
-
-The final compiled result windows file is at:
-git Actions -> Building desktop apps -> Build Desktop (windows) -> Upload artifact -> click download at browser.
-
-The final compiled result linux file is at:
-git Actions -> Building desktop apps -> Build Desktop (linux) -> Upload artifact -> click download at browser.
-
-## Cheetahdex Wallet Linux Desktop App - alternative flutter method
-### Step 1 - compile cheetahdex-wallet Desktop Linux app
-
-There are 3 ways to compile linux desktop binary file: github action CI/CD method, docker method and flutter build method. Here linux release was obtained through github action CI/CD method.
-
-To compile your own linux release files on flutter method, make sure your linux server (ubuntu 22.04) met the flutter/linux dependency as shown above, then run below
-
-```
-  git clone https://github.com/ShorelineCrypto/cheetahdex-wallet-web.git
-  cd cheetahdex-wallet-web && git checkout cheetahdex
-  git submodule update --init --recursive
-  flutter clean
-  flutter pub get
-  flutter build linux
-```
-
-If above command runs successfully, it may say that coins has been updated and crash, please re-compile linux app again. Now re-compile:
-
-```commandline
-    flutter build linux
-```
-
-Now your linux binary release files will be built successfully under 'build/linux/x64/release/bundle' folder.  Rename this `bundle` folder name into proper linux folder with version, then move the whole folder into desired installation location such as below:
-
-```commandline
-mv build/linux/x64/release/bundle ~/cheetahdex-wallet_linux_unified_0.9.4
-
-```
-
-## Trouble Shooting on Linux Desktop Usage
-### Issue 1 - Trouble shoot Linux Failure on kdf
-
-You can launch the linux app from Linux Desktop by double clicking the binary file directly.  However, it is known that if you symbolic link the binary file into other location such as Desktop, an error of "kdf not found" will show up. 
-
-You can also launch the linux wallet app on terminal with all the log printing out in details on terminal as below:
-```commandline
-  cd ~/cheetahdex-wallet_linux_unified_0.9.4
-  ./CheetahDEX &
-  
-```
-
-### Issue 2 - Linux Desktop Flickering
-
-Under remote desktop login into linux desktop running Cheetahdex Desktop App, or some hardware linux desktop, you may encounter annoying flickering or flashing of GUI. This is known bug on flutter and you can fix with below shell script: 
-
-```commandline
-#! /bin/bash
-
-export LIBGL_ALWAYS_SOFTWARE=1
-export FLUTTER_LINUX_RENDERER=software
-./CheetahDEX &
-```
-
-This above terminal launching script is provided in the binary release as `launch_cheetahdex.sh`. Run below in linux terminal to fix the flickering issue:
-```commandline
-  bash launch_cheetahdex.sh
-```
+The older upstream setup and release documents under `docs/` are retained for
+historical reference. Their Web/Android commands do not apply to P2Pirate.

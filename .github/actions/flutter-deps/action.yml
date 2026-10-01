@@ -8,7 +8,7 @@ runs:
       uses: subosito/flutter-action@v2
       with:
         # NB! Keep up-to-date with the flutter version used for development
-        flutter-version: "3.41.4"
+        flutter-version: "3.47.5"
         channel: "stable"
 
     - name: Prepare build directory
@@ -17,6 +17,3 @@ runs:
       run: |
         flutter clean
         rm -rf build/*
-        rm -rf web/src/mm2/*
-        rm -rf web/src/kdfi/*
-        rm -rf web/dist/*

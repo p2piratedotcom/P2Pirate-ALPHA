@@ -23,11 +23,8 @@ jobs:
         id: install_flutter
         uses: ./.github/actions/flutter-deps
 
-      - name: Fetch packages and generate assets
-        id: generate_assets
-        uses: ./.github/actions/generate-assets
-        with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Resolve packages
+        run: flutter pub get --enforce-lockfile
 
       - name: Resolve SDK workspace dependencies
         id: sdk_pub_get

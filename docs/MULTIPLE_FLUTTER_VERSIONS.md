@@ -1,5 +1,9 @@
 # Managing Multiple Flutter Versions
 
+> Upstream reference: this guide includes the former 3.41.4 toolchain.
+> P2Pirate currently builds with Flutter 3.47.5; see the desktop-only
+> [installation guide](../INSTALL.md).
+
 For the best development experience with Komodo DeFi SDK, we recommend using a Flutter version manager to easily switch between different Flutter versions. This document outlines two recommended approaches:
 
 1. **Flutter Sidekick** - A user-friendly GUI application (recommended for beginners)

@@ -15,10 +15,10 @@ The reference is the P2Pirate Linux x86_64 source snapshot dated 29 September
 recreates and any intentional difference. The ZIP and its bundled AppImage
 are reference material; they are not committed as a source release here.
 
-The intended app targets are Linux, macOS and Windows desktop. Web and mobile
-runners remain temporarily while their build and source dependencies are
-audited; see [desktop-only cleanup](docs/DESKTOP_ONLY_SCOPE.md). Only Linux has
-been built locally for the P2Pirate port so far.
+The intended app targets are Linux, macOS and Windows desktop. The Android and
+Web runners and deployment workflows have been removed; the unused iOS runner
+remains pending a separate review. See [desktop-only cleanup](docs/DESKTOP_ONLY_SCOPE.md).
+Only Linux has been built locally for the P2Pirate port so far.
 
 ## Repository map
 
@@ -29,7 +29,7 @@ been built locally for the P2Pirate port so far.
 | `sdk/` | Komodo DeFi Flutter SDK Git submodule, without a bundled Linux KDF | Pinned [P2Pirate SDK fork](https://github.com/p2piratedotcom/komodo-defi-sdk-flutter) |
 | `assets/` | Wallet graphics, coin data, translations | Mixed; new art must carry its own source and license record |
 | `linux/`, `macos/`, `windows/` | Intended desktop runners and packaging metadata | Upstream plus P2Pirate branding changes |
-| `android/`, `ios/`, `web/` | Legacy app runners pending reviewed removal | Upstream |
+| `ios/` | Legacy mobile runner, not a supported P2Pirate target | Upstream |
 | `docs/`, `test/`, `test_units/`, `test_integration/` | Build guidance and checks | Upstream plus P2Pirate inventory and focused additions |
 | `LICENSE`, `licenses/` | Source license and component notices | Retain upstream GPL-3.0 text and third-party notices |
 
@@ -81,11 +81,10 @@ flutter pub get --enforce-lockfile
 flutter run -d linux
 ```
 
-The two SDK SHA outputs should match. Choose the Flutter device and build
-target for your host; the upstream [setup](docs/PROJECT_SETUP.md),
-[run](docs/BUILD_RUN_APP.md) and [release](docs/BUILD_RELEASE.md) guides cover
-platform prerequisites. They are upstream documentation and are not evidence
-that the merged P2Pirate source builds on every platform. On Linux, install a
+The two SDK SHA outputs should match. The [desktop installation guide](INSTALL.md)
+lists the supported target commands. The older upstream setup and release
+documents are retained as historical reference and may mention removed Web or
+mobile targets. On Linux, install a
 verified KDF 2.7 executable separately before launching, or use the GUI's
 first-run installer for the pinned upstream release. Coin assets must also be staged as described in
 [external KDF](docs/P2PIRATE_EXTERNAL_KDF.md). Do not package the

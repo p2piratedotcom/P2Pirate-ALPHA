@@ -1,5 +1,9 @@
 # Project setup
 
+> Upstream reference: this guide describes targets that P2Pirate no longer
+> builds, including Web and Android. Use the [P2Pirate desktop guide](../INSTALL.md)
+> for current setup and target support.
+
 Cheetahdex Wallet is a cross-platform application, meaning it can be built for multiple target platforms using the same code base. It is important to note that some target platforms may only be accessible from specific host platforms. Below is a list of all supported host platforms and their corresponding target platforms:
 
 | Host Platform | Target Platform                  |
