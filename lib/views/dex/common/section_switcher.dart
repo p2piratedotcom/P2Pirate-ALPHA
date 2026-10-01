@@ -7,17 +7,38 @@ import 'package:web_dex/generated/codegen_loader.g.dart';
 import 'package:web_dex/views/dex/common/dex_text_button.dart';
 
 class SectionSwitcher extends StatelessWidget {
+  const SectionSwitcher({super.key, this.trailing});
+
+  final Widget? trailing;
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: BoxConstraints(maxWidth: theme.custom.dexFormWidth),
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        children: [
-          _TakerBtn(),
-          const SizedBox(width: 12),
-          _MakerBtn(),
-        ],
+    final buttons = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [_TakerBtn(), const SizedBox(width: 12), _MakerBtn()],
+    );
+
+    if (trailing == null) {
+      return Container(
+        constraints: BoxConstraints(maxWidth: theme.custom.dexFormWidth),
+        padding: const EdgeInsets.only(bottom: 4),
+        child: buttons,
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) => Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: constraints.maxWidth < 420
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  buttons,
+                  const SizedBox(height: 8),
+                  Align(alignment: Alignment.centerRight, child: trailing),
+                ],
+              )
+            : Row(children: [buttons, const Spacer(), trailing!]),
       ),
     );
   }

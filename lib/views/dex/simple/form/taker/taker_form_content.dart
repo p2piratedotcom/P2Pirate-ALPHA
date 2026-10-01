@@ -16,6 +16,7 @@ import 'package:web_dex/mm2/mm2_api/rpc/sell/sell_request.dart';
 import 'package:web_dex/shared/ui/ui_light_button.dart';
 import 'package:web_dex/shared/widgets/connect_wallet/connect_wallet_wrapper.dart';
 import 'package:web_dex/views/dex/common/form_plate.dart';
+import 'package:web_dex/views/dex/common/dex_text_button.dart';
 import 'package:web_dex/views/dex/common/section_switcher.dart';
 import 'package:web_dex/views/dex/simple/form/common/dex_flip_button_overlapper.dart';
 import 'package:web_dex/views/dex/simple/form/taker/coin_item/taker_form_buy_item.dart';
@@ -35,7 +36,7 @@ class TakerFormContent extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const SizedBox(height: 12),
-          SectionSwitcher(),
+          const SectionSwitcher(trailing: TakerOrderMatchingControl()),
           const SizedBox(height: 6),
           DexFlipButtonOverlapper(
             onTap: () => flipTakerPair(context),
@@ -43,7 +44,7 @@ class TakerFormContent extends StatelessWidget {
             bottomWidget: const TakerFormBuyItem(),
           ),
           const TakerFormErrorList(),
-          const TakerOrderMatchingControl(),
+          const TakerOrderUuidHint(),
           const SizedBox(height: 24),
           const TakerFormExchangeInfo(),
           const SizedBox(height: 24),
@@ -67,7 +68,7 @@ class TakerFormDesktopControls extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             TakerFormErrorList(),
-            TakerOrderMatchingControl(),
+            TakerOrderUuidHint(),
             TakerFormExchangeInfo(),
             SizedBox(height: 20),
             _FormControls(),
@@ -85,36 +86,61 @@ class TakerOrderMatchingControl extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<TakerBloc, TakerState>(
       builder: (context, state) {
-        final uuid = state.selectedOrder?.uuid;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        final canChange = !state.inProgress && state.step == TakerStep.form;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Match selected UUID only'),
-              subtitle: Text(
-                state.matchSelectedOrderOnly
-                    ? 'Only the selected maker order can match. No fallback to other orders.'
-                    : 'Automatic matching: KDF selects the best eligible offer.',
+            Tooltip(
+              message: 'KDF selects the best eligible offer.',
+              child: DexTextButton(
+                key: const Key('best-match-tab'),
+                text: 'Best Match',
+                isActive: !state.matchSelectedOrderOnly,
+                onTap: !canChange || !state.matchSelectedOrderOnly
+                    ? null
+                    : () => context.read<TakerBloc>().add(
+                        TakerMatchSelectedOrderChanged(false),
+                      ),
               ),
-              value: state.matchSelectedOrderOnly,
-              onChanged: state.inProgress || state.step != TakerStep.form
-                  ? null
-                  : (enabled) => context.read<TakerBloc>().add(
-                      TakerMatchSelectedOrderChanged(enabled),
-                    ),
             ),
-            if (state.matchSelectedOrderOnly)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: SelectableText(
-                  SellRequest.isValidOrderUuid(uuid)
-                      ? 'Maker order UUID: $uuid'
-                      : 'Select a maker order with a valid UUID in the order book.',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+            const SizedBox(width: 12),
+            Tooltip(
+              message: 'Only the selected maker order can match.',
+              child: DexTextButton(
+                key: const Key('uuid-match-tab'),
+                text: 'UUID only',
+                isActive: state.matchSelectedOrderOnly,
+                onTap: !canChange || state.matchSelectedOrderOnly
+                    ? null
+                    : () => context.read<TakerBloc>().add(
+                        TakerMatchSelectedOrderChanged(true),
+                      ),
               ),
+            ),
           ],
+        );
+      },
+    );
+  }
+}
+
+class TakerOrderUuidHint extends StatelessWidget {
+  const TakerOrderUuidHint({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<TakerBloc, TakerState>(
+      builder: (context, state) {
+        if (!state.matchSelectedOrderOnly) return const SizedBox.shrink();
+        final uuid = state.selectedOrder?.uuid;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: SelectableText(
+            SellRequest.isValidOrderUuid(uuid)
+                ? 'Maker order UUID: $uuid'
+                : 'Select a maker order with a valid UUID in the order book.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
         );
       },
     );
