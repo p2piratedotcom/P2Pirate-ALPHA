@@ -30,8 +30,9 @@ remain in place.
   They remain during runner cleanup. Removing them is a separate code refactor
   needing desktop compile and wallet-flow checks. Packages such as `web` and
   `flutter_inappwebview` also remain because shared Dart code uses them.
-- The browser-based `test_integration/` harness and older upstream documents
-  remain as historical source; the active browser CI job has been removed.
+- The browser-based test groups in `test_integration/tests/` remain as
+  historical source. The active Linux UI smoke test is in `integration_test/`;
+  see `docs/INTEGRATION_TESTING.md`.
 - `ios/` remains for a separate mobile cleanup. It is not built by CI or
   described as a supported release.
 - The shared SDK's `copy_platform_assets` step still writes two generated

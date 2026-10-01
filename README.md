@@ -30,7 +30,7 @@ Only Linux has been built locally for the P2Pirate port so far.
 | `assets/` | Wallet graphics, coin data, translations | Mixed; new art must carry its own source and license record |
 | `linux/`, `macos/`, `windows/` | Intended desktop runners and packaging metadata | Upstream plus P2Pirate branding changes |
 | `ios/` | Legacy mobile runner, not a supported P2Pirate target | Upstream |
-| `docs/`, `test/`, `test_units/`, `test_integration/` | Build guidance and checks | Upstream plus P2Pirate inventory and focused additions |
+| `docs/`, `test/`, `test_units/`, `test_integration/`, `integration_test/` | Build guidance, unit tests, historical tests and Linux desktop smoke tests | Upstream plus P2Pirate inventory and focused additions |
 | `LICENSE`, `licenses/` | Source license and component notices | Retain upstream GPL-3.0 text and third-party notices |
 
 Build output and downloaded executables belong outside source control. The
@@ -77,6 +77,7 @@ git submodule sync --recursive
 git submodule update --init --recursive
 git ls-tree HEAD sdk
 git -C sdk rev-parse HEAD
+dart pub get -C sdk --enforce-lockfile
 flutter pub get --enforce-lockfile
 flutter run -d linux
 ```
@@ -118,6 +119,8 @@ review legal copy and attribution separately before a P2Pirate release.
 
 - [Porting record and source provenance](docs/P2PIRATE_PORTING_PLAN.md)
 - [SDK submodule management](docs/SDK_SUBMODULE_MANAGEMENT.md)
+- [Test results and known limits](docs/TEST_STATUS.md)
+- [Linux desktop integration tests](docs/INTEGRATION_TESTING.md)
 - [Upstream project setup](docs/PROJECT_SETUP.md)
 - [Upstream build and run guide](docs/BUILD_RUN_APP.md)
 - [Upstream contribution guide](docs/CONTRIBUTION_GUIDE.md)

@@ -12,7 +12,10 @@ runs:
       id: run_coverage
       continue-on-error: false
       shell: bash
+      env:
+        TEST_PATH: ${{ inputs.test_file }}
       run: |
+        set -euo pipefail
         echo "Running code coverage"
         if [ "$RUNNER_OS" == "Linux" ]; then
           echo "Installing lcov..."
@@ -37,18 +40,14 @@ runs:
            echo "Unsupported operating system"
            exit 1
         fi
-        flutter test --coverage ${{ inputs.test_file }} 2>&1 > /dev/null && \
-          echo "Generated code coverage report" || \
-          echo "ERROR: Failed to generate code coverage report"
+        read -r -a test_paths <<< "$TEST_PATH"
+        flutter test --no-pub --coverage "${test_paths[@]}"
+        test -s coverage/lcov.info
 
         echo "Generating HTML report from lcov.info..."
-        genhtml -q coverage/lcov.info -o coverage/html && \
-          echo "Generated code coverage report" || \
-          echo "ERROR: Failed to generate code coverage report"
+        genhtml -q coverage/lcov.info -o coverage/html
 
-        zip -q -r coverage-html.zip coverage/html && \
-          echo "Created coverage-html.zip" || \
-          echo "ERROR: Failed to compress coverage/html into a ZIP archive"
+        zip -q -r coverage-html.zip coverage/html
         echo "Done running code coverage"
 
     - name: Upload Code Coverage Report
@@ -57,6 +56,7 @@ runs:
       with:
         name: ${{ runner.os }}-lcov.info
         path: ./coverage/lcov.info
+        if-no-files-found: error
 
     - name: Upload Code Coverage HTML Report
       id: upload_html
@@ -64,3 +64,4 @@ runs:
       with:
         name: ${{ runner.os }}-coverage-html
         path: ./coverage-html.zip
+        if-no-files-found: error

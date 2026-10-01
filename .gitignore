@@ -35,6 +35,8 @@
 .pub-cache/
 .pub/
 **/build/
+/coverage/
+/coverage-html.zip
 contrib/coins_config.json
 devtools_options.yaml
 

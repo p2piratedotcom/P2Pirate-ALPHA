@@ -23,7 +23,9 @@ jobs:
         uses: ./.github/actions/flutter-deps
 
       - name: Resolve packages
-        run: flutter pub get --enforce-lockfile
+        run: |
+          dart pub get -C sdk --enforce-lockfile
+          flutter pub get --enforce-lockfile
 
       - name: Test unit_test (unix)
         id: unit_tests
@@ -32,11 +34,11 @@ jobs:
         env:
           GITHUB_API_PUBLIC_READONLY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          flutter test test_units/main.dart
+          flutter test test_units test_units/main.dart
 
       - name: Generate unit test coverage report
         id: unit_test_coverage
         timeout-minutes: 15
         uses: ./.github/actions/code-coverage
         with:
-          test_file: "test_units/main.dart"
+          test_file: "test_units test_units/main.dart"

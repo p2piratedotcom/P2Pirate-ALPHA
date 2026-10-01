@@ -497,7 +497,8 @@ void main() {
         await importState;
 
         expect(repository.importCalls, 1);
-        expect(analyticsRepo.queuedEvents, hasLength(1));
+        // P2Pirate deliberately keeps analytics disabled, including imports.
+        expect(analyticsRepo.queuedEvents, isEmpty);
 
         await bloc.close();
 
