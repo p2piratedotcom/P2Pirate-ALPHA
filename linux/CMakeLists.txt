@@ -4,10 +4,10 @@ project(runner LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
-set(BINARY_NAME "CheetahDEX")
+set(BINARY_NAME "P2Pirate")
 # The unique GTK application identifier for this application. See:
 # https://wiki.gnome.org/HowDoI/ChooseApplicationID
-set(APPLICATION_ID "com.shorelinecrypto.CheetahDEX")
+set(APPLICATION_ID "com.p2pirate.wallet")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.
@@ -56,8 +56,6 @@ find_package(X11 REQUIRED)
 pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
 pkg_check_modules(WEBKIT REQUIRED IMPORTED_TARGET webkit2gtk-4.1)
 
-add_definitions(-DAPPLICATION_ID="${APPLICATION_ID}")
-
 # Define the application target. To change its name, change BINARY_NAME above,
 # not the value here, or `flutter run` will no longer work.
 #
@@ -68,6 +66,7 @@ add_executable(${BINARY_NAME}
   "webview_proxy.cc"
   "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"
 )
+target_compile_definitions(${BINARY_NAME} PRIVATE APPLICATION_ID="${APPLICATION_ID}")
 
 # Apply the standard set of build settings. This can be removed for applications
 # that need different build settings.
@@ -93,7 +92,15 @@ set_target_properties(${BINARY_NAME}
 
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
+# flutter_secure_storage_linux derives its Secret Service account from
+# APPLICATION_ID. Keep the existing account so an upgraded GUI can read wallet
+# credentials and encrypted swap receipts without exporting or copying secrets.
+# This only changes the plugin's build-time ID; the GTK application ID above is
+# com.p2pirate.wallet.
+set(P2PIRATE_GTK_APPLICATION_ID "${APPLICATION_ID}")
+set(APPLICATION_ID "com.shorelinecrypto.CheetahDEX")
 include(flutter/generated_plugins.cmake)
+set(APPLICATION_ID "${P2PIRATE_GTK_APPLICATION_ID}")
 
 # === Installation ===
 # By default, "installing" just makes a relocatable bundle in the build
@@ -115,7 +122,7 @@ set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib")
 install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
   COMPONENT Runtime)
 
-install(FILES "PirateWallet.png" DESTINATION "${CMAKE_INSTALL_PREFIX}"
+install(FILES "P2Pirate.png" DESTINATION "${CMAKE_INSTALL_PREFIX}"
   COMPONENT Runtime)
 
 install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"

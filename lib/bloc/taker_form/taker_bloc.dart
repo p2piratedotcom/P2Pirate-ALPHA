@@ -60,6 +60,7 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
     on<TakerOrderSelectorOpen>(_onOrderSelectorOpen);
     on<TakerSetSellCoin>(_onSetSellCoin, transformer: restartable());
     on<TakerSelectOrder>(_onSelectOrder);
+    on<TakerSelectBuyCoin>(_onSelectBuyCoin);
     on<TakerMatchSelectedOrderChanged>((event, emit) {
       if (state.inProgress || state.step != TakerStep.form) return;
       emit(state.copyWith(matchSelectedOrderOnly: event.enabled));
@@ -325,6 +326,8 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
 
     emit(
       state.copyWith(
+        buyCoin: () =>
+            event.order == null ? null : _coinsRepo.getCoin(event.order!.coin),
         selectedOrder: () => event.order,
         showOrderSelector: () => false,
         buyAmount: () => calculateBuyAmount(
@@ -355,6 +358,27 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
     add(TakerUpdateFees());
   }
 
+  void _onSelectBuyCoin(TakerSelectBuyCoin event, Emitter<TakerState> emit) {
+    final orders = state.bestOrders?.result?[event.coin.abbr];
+    if (orders != null && orders.isNotEmpty) {
+      add(TakerSelectOrder(orders.first));
+      return;
+    }
+
+    emit(
+      state.copyWith(
+        buyCoin: () => event.coin,
+        selectedOrder: () => null,
+        showOrderSelector: () => false,
+        buyAmount: () => null,
+        tradePreimage: () => null,
+        errors: () => [],
+        autovalidate: () => false,
+      ),
+    );
+    add(TakerUpdateFees());
+  }
+
   Future<void> _onSetDefaults(
     TakerSetDefaults event,
     Emitter<TakerState> emit,
@@ -374,6 +398,7 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
     emit(
       state.copyWith(
         sellCoin: () => event.coin,
+        buyCoin: () => null,
         showCoinSelector: () => false,
         selectedOrder: () => null,
         bestOrders: () => null,
@@ -433,10 +458,10 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
 
     emit(state.copyWith(bestOrders: () => bestOrders));
 
-    final buyCoin = event.autoSelectOrderAbbr;
+    final buyCoin = event.autoSelectOrderAbbr ?? state.buyCoin?.abbr;
     if (buyCoin != null) {
       final orders = bestOrders.result?[buyCoin];
-      if (orders != null) {
+      if (orders != null && orders.isNotEmpty) {
         add(TakerSelectOrder(orders.first));
       }
     }

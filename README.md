@@ -4,9 +4,8 @@ P2Pirate is a community fork of
 [ShorelineCrypto/cheetahdex-wallet-web](https://github.com/ShorelineCrypto/cheetahdex-wallet-web),
 a Flutter non-custodial wallet and decentralized exchange. This repository
 preserves the upstream Git history. P2Pirate behavior is being reapplied from
-a source ZIP as small, reviewable pull requests. The first 28 GUI PRs and four
-SDK PRs have been merged into their respective `cheetahdex` branches. **This
-source is not yet a validated P2Pirate release.** See the
+a source ZIP as small, reviewable pull requests. The merged PR ledger is in
+the porting status. **This source is not yet a validated P2Pirate release.** See the
 [porting inventory](docs/P2PIRATE_PORTING_PLAN.md). The
 [PR ledger](docs/P2PIRATE_PORTING_STATUS.md) records the merged changes and
 the gaps that remain before a release.
@@ -81,10 +80,15 @@ target for your host; the upstream [setup](docs/PROJECT_SETUP.md),
 [run](docs/BUILD_RUN_APP.md) and [release](docs/BUILD_RELEASE.md) guides cover
 platform prerequisites. They are upstream documentation and are not evidence
 that the merged P2Pirate source builds on every platform. On Linux, install a
-verified KDF 2.7 executable separately before launching; the GUI's first-run
-installer is still pending. Coin assets must also be staged as described in
+verified KDF 2.7 executable separately before launching, or use the GUI's
+first-run installer for the pinned upstream release. Coin assets must also be staged as described in
 [external KDF](docs/P2PIRATE_EXTERNAL_KDF.md). Do not package the
 reference ZIP's binaries as a new release solely from these commands.
+
+The Linux release bundle runs as `build/linux/x64/release/bundle/P2Pirate`.
+Its GTK application ID is `com.p2pirate.wallet`. Existing wallet data and
+keyring entries retain their legacy storage names for compatibility; see
+[Linux branding and migration](docs/P2PIRATE_BRANDING.md).
 
 Linux Tor design, local assembly and limits are documented in [Tor transport](docs/P2PIRATE_TOR_LINUX.md).
 

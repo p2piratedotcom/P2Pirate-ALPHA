@@ -7,7 +7,7 @@ if [ "$#" -ne 2 ]; then
 fi
 bundle=$(CDPATH= cd -- "$1" && pwd)
 source_dir=$(CDPATH= cd -- "$2" && pwd)
-if [ ! -x "$bundle/CheetahDEX" ]; then
+if [ ! -x "$bundle/P2Pirate" ]; then
   echo 'Build the Linux GUI first' >&2
   exit 1
 fi

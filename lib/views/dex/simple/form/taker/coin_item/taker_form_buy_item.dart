@@ -19,13 +19,15 @@ class TakerFormBuyItem extends StatelessWidget {
     return BlocBuilder<TakerBloc, TakerState>(
       buildWhen: (prev, curr) {
         if (prev.selectedOrder != curr.selectedOrder) return true;
+        if (prev.buyCoin != curr.buyCoin) return true;
+        if (prev.bestOrders != curr.bestOrders) return true;
         if (prev.sellCoin != curr.sellCoin) return true;
 
         return false;
       },
       builder: (context, state) {
         final coinsRepository = RepositoryProvider.of<CoinsRepo>(context);
-        final coin = coinsRepository.getCoin(state.selectedOrder?.coin ?? '');
+        final coin = coinsRepository.getCoin(state.buyCoin?.abbr ?? '');
 
         final controller = TradeOrderController(
           order: state.selectedOrder,
@@ -42,6 +44,17 @@ class TakerFormBuyItem extends StatelessWidget {
             children: [
               _BuyHeader(),
               TakerFormBuySwitcher(controller),
+              if (state.buyCoin != null &&
+                  state.selectedOrder == null &&
+                  state.bestOrders != null &&
+                  state.bestOrders!.error == null)
+                Padding(
+                  padding: const EdgeInsets.only(left: 16, bottom: 12),
+                  child: Text(
+                    LocaleKeys.dexNoSwapOffers.tr(),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
             ],
           ),
         );
@@ -52,7 +65,6 @@ class TakerFormBuyItem extends StatelessWidget {
 
 class _BuyHeader extends StatelessWidget {
   @override
-  Widget build(BuildContext context) => DexFormGroupHeader(
-        title: LocaleKeys.buy.tr(),
-      );
+  Widget build(BuildContext context) =>
+      DexFormGroupHeader(title: LocaleKeys.buy.tr());
 }

@@ -1,11 +1,11 @@
-# P2Pirate porting status — 29 September 2026
+# P2Pirate porting status — 30 September 2026
 
 This is a change ledger for the source archive described in
-[P2PIRATE_PORTING_PLAN.md](P2PIRATE_PORTING_PLAN.md). All 28 GUI PRs and four
-SDK PRs listed below were merged on 29 September 2026. Merged source is not a
-validated release: an integrated Linux build and comparison with the reference
-are still required. The ZIP is reference material, not the source of this Git
-history.
+[P2PIRATE_PORTING_PLAN.md](P2PIRATE_PORTING_PLAN.md). The first 28 GUI PRs
+and four SDK PRs listed below were merged on 29 September 2026. Further PRs
+were merged on 30 September, as recorded below. Merged source is not by
+itself a validated release. The ZIP is reference material, not the source of
+this Git history.
 
 ## Merged changes
 
@@ -47,11 +47,11 @@ Stacked proposals were merged in dependency order. Wallet #10, #13, #26 and
 #27 pin the corresponding SDK commits. GitHub's mergeability indicator is not
 evidence of a successful Flutter build.
 
-## Open proposals from the 30 September comparison
+## Changes merged on 30 September
 
-These proposals are **not merged**. GUI PRs are stacked in the order shown,
-so review each PR against its parent branch and merge in that order only after
-local approval. The SDK change is a separate prerequisite of GUI #38.
+These were verified as merged on GitHub on 30 September. The SDK Tor and price
+changes are in the pinned SDK history. This table records merge state, not an
+end-to-end wallet or swap test.
 
 | Area | PR | Scope |
 | --- | --- | --- |
@@ -66,22 +66,74 @@ local approval. The SDK change is a separate prerequisite of GUI #38.
 | GUI-only AppImage | [GUI #40](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/40) | Local packaging script and instructions |
 | First-run KDF setup | [GUI #41](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/41) | Pinned upstream KDF 2.7 download and SHA-256 verification |
 | Linux startup | [GUI #42](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/42) | Renderer, locale and price SDK initialization fixes |
+| Porting snapshot | [GUI #43](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/43) | Earlier comparison record |
+| Tor transport | [SDK #5](https://github.com/p2piratedotcom/komodo-defi-sdk-flutter/pull/5) | KDF startup and seed lookup through Tor |
+| Tor startup retry | [GUI #44](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/44) | Retry stalled bootstrap without direct fallback |
+| Tor failure choice | [GUI #45](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/45) | Ask before using a direct connection |
+| ARRR wallet state | [GUI #46](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/46) | Finish ARRR activation in Wallet UI |
+| KDF activation completion | [SDK #7](https://github.com/p2piratedotcom/komodo-defi-sdk-flutter/pull/7) | Report completed ZHTLC task correctly |
+| App Info | [GUI #47](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/47) | Move build details out of General |
+| ZHTLC reconciliation | [GUI #48](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/48) | Match UI activation to KDF result |
 
-A Linux release GUI build with these branches succeeded on 30 September. The
-rebuilt GUI and separate official KDF 2.7 executable reached the dashboard in
-an isolated profile with Tor disabled. Tor bootstrap timed out after two
-minutes in this environment; the app showed its explicit no-direct-connection
-screen, and its opt-out then opened the dashboard. No funded swap was made.
-The AppImage packaging script has not been run because `appimagetool` is not
-installed. The first-run KDF downloader has not been exercised end to end.
+The merged GUI and separate official KDF 2.7 executable reached the dashboard
+in an isolated profile with Tor disabled. A later local Tor-on launch stopped
+at `Tor seed lookup failed` and correctly waited for the user's choice. No
+funded swap was made. The first-run KDF downloader has not been exercised end
+to end.
+
+## Local changes awaiting review
+
+- Swap Buy now uses the same active Wallet coin list as Sell, including coins
+  without public offers. Selecting a coin with an offer retains the existing
+  taker order behavior; selecting one without an offer shows a no-offer message
+  and does not enable swap submission. This supersedes the earlier
+  `best_orders`-only filter in local commit `e2d609d`.
+- Linux executable and GTK ID are being changed to `P2Pirate` and
+  `com.p2pirate.wallet`. The existing Documents folder and Linux Secret
+  Service namespace remain compatible so saved wallets stay discoverable. The
+  launcher uses `StartupWMClass=P2Pirate`, matching the observed window class.
+- The stale alpha warning falsely claimed Firebase Analytics data collection;
+  its English text now matches the ZIP reference without that claim.
+  These local changes are not yet a PR or release.
+
+## Local Linux release checks — 30 September
+
+- Flutter release build succeeded with executable `P2Pirate`. The compiled
+  runner contains GTK ID `com.p2pirate.wallet`; the secure-storage plugin
+  still contains the old account ID for wallet compatibility.
+- `desktop-file-validate`, shell syntax checks, and static analysis of the
+  changed Swap Dart file passed. Full `flutter analyze` reports 3,108
+  diagnostics, mainly from SDK examples/tests in the submodule; it reports no
+  errors in the GUI outside `sdk/`. This is not a clean whole-tree analysis.
+- The first build succeeded with an empty coin catalog. The packaging script
+  now rejects that state. The final local build uses the ZIP reference's
+  `coins.json` (`0a4b57a8…`), `coins_config.json` (`5d77f607…`),
+  `seed_nodes.json` (`d880dd32…`) and 453 PNG icons. These ignored inputs
+  are local build material, not a reviewed redistributable asset release.
+- A local AppImage was built and extracted. It has the P2Pirate executable,
+  icon and desktop entry, Tor and torsocks, licenses and coin assets. It has no
+  KDF executable. The separate official KDF 2.7 file matches the recorded
+  ZIP SHA-256 `bd171eee…`.
+- The AppImage opened a `P2Pirate` window, started Tor and KDF and reached the
+  wallet screen. The per-user desktop launcher was migrated from the legacy
+  CheetahDEX ID. After wallet login, the local GUI showed six active Wallet
+  assets: ARRR, BNB, LTC native, LTC SegWit, DASH and USDT-BEP20. Swap Sell
+  listed those assets (grouping both LTC networks); Buy listed USDT-BEP20,
+  DASH and LTC native, all present in Wallet. Buy is further limited by
+  available public offers. No transaction was made.
+- On 1 October, a follow-up local Linux build changed Buy to the same active
+  Wallet coin list used by Sell. Targeted Flutter analysis passed. The build
+  reached the wallet screen through Tor after a stale Tor process was stopped;
+  the new selector still needs visual confirmation after wallet login.
 
 ## Remaining release work
 
 - Complete Tor-on first-run verification, including KDF, Dart HTTP, images and
   WebView traffic. Document the observed limits; do not assume coverage from
   a successful desktop build.
-- Review Linux application ID, data-directory migration, remaining native
-  icons and wallet list layout against the ZIP reference.
+- Review native icons on non-Linux platforms and wallet list layout against
+  the ZIP reference. Linux app identity migration and wallet-login check are
+  handled in the local change above.
 - Publish a reviewed KDF 2.7 release in the SDK fork with source revision,
   build method, license and hashes. That fork currently has no KDF executable
   release; GUI #41 pins the reviewed ShorelineCrypto release meanwhile.

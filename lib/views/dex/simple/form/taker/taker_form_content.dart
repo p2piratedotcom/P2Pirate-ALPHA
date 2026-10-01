@@ -207,7 +207,11 @@ class TradeButton extends StatelessWidget {
         return BlocSelector<TakerBloc, TakerState, bool>(
           selector: (state) => state.inProgress,
           builder: (context, inProgress) {
-            final bool disabled = inProgress || !isSystemClockValid;
+            final bool disabled =
+                inProgress ||
+                !isSystemClockValid ||
+                (takerState.buyCoin != null &&
+                    takerState.selectedOrder == null);
 
             return Opacity(
               opacity: disabled ? 0.8 : 1,
@@ -217,17 +221,17 @@ class TradeButton extends StatelessWidget {
                     ? LocaleKeys.swapNow.tr()
                     : LocaleKeys.tradingDisabled.tr(),
                 prefix: inProgress ? const TradeButtonSpinner() : null,
+                onPressed: disabled || !isTradingEnabled
+                    ? null
+                    : () =>
+                          context.read<TakerBloc>().add(TakerFormSubmitClick()),
+                height: isMobile ? 52 : 40,
                 child: _DexTradeButtonContent(
                   text: isTradingEnabled
                       ? LocaleKeys.swapNow.tr()
                       : LocaleKeys.tradingDisabled.tr(),
                   prefix: inProgress ? const TradeButtonSpinner() : null,
                 ),
-                onPressed: disabled || !isTradingEnabled
-                    ? null
-                    : () =>
-                          context.read<TakerBloc>().add(TakerFormSubmitClick()),
-                height: isMobile ? 52 : 40,
               ),
             );
           },
