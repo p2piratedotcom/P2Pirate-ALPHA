@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:web_dex/bloc/coins_bloc/coins_bloc.dart';
@@ -8,7 +10,7 @@ import 'package:web_dex/views/dex/simple/form/tables/nothing_found.dart';
 import 'package:web_dex/views/dex/simple/form/tables/orders_table/grouped_list_view.dart';
 import 'package:web_dex/views/dex/simple/form/tables/table_utils.dart';
 
-class CoinsTableContent extends StatelessWidget {
+class CoinsTableContent extends StatefulWidget {
   const CoinsTableContent({
     required this.onSelect,
     required this.searchString,
@@ -18,6 +20,32 @@ class CoinsTableContent extends StatelessWidget {
   final Function(Coin) onSelect;
   final String? searchString;
   final double maxHeight;
+
+  @override
+  State<CoinsTableContent> createState() => _CoinsTableContentState();
+}
+
+class _CoinsTableContentState extends State<CoinsTableContent> {
+  late final Timer _activationRefreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    context.read<CoinsBloc>().add(CoinsActivationStatusRefreshed());
+    _activationRefreshTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (context.read<CoinsBloc>().state.walletCoins.values.any(
+        (coin) => coin.isActivating,
+      )) {
+        context.read<CoinsBloc>().add(CoinsActivationStatusRefreshed());
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _activationRefreshTimer.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +61,7 @@ class CoinsTableContent extends StatelessWidget {
               coinsState.walletCoins.values
                   .where((coin) => coin.isActive)
                   .toList(),
-              searchString,
+              widget.searchString,
               testCoinsEnabled: context
                   .read<SettingsBloc>()
                   .state
@@ -43,8 +71,8 @@ class CoinsTableContent extends StatelessWidget {
 
             return GroupedListView<Coin>(
               items: coins,
-              onSelect: onSelect,
-              maxHeight: maxHeight,
+              onSelect: widget.onSelect,
+              maxHeight: widget.maxHeight,
             );
           },
         );

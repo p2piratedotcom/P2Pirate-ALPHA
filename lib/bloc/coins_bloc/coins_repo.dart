@@ -233,6 +233,18 @@ class CoinsRepo {
     return activated.contains(assetId);
   }
 
+  /// Repair a delayed activation notification after KDF confirms an asset is
+  /// enabled. This also restores its balance watcher when one is missing.
+  void reconcileActivatedAsset(Asset asset) {
+    if (_tradingStatusService.isAssetBlocked(asset.id)) return;
+    _broadcastAsset(
+      _assetToCoinWithoutAddress(asset).copyWith(state: CoinState.active),
+    );
+    if (!_balanceWatchers.containsKey(asset.id)) {
+      _subscribeToBalanceUpdates(asset);
+    }
+  }
+
   void _invalidateActivatedAssetsCache() {
     _kdfSdk.activatedAssetsCache.invalidate();
   }

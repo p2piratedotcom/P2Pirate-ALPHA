@@ -13,6 +13,9 @@ final class CoinsStarted extends CoinsEvent {}
 /// Event emitted when user requests to refresh their coin balances manually
 final class CoinsBalancesRefreshed extends CoinsEvent {}
 
+/// Reconcile coins still shown as activating with KDF's enabled coin list.
+final class CoinsActivationStatusRefreshed extends CoinsEvent {}
+
 /// Event emitted when the bloc should start monitoring balances
 final class CoinsBalanceMonitoringStarted extends CoinsEvent {}
 
