@@ -25,8 +25,11 @@ class TakerCoinSelectorClick extends TakerEvent {}
 class TakerOrderSelectorClick extends TakerEvent {}
 
 class TakerSetSellCoin extends TakerEvent {
-  TakerSetSellCoin(this.coin,
-      {this.autoSelectOrderAbbr, this.setOnlyIfNotSet = false});
+  TakerSetSellCoin(
+    this.coin, {
+    this.autoSelectOrderAbbr,
+    this.setOnlyIfNotSet = false,
+  });
 
   final Coin? coin;
   final String? autoSelectOrderAbbr;
@@ -37,6 +40,12 @@ class TakerSelectOrder extends TakerEvent {
   TakerSelectOrder(this.order);
 
   final BestOrder? order;
+}
+
+class TakerSelectBuyCoin extends TakerEvent {
+  TakerSelectBuyCoin(this.coin);
+
+  final Coin coin;
 }
 
 class TakerSetDefaults extends TakerEvent {}

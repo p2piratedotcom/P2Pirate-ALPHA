@@ -2,9 +2,9 @@
 Version=1.0
 Type=Application
 Name=P2Pirate
-Exec=CheetahDEX
-Icon=PirateWallet
+Exec=P2Pirate
+Icon=P2Pirate
 Categories=Office;Finance;
 Terminal=false
 StartupNotify=true
-StartupWMClass=CheetahDEX
+StartupWMClass=P2Pirate

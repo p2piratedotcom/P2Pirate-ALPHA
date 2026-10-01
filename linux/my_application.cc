@@ -64,7 +64,7 @@ static void my_application_activate(GApplication* application) {
       ? g_path_get_dirname(executable_path)
       : g_get_current_dir();
   g_autofree gchar* icon_path =
-      g_build_filename(executable_dir, "PirateWallet.png", nullptr);
+      g_build_filename(executable_dir, "P2Pirate.png", nullptr);
   GError* error = NULL;
   gtk_window_set_icon_from_file(window, icon_path, &error);
   if (error) {

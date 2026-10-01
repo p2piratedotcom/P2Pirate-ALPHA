@@ -10,6 +10,7 @@ class TakerState {
     required this.step,
     required this.inProgress,
     this.sellCoin,
+    this.buyCoin,
     this.selectedOrder,
     this.matchSelectedOrderOnly = false,
     this.bestOrders,
@@ -32,6 +33,7 @@ class TakerState {
       step: TakerStep.form,
       inProgress: false,
       sellCoin: null,
+      buyCoin: null,
       selectedOrder: null,
       bestOrders: null,
       showCoinSelector: false,
@@ -49,6 +51,7 @@ class TakerState {
   TakerStep step;
   bool inProgress;
   Coin? sellCoin;
+  Coin? buyCoin;
   BestOrder? selectedOrder;
   final bool matchSelectedOrderOnly;
   BestOrders? bestOrders;
@@ -72,6 +75,7 @@ class TakerState {
     TakerStep Function()? step,
     bool Function()? inProgress,
     Coin? Function()? sellCoin,
+    Coin? Function()? buyCoin,
     BestOrder? Function()? selectedOrder,
     bool? matchSelectedOrderOnly,
     BestOrders? Function()? bestOrders,
@@ -94,6 +98,7 @@ class TakerState {
       step: step == null ? this.step : step(),
       inProgress: inProgress == null ? this.inProgress : inProgress(),
       sellCoin: sellCoin == null ? this.sellCoin : sellCoin(),
+      buyCoin: buyCoin == null ? this.buyCoin : buyCoin(),
       selectedOrder: selectedOrder == null
           ? this.selectedOrder
           : selectedOrder(),

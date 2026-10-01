@@ -22,7 +22,7 @@ removing the wordmark and completing the circular rim. The simplified
 `assets/logo/p2pirate_mark.png` was generated from that emblem for legibility at
 small sizes. It has a larger portrait and heavier shapes, with no wordmark or
 fine decorative lines. The mark appears above the P2Pirate name in the desktop
-menu and is copied to `linux/PirateWallet.png` for the GTK window and Linux
+menu and is copied to `linux/P2Pirate.png` for the GTK window and Linux
 desktop icon. This artwork is a P2Pirate identity, not the official
 Pirate Chain P mark; the application does not claim official endorsement.
 
@@ -38,13 +38,25 @@ logic.
 
 For Linux, `scripts/install_linux_desktop.sh BUNDLE_DIR [LAUNCHER]` installs
 the icon and a per-user desktop entry. The optional launcher can set the
-separately installed KDF path. The desktop entry filename matches the current
-GTK application ID `com.shorelinecrypto.CheetahDEX`, which allows GNOME to
-associate the running window with the icon. The technical executable name
-`CheetahDEX` and GTK application ID remain unchanged to preserve compatibility.
+separately installed KDF path. The executable is `P2Pirate`; the GTK
+application ID and desktop filename are `com.p2pirate.wallet`. The domain is
+the P2Pirate project domain, rather than the upstream or Pirate Chain domain.
 The installer refreshes the per-user GTK icon cache after copying the icon.
-Branding on other platforms, data folder migration, and release packaging are
-tracked separately.
+
+The wallet's Documents subfolder remains `CheetahdexWallet` so existing Hive
+settings, saved wallets and KDF data stay in place. Linux
+`flutter_secure_storage` derives its Secret Service account from the build-time
+application ID. The plugin retains the old
+`com.shorelinecrypto.CheetahDEX.secureStorage` account, preserving wallet
+credentials and encrypted swap receipts without copying secrets. The GTK
+application ID is independent of that compatibility account. Linux
+`path_provider` creates a new application-support/cache directory for
+`com.p2pirate.wallet`; this holds Tor runtime data and cache, not wallet keys.
+Existing installations may have a legacy `PirateWallet.png` icon and desktop
+entry named `com.shorelinecrypto.CheetahDEX.desktop`. The installer removes
+that desktop entry only when it matches the old P2Pirate launcher fields; it
+does not remove a customized entry or the legacy keyring account.
+Branding on other platforms and release packaging are tracked separately.
 
 The Settings navigation now contains only P2Pirate relevant pages. The old
 GLEEC Privacy Notice and KYC pages, GLEEC EULA/terms acceptance widgets, and

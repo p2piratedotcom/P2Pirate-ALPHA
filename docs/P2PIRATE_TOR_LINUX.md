@@ -21,7 +21,7 @@ GUI and Flutter SDK remain in separate repositories. This GUI branch needs a mat
 flutter pub get
 flutter build linux --release --no-pub
 scripts/prepare_tor_bundle.sh build/linux/x64/release/bundle /path/to/tor-artifacts/linux-x64
-P2PIRATE_KDF_PATH=/path/to/separate/kdf-2.7 build/linux/x64/release/bundle/CheetahDEX
+P2PIRATE_KDF_PATH=/path/to/separate/kdf-2.7 build/linux/x64/release/bundle/P2Pirate
 ```
 
 The Tor artifact directory must contain the pinned Ubuntu 24.04 Tor `0.4.9.11-0ubuntu0.24.04.1` executable, torsocks `2.4.0-1` shared library, and the three notices named by the script. The script checks both binary hashes. KDF 2.7 is installed or downloaded separately; it is not part of the GUI Git tree. The local Flutter build directory is ignored by Git.
