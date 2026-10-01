@@ -12,7 +12,6 @@ jobs:
   build_desktop:
     name: Build Desktop (${{ matrix.platform }})
     runs-on: ${{ matrix.runner }}
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -106,6 +105,10 @@ jobs:
           MATOMO_URL: ${{ secrets.MATOMO_URL }}
           MATOMO_SITE_ID: ${{ secrets.MATOMO_SITE_ID }}
           BUILD_COMMAND: ${{ matrix.build_command }}
+
+      - name: Test Linux desktop UI
+        if: ${{ matrix.platform == 'linux' && github.event_name == 'pull_request' }}
+        run: dart run_integration_tests.dart
 
       - name: Compute short commit SHA
         id: vars

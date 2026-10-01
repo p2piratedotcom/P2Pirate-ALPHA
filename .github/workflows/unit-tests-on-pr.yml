@@ -24,7 +24,8 @@ jobs:
 
       - name: Resolve packages
         run: |
-          dart pub get -C sdk --enforce-lockfile
+          # The SDK workspace does not commit a root pubspec.lock.
+          dart pub get -C sdk
           flutter pub get --enforce-lockfile
 
       - name: Test unit_test (unix)

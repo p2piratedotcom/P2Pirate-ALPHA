@@ -1,5 +1,11 @@
 # Linux desktop: GUI and KDF as separate components
 
+The automatic installer described here currently supports Linux x86-64. A
+macOS GUI can build without a bundled KDF, but requires a compatible external
+KDF executable at runtime. macOS and Windows runtime installation have not
+been verified on this Linux host. A passing cross-platform compile check is
+not a runtime compatibility claim.
+
 P2Pirate-ALPHA contains the Flutter GUI. Its `sdk/` submodule points to
 [`p2piratedotcom/komodo-defi-sdk-flutter`](https://github.com/p2piratedotcom/komodo-defi-sdk-flutter),
 which is the Dart/Flutter adapter used to communicate with KDF. The adapter

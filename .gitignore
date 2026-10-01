@@ -44,9 +44,8 @@ devtools_options.yaml
 /android/local.properties
 /android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
 /ios/Flutter/ephemeral/
-# The shared SDK build transformer still copies these Web stubs on desktop builds.
-/web/kdf/res/kdf_wrapper.dart
-/web/kdf/res/kdflib_bootstrapper.js
+# The shared SDK build transformer can recreate Web stubs on desktop builds.
+/web/
 
 # Symbolication related
 app.*.symbols

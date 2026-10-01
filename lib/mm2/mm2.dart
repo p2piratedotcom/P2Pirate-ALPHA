@@ -51,6 +51,10 @@ final class MM2 {
         preActivateHistoricalAssets: false,
         preActivateDefaultAssets: false,
         marketDataConfig: marketDataConfig,
+        localRpcPort: const int.fromEnvironment(
+          'P2PIRATE_LOCAL_RPC_PORT',
+          defaultValue: 7783,
+        ),
       ),
       onLog: _handleSdkLog,
     );

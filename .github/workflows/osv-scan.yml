@@ -29,4 +29,6 @@ jobs:
 
       - name: Scan for vulnerabilities
         id: scan_vulnerabilities
-        run: osv-scanner -r .
+        # Scan the locked app dependencies. The browser-test requirements file
+        # has open version ranges, which cannot be resolved reproducibly.
+        run: osv-scanner scan source --lockfile=pubspec.lock
