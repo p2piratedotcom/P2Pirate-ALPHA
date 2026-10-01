@@ -1,8 +1,0 @@
----
-- name: Deploy or Update Nginx proxy
-  import_tasks: deploy.yml
-  when: remove != "true"
-
-- name: Clean up Nginx proxy configuration
-  import_tasks: remove.yml
-  when: remove == "true"

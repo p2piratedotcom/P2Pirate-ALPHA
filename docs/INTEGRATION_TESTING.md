@@ -1,5 +1,9 @@
 # Integration Testing
 
+> Upstream browser test guide. P2Pirate no longer builds the Web app, and the
+> browser CI job has been removed. The test source remains for possible desktop
+> adaptation; use the [desktop build guide](../INSTALL.md) for supported targets.
+
 ## 1. General info
 
 - Integration testing implemented using Flutter built-in [integration_test](https://github.com/flutter/flutter/tree/main/packages/integration_test) package.

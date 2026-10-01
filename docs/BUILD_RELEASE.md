@@ -1,5 +1,9 @@
 # Build Release version of the App
 
+> Upstream reference: this document includes retired Web and Android release
+> paths. Use the [P2Pirate desktop guide](../INSTALL.md) and
+> [Linux AppImage recipe](P2PIRATE_APPIMAGE.md) for current release work.
+
 ## Environment setup
 
 Before building the app, make sure you have all the necessary tools installed. Follow the instructions in the [Environment Setup](./PROJECT_SETUP.md) document. Alternatively, you can use the Docker image as described here: (TODO!).

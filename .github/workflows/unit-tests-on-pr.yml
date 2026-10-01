@@ -22,15 +22,8 @@ jobs:
         id: install_flutter
         uses: ./.github/actions/flutter-deps
 
-      - name: Fetch packages and generate assets
-        id: generate_assets
-        uses: ./.github/actions/generate-assets
-        with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Validate build
-        id: validate_build
-        uses: ./.github/actions/validate-build
+      - name: Resolve packages
+        run: flutter pub get --enforce-lockfile
 
       - name: Test unit_test (unix)
         id: unit_tests

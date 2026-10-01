@@ -1,5 +1,9 @@
 # Build Security Advisory for Cheetahdex Wallet
 
+> Upstream reference: this guide includes Web and Android build commands that
+> no longer apply to P2Pirate. Use the desktop-only [installation guide](../INSTALL.md)
+> for current commands.
+
 ## Critical Flags for Production Builds
 
 When building the Cheetahdex Wallet for production, **always** use the following flags:
