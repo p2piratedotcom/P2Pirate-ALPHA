@@ -26,6 +26,10 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     on<CoinsBalanceMonitoringStarted>(_onCoinsBalanceMonitoringStarted);
     on<CoinsBalanceMonitoringStopped>(_onCoinsBalanceMonitoringStopped);
     on<CoinsBalancesRefreshed>(_onCoinsRefreshed, transformer: droppable());
+    on<CoinsActivationStatusRefreshed>(
+      _onActivationStatusRefreshed,
+      transformer: droppable(),
+    );
     on<CoinsActivated>(_onCoinsActivated, transformer: concurrent());
     on<CoinsDeactivated>(_onCoinsDeactivated, transformer: concurrent());
     on<CoinsPricesUpdated>(_onPricesUpdated, transformer: droppable());
@@ -92,6 +96,7 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
   Timer? _updateBalancesTimer;
   Timer? _updatePricesTimer;
   bool _isInitialActivationInProgress = false;
+  int _walletSessionVersion = 0;
 
   @override
   Future<void> close() async {
@@ -220,6 +225,36 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     );
   }
 
+  Future<void> _onActivationStatusRefreshed(
+    CoinsActivationStatusRefreshed event,
+    Emitter<CoinsState> emit,
+  ) async {
+    if (!state.walletCoins.values.any((coin) => coin.isActivating)) return;
+    final sessionVersion = _walletSessionVersion;
+
+    try {
+      final enabledIds = await _coinsRepo
+          .getActivatedAssetIds(forceRefresh: true)
+          .timeout(const Duration(seconds: 15));
+      if (emit.isDone || sessionVersion != _walletSessionVersion) return;
+
+      // Activation callbacks can lag behind KDF, particularly after restoring
+      // a wallet. Use KDF's enabled list for every pending coin, not a ticker
+      // specific exception. The repository broadcasts the result to the BLoC.
+      for (final coin in state.walletCoins.values) {
+        if (!coin.isActivating || !enabledIds.contains(coin.id)) continue;
+        final asset = _kdfSdk.assets.available[coin.id];
+        if (asset != null) _coinsRepo.reconcileActivatedAsset(asset);
+      }
+    } catch (error, stackTrace) {
+      _log.warning(
+        'Could not reconcile coin activation with KDF',
+        error,
+        stackTrace,
+      );
+    }
+  }
+
   Future<void> _onWalletCoinUpdated(
     CoinsWalletCoinUpdated event,
     Emitter<CoinsState> emit,
@@ -234,6 +269,9 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     }
 
     final walletCoin = state.walletCoins[coin.id.id];
+    // A late activation callback must not move an already enabled coin back
+    // into the pending state. The KDF reconciliation above is authoritative.
+    if (walletCoin?.isActive == true && coin.isActivating) return;
     final hasCoinStateChanged =
         walletCoin == null || walletCoin.state != coin.state;
 
@@ -428,6 +466,7 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     CoinsSessionStarted event,
     Emitter<CoinsState> emit,
   ) async {
+    _walletSessionVersion++;
     _isInitialActivationInProgress = true;
     try {
       // Ensure any cached addresses/pubkeys from a previous wallet are cleared
@@ -469,6 +508,7 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     CoinsSessionEnded event,
     Emitter<CoinsState> emit,
   ) async {
+    _walletSessionVersion++;
     _resetInitialActivationState();
     add(CoinsBalanceMonitoringStopped());
 
