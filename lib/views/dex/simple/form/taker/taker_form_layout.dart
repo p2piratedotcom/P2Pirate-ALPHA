@@ -79,7 +79,7 @@ class _TakerFormDesktopLayoutState extends State<_TakerFormDesktopLayout> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SectionSwitcher(),
+                  const SectionSwitcher(trailing: TakerOrderMatchingControl()),
                   const SizedBox(height: 12),
                   if (narrow) ...[
                     const TakerFormSellItem(),
