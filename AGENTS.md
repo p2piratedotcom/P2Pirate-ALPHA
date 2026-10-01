@@ -23,7 +23,13 @@ dart format [files]
 
 ## Running Tests
 
-Unit tests and integration tests are currently failing. Instead of running tests to validate fixes, do a thorough code review of the changes and static analysis
+Run `flutter test test_units` for all unit and widget tests. The older
+`flutter test test_units/main.dart` aggregate is also supported. For the safe
+Linux UI smoke test, run `dart run_integration_tests.dart` with Xvfb installed.
+It uses disposable directories and does not start KDF. See
+`docs/INTEGRATION_TESTING.md` for scope and `docs/TEST_STATUS.md` for the
+verified baseline. Do not run the older wallet/KDF tests against a live wallet:
+the SDK currently fixes its RPC port at 7783.
 
 ## Additional Documentation
 

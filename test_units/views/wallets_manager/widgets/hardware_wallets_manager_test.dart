@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:komodo_defi_types/komodo_defi_types.dart';
 import 'package:web_dex/bloc/analytics/analytics_bloc.dart';
 import 'package:web_dex/bloc/analytics/analytics_event.dart';
+import 'package:web_dex/bloc/analytics/analytics_repo.dart';
 import 'package:web_dex/bloc/analytics/analytics_state.dart';
 import 'package:web_dex/bloc/auth_bloc/auth_bloc.dart';
 import 'package:web_dex/bloc/coins_bloc/coins_bloc.dart';
@@ -59,6 +60,9 @@ class _FakeAnalyticsBloc extends Cubit<AnalyticsState>
   void add(AnalyticsEvent event) {
     addedEvents.add(event);
   }
+
+  @override
+  void logEvent(AnalyticsEventData event) {}
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

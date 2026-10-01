@@ -45,7 +45,7 @@ CexPrice _cexPrice(AssetId id, double price) => CexPrice(
   assetId: id,
   price: Decimal.parse(price.toString()),
   change24h: Decimal.zero,
-  lastUpdated: DateTime.fromMillisecondsSinceEpoch(0),
+  lastUpdated: DateTime.now(),
 );
 
 class _FakeBalanceManager implements BalanceManager {
