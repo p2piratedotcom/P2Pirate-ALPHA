@@ -65,7 +65,7 @@
 		1A3B6726B443457F0866C384 /* Pods-Runner.profile-production.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile-production.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile-production.xcconfig"; sourceTree = "<group>"; };
 		333000ED22D3DE5D00554162 /* Warnings.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Warnings.xcconfig; sourceTree = "<group>"; };
 		335BBD1A22A9A15E00E9071D /* GeneratedPluginRegistrant.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GeneratedPluginRegistrant.swift; sourceTree = "<group>"; };
-		33CC10ED2044A3C60003C045 /* Cheetahdex Wallet.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Cheetahdex Wallet.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		33CC10ED2044A3C60003C045 /* P2Pirate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "P2Pirate.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		33CC10F02044A3C60003C045 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		33CC10F22044A3C60003C045 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = Runner/Assets.xcassets; sourceTree = "<group>"; };
 		33CC10F52044A3C60003C045 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/MainMenu.xib; sourceTree = "<group>"; };
@@ -136,7 +136,7 @@
 		33CC10EE2044A3C60003C045 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				33CC10ED2044A3C60003C045 /* Cheetahdex Wallet.app */,
+				33CC10ED2044A3C60003C045 /* P2Pirate.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -225,7 +225,7 @@
 			);
 			name = Runner;
 			productName = Runner;
-			productReference = 33CC10ED2044A3C60003C045 /* Cheetahdex Wallet.app */;
+			productReference = 33CC10ED2044A3C60003C045 /* P2Pirate.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -499,7 +499,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = 8HPBYKKKQP;
+				DEVELOPMENT_TEAM = "";
 				EXCLUDED_ARCHS = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -515,7 +515,7 @@
 					"$(PROJECT_DIR)",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				PRODUCT_BUNDLE_IDENTIFIER = com.komodo.wallet;
+				PRODUCT_BUNDLE_IDENTIFIER = com.p2pirate.wallet;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;
 			};
@@ -639,7 +639,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = 8HPBYKKKQP;
+				DEVELOPMENT_TEAM = "";
 				EXCLUDED_ARCHS = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -655,7 +655,7 @@
 					"$(PROJECT_DIR)",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				PRODUCT_BUNDLE_IDENTIFIER = com.komodo.wallet;
+				PRODUCT_BUNDLE_IDENTIFIER = com.p2pirate.wallet;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -674,7 +674,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = 8HPBYKKKQP;
+				DEVELOPMENT_TEAM = "";
 				EXCLUDED_ARCHS = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -690,7 +690,7 @@
 					"$(PROJECT_DIR)",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				PRODUCT_BUNDLE_IDENTIFIER = com.komodo.wallet;
+				PRODUCT_BUNDLE_IDENTIFIER = com.p2pirate.wallet;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;
 			};
@@ -776,7 +776,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = 8HPBYKKKQP;
+				DEVELOPMENT_TEAM = "";
 				EXCLUDED_ARCHS = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -792,7 +792,7 @@
 					"$(PROJECT_DIR)",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				PRODUCT_BUNDLE_IDENTIFIER = com.komodo.wallet;
+				PRODUCT_BUNDLE_IDENTIFIER = com.p2pirate.wallet;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -866,8 +866,8 @@
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = 8HPBYKKKQP;
-				"DEVELOPMENT_TEAM[sdk=macosx*]" = 8HPBYKKKQP;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = "";
 				EXCLUDED_ARCHS = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -884,9 +884,9 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
 				"OTHER_CODE_SIGN_FLAGS[sdk=*]" = "--options=runtime --timestamp";
-				PRODUCT_BUNDLE_IDENTIFIER = com.komodo.wallet;
+				PRODUCT_BUNDLE_IDENTIFIER = com.p2pirate.wallet;
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "[decker] Komodo(8HPBYKKKQP.com.komodo.wallet)";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "";
 				SWIFT_VERSION = 5.0;
 			};
 			name = "Release-production";
@@ -956,7 +956,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = 8HPBYKKKQP;
+				DEVELOPMENT_TEAM = "";
 				EXCLUDED_ARCHS = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -972,7 +972,7 @@
 					"$(PROJECT_DIR)",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				PRODUCT_BUNDLE_IDENTIFIER = com.komodo.wallet;
+				PRODUCT_BUNDLE_IDENTIFIER = com.p2pirate.wallet;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;
 			};

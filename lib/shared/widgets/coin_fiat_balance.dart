@@ -25,6 +25,11 @@ class CoinFiatBalance extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!context.select(
+      (SettingsBloc bloc) => bloc.state.showWalletUsdValues,
+    )) {
+      return const SizedBox.shrink();
+    }
     final hideBalances = context.select(
       (SettingsBloc bloc) => bloc.state.hideBalances,
     );

@@ -21,7 +21,7 @@ jobs:
             runner: macos-latest
             build_command: flutter build macos --no-pub --release
             artifact_path: build/macos/Build/Products/Release/*.app
-            artifact_name: cheetahdex-wallet-macos
+            artifact_name: p2pirate-macos
           - platform: windows
             # Pinned to windows-2022 (VS 2022 / CMake 3.x / MSVC 14.4x). The
             # windows-latest image moved to VS 2026 (CMake 4.x, MSVC 14.51),
@@ -33,12 +33,12 @@ jobs:
             runner: windows-2022
             build_command: flutter build windows --no-pub --release
             artifact_path: build/windows/x64/runner/Release/*
-            artifact_name: cheetahdex-wallet-windows
+            artifact_name: p2pirate-windows
           - platform: linux
             runner: ubuntu-latest
             build_command: flutter build linux --no-pub --release
             artifact_path: build/linux/x64/release/bundle/*
-            artifact_name: cheetahdex-wallet-linux
+            artifact_name: p2pirate-linux
 
     steps:
       - name: Checkout code
@@ -59,7 +59,7 @@ jobs:
         with:
           p12-file-base64: ${{ secrets.MACOS_P12_BASE64 }}
           p12-password: ${{ secrets.MACOS_P12_PASSWORD }}
-          bundle-id: "com.komodo.wallet"
+          bundle-id: "com.p2pirate.wallet"
           profile-type: "MAC_APP_DEVELOPMENT"
           issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
           api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
