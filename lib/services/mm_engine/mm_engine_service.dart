@@ -174,6 +174,9 @@ class MmEngineService {
       'kdf_rpc_url': 'http://127.0.0.1:$rpcPort',
       'kdf_rpc_userpass': password,
       'agent_token': token,
+      // Isolate CEX keys from other wallets and the standalone TUI profile.
+      'cex_profile':
+          'p2p-${sha256.convert(utf8.encode(walletId)).toString().substring(0, 48)}',
       'network_mode': stored.torEnabled ? 'tor' : 'direct',
       if (stored.torEnabled) 'tor_http_proxy': 'http://127.0.0.1:$torPort',
       'with_cex': desiredLive,

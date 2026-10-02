@@ -35,8 +35,9 @@ connects to its authenticated loopback API. The engine uses the existing KDF
 RPC and the wallet's Tor bridge; it never starts or stops KDF or Tor. It starts
 in preview mode on each login. MEXC and Gate Spot keys can be stored in the
 Linux Secret Service through the wallet; key values are never returned by the
-engine. The current local CEX worker requires MEXC credentials even for a Gate
-strategy. The operator explicitly confirms live mode, then previews and saves
+engine. The keyring profile is distinct for each wallet and from the TUI's
+default profile. The current local CEX worker requires MEXC credentials even
+for a Gate strategy. The operator explicitly confirms live mode, then previews and saves
 each strategy paused, and confirms starting each strategy separately. Live
 mode permits KDF maker orders and automatic CEX hedging; transfers remain
 disabled. The chosen live mode is saved for that wallet profile; after a
