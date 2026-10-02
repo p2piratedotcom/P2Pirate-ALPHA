@@ -13,6 +13,7 @@ import 'package:web_dex/model/authorize_mode.dart';
 import 'package:web_dex/model/main_menu_value.dart';
 import 'package:web_dex/model/wallet.dart';
 import 'package:web_dex/router/state/routing_state.dart';
+import 'package:web_dex/services/mm_engine/mm_engine_service.dart';
 import 'package:web_dex/shared/widgets/pirate_wallet_logo.dart';
 import 'package:web_dex/views/common/main_menu/main_menu_desktop_item.dart';
 
@@ -70,6 +71,26 @@ class _MainMenuDesktopState extends State<MainMenuDesktop> {
                       },
                       child: const PirateWalletLogo(height: 72, stacked: true),
                     ),
+                  ),
+
+                  ValueListenableBuilder<String?>(
+                    valueListenable: MmEngineService.instance.attention,
+                    builder: (context, message, _) => message == null
+                        ? const SizedBox.shrink()
+                        : Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                            child: InkWell(
+                              onTap: () => routingState.selectedMenu =
+                                  MainMenuValue.marketMakerBot,
+                              child: Text(
+                                message,
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.error,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ),
                   ),
 
                   // Navigation menu items

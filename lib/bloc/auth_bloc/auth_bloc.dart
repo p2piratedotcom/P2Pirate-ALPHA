@@ -14,6 +14,7 @@ import 'package:web_dex/blocs/wallets_repository.dart';
 import 'package:web_dex/model/authorize_mode.dart';
 import 'package:web_dex/model/kdf_auth_metadata_extension.dart';
 import 'package:web_dex/model/wallet.dart';
+import 'package:web_dex/services/mm_engine/mm_engine_service.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:web_dex/generated/codegen_loader.g.dart';
 
@@ -92,7 +93,15 @@ class AuthBloc extends Bloc<AuthBlocEvent, AuthBlocState> with TrezorAuthMixin {
     Emitter<AuthBlocState> emit,
   ) async {
     _log.info('Logging out from a wallet');
+    final previousState = state;
     emit(AuthBlocState.loading());
+    try {
+      await MmEngineService.instance.stop();
+    } catch (error, stack) {
+      _log.shout('MM_Engine prevented KDF sign out', error, stack);
+      emit(previousState);
+      return;
+    }
     try {
       await _kdfSdk.auth.signOut();
     } catch (e, s) {
@@ -185,6 +194,26 @@ class AuthBloc extends Bloc<AuthBlocEvent, AuthBlocState> with TrezorAuthMixin {
     Emitter<AuthBlocState> emit,
   ) async {
     emit(AuthBlocState(mode: event.mode, currentUser: event.currentUser));
+    if (event.mode == AuthorizeMode.logIn && event.currentUser != null) {
+      unawaited(_restoreTradingEngine(event.currentUser!));
+    }
+  }
+
+  Future<void> _restoreTradingEngine(KdfUser user) async {
+    try {
+      final settings = await _settingsRepository.loadSettings();
+      if (!settings.marketMakerBotSettings.isMMBotEnabled) return;
+      await MmEngineService.instance.start(
+        sdk: _kdfSdk,
+        walletId: user.walletId.compoundId,
+      );
+    } catch (error, stack) {
+      _log.shout('MM_Engine recovery needs attention', error, stack);
+      if (MmEngineService.instance.needsRecovery) {
+        MmEngineService.instance.attention.value =
+            'Trading engine did not reconnect. Open it to recover.';
+      }
+    }
   }
 
   Future<void> _onClearState(
