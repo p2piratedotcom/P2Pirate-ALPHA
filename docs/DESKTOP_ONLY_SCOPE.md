@@ -1,8 +1,10 @@
 # Desktop-only scope and platform cleanup
 
 P2Pirate's intended app targets are Linux, macOS and Windows. Linux is the
-locally built target. macOS and Windows need native-host builds and runtime
-checks before they can be described as supported releases. The Android and
+current build and release target. macOS and Windows need native-host builds and runtime
+checks before they can be described as supported releases. The desktop CI
+and release-triggered build currently produce a Linux artifact only; the
+macOS and Windows runner sources remain for a later phase. The Android and
 Web app runners were removed in the desktop-only cleanup. The iOS runner is
 still present but is not a supported P2Pirate target.
 
@@ -54,4 +56,4 @@ runners, analyze the changed configuration and build Linux. Native macOS and
 Windows builds and runtime checks are still required before their releases.
 The next source cleanup can remove the iOS runner and browser test harness;
 only then consider pruning conditional Dart code and plugin packages based on
-evidence from all three desktop builds.
+evidence from each supported desktop target.

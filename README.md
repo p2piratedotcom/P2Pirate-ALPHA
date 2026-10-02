@@ -18,7 +18,8 @@ The reference is the P2Pirate Linux x86_64 source snapshot dated 29 September
 recreates and any intentional difference. The ZIP and its bundled AppImage
 are reference material; they are not committed as a source release here.
 
-The intended app targets are Linux, macOS and Windows desktop. The Android and
+The current build and release target is Linux x86-64. macOS and Windows desktop
+releases are deferred until they can be tested. The Android and
 Web runners and deployment workflows have been removed; the unused iOS runner
 remains pending a separate review. See [desktop-only cleanup](docs/DESKTOP_ONLY_SCOPE.md).
 Only Linux has been built locally for the P2Pirate port so far.

@@ -1,5 +1,5 @@
-name: Desktop Builds
-run-name: Building desktop apps 🖥️
+name: Linux Desktop Build
+run-name: Building P2Pirate for Linux 🐧
 
 on:
   pull_request:
@@ -10,34 +10,8 @@ on:
 
 jobs:
   build_desktop:
-    name: Build Desktop (${{ matrix.platform }})
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: macos
-            runner: macos-latest
-            build_command: flutter build macos --no-pub --release
-            artifact_path: build/macos/Build/Products/Release/*.app
-            artifact_name: p2pirate-macos
-          - platform: windows
-            # Pinned to windows-2022 (VS 2022 / CMake 3.x / MSVC 14.4x). The
-            # windows-latest image moved to VS 2026 (CMake 4.x, MSVC 14.51),
-            # which breaks the build: the bundled Firebase C++ SDK requires
-            # cmake_minimum_required < 3.5, and <experimental/coroutine> became
-            # a hard error. Revert to windows-latest once the firebase_* and
-            # local_auth_windows / flutter_inappwebview_windows plugins are
-            # upgraded to versions compatible with the VS 2026 toolchain.
-            runner: windows-2022
-            build_command: flutter build windows --no-pub --release
-            artifact_path: build/windows/x64/runner/Release/*
-            artifact_name: p2pirate-windows
-          - platform: linux
-            runner: ubuntu-latest
-            build_command: flutter build linux --no-pub --release
-            artifact_path: build/linux/x64/release/bundle/*
-            artifact_name: p2pirate-linux
+    name: Build Desktop (linux)
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
@@ -50,49 +24,17 @@ jobs:
         id: install_flutter
         uses: ./.github/actions/flutter-deps
 
-      # macOS setup
-      - name: Setup macOS environment
-        id: setup_macos
-        if: ${{ matrix.platform == 'macos' }}
-        uses: ./.github/actions/releases/setup-macos
-        with:
-          p12-file-base64: ${{ secrets.MACOS_P12_BASE64 }}
-          p12-password: ${{ secrets.MACOS_P12_PASSWORD }}
-          bundle-id: "com.p2pirate.wallet"
-          profile-type: "MAC_APP_DEVELOPMENT"
-          issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
-          api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
-          api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
-
-      # Linux setup
       - name: Setup Linux environment
         id: setup_linux
-        if: ${{ matrix.platform == 'linux' }}
         uses: ./.github/actions/releases/setup-linux
         with:
           gpg-key: ${{ secrets.LINUX_GPG_KEY }}
           gpg-key-id: ${{ secrets.LINUX_GPG_KEY_ID }}
 
-      # Windows setup
-      - name: Setup Windows environment
-        id: setup_windows
-        if: ${{ matrix.platform == 'windows' }}
-        uses: ./.github/actions/releases/setup-windows
-        with:
-          pfx-base64: ${{ secrets.WINDOWS_PFX_BASE64 }}
-          pfx-password: ${{ secrets.WINDOWS_PFX_PASSWORD }}
-
-      - name: Fetch packages, generate assets, and build for ${{ matrix.platform }}
+      - name: Fetch packages, generate assets, and build for Linux
         id: build
         env:
           GITHUB_API_PUBLIC_READONLY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Flutter only forwards Xcode overrides with the FLUTTER_XCODE_ prefix.
-          FLUTTER_XCODE_CODE_SIGNING_ALLOWED: ${{ matrix.platform == 'macos' && github.event_name == 'pull_request' && 'NO' || '' }}
-          FLUTTER_XCODE_CODE_SIGNING_REQUIRED: ${{ matrix.platform == 'macos' && github.event_name == 'pull_request' && 'NO' || '' }}
-          FLUTTER_XCODE_CODE_SIGN_IDENTITY: ${{ matrix.platform == 'macos' && github.event_name == 'pull_request' && '' || '' }}
-          FLUTTER_XCODE_CODE_SIGN_STYLE: ${{ matrix.platform == 'macos' && github.event_name == 'pull_request' && 'Manual' || '' }}
-          FLUTTER_XCODE_DEVELOPMENT_TEAM: ${{ matrix.platform == 'macos' && github.event_name == 'pull_request' && '' || '' }}
-          FLUTTER_XCODE_PROVISIONING_PROFILE_SPECIFIER: ${{ matrix.platform == 'macos' && github.event_name == 'pull_request' && '' || '' }}
         uses: ./.github/actions/generate-assets
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -104,10 +46,10 @@ jobs:
           FEEDBACK_PRODUCTION_URL: ${{ secrets.FEEDBACK_PRODUCTION_URL }}
           MATOMO_URL: ${{ secrets.MATOMO_URL }}
           MATOMO_SITE_ID: ${{ secrets.MATOMO_SITE_ID }}
-          BUILD_COMMAND: ${{ matrix.build_command }}
+          BUILD_COMMAND: flutter build linux --no-pub --release
 
       - name: Test Linux desktop UI
-        if: ${{ matrix.platform == 'linux' && github.event_name == 'pull_request' }}
+        if: ${{ github.event_name == 'pull_request' }}
         run: dart run_integration_tests.dart
 
       - name: Compute short commit SHA
@@ -119,6 +61,6 @@ jobs:
         id: upload_artifact
         uses: actions/upload-artifact@v4
         with:
-          path: ${{ matrix.artifact_path }}
-          name: ${{ matrix.artifact_name }}-${{ steps.vars.outputs.short_sha }}.zip
+          path: build/linux/x64/release/bundle/*
+          name: p2pirate-linux-${{ steps.vars.outputs.short_sha }}.zip
           retention-days: 5
