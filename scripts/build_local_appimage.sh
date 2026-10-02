@@ -5,6 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUNDLE="$ROOT/build/linux/x64/release/bundle"
 OUTPUT="${P2PIRATE_APPIMAGE_OUTPUT:-$ROOT/dist/P2Pirate-x86_64.AppImage}"
+SOURCE_OUTPUT="${P2PIRATE_TOR_SOURCE_OUTPUT:-$ROOT/dist/P2Pirate-Tor-torsocks-sources.tar.gz}"
 : "${APPIMAGE_TOOL:?Set APPIMAGE_TOOL to a trusted local appimagetool executable}"
 APPIMAGE_TOOL="$(realpath "$APPIMAGE_TOOL")"
 : "${APPIMAGE_RUNTIME_FILE:?Set APPIMAGE_RUNTIME_FILE to the pinned Linux x86_64 AppImage runtime}"
@@ -33,10 +34,11 @@ fi
 "$ROOT/scripts/verify_tor_bundle.sh" "$BUNDLE"
 [[ ! -e "$BUNDLE/lib/kdf" ]] || { echo 'KDF must not be bundled with the GUI' >&2; exit 1; }
 
-mkdir -p "$ROOT/dist" "$(dirname "$OUTPUT")"
+mkdir -p "$ROOT/dist" "$(dirname "$OUTPUT")" "$(dirname "$SOURCE_OUTPUT")"
 APPDIR="$(mktemp -d "$ROOT/dist/P2Pirate.XXXXXX.AppDir")"
 STAGED="$(mktemp "$ROOT/dist/P2Pirate.XXXXXX.AppImage")"
-trap 'rm -rf "$APPDIR"; rm -f "$STAGED"' EXIT
+SOURCE_STAGED="$(mktemp "$ROOT/dist/P2Pirate.TorSources.XXXXXX.tar.gz")"
+trap 'rm -rf "$APPDIR"; rm -f "$STAGED" "$SOURCE_STAGED"' EXIT
 cp -a "$BUNDLE/." "$APPDIR/"
 install -m 644 "$ROOT/LICENSE" "$APPDIR/LICENSE"
 install -m 644 "$ROOT/packages/webview_all_linux/LICENSE" "$APPDIR/WEBVIEW_ALL_LINUX_LICENSE"
@@ -64,5 +66,12 @@ find "$APPDIR" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
 APPIMAGE_EXTRACT_AND_RUN=1 ARCH=x86_64 "$APPIMAGE_TOOL" \
   --runtime-file "$APPIMAGE_RUNTIME_FILE" "$APPDIR" "$STAGED"
 chmod +x "$STAGED"
+# Offer the corresponding source at the same download location as the AppImage.
+tar --sort=name --mtime="@$SOURCE_DATE_EPOCH" --owner=0 --group=0 \
+  --numeric-owner -cf - -C "$APPDIR" \
+  lib/tor-source lib/TOR_COPYRIGHT lib/TORSOCKS_COPYRIGHT \
+  lib/SOCKS5_PROXY_LICENSE lib/GPL-2.0.txt lib/TOR_SOURCE_README.txt LICENSE \
+  | gzip -n > "$SOURCE_STAGED"
 mv -f "$STAGED" "$OUTPUT"
-printf '%s\n' "$OUTPUT"
+mv -f "$SOURCE_STAGED" "$SOURCE_OUTPUT"
+sha256sum "$OUTPUT" "$SOURCE_OUTPUT"
