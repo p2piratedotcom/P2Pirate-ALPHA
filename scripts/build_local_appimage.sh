@@ -46,6 +46,17 @@ cd "$HERE"
 exec ./P2Pirate "$@"
 RUN
 chmod +x "$APPDIR/AppRun"
+# SquashFS records mtimes. Use the source commit timestamp unless the caller
+# explicitly supplies a release epoch, then normalize every staged entry.
+if [[ -z "${SOURCE_DATE_EPOCH:-}" ]]; then
+  SOURCE_DATE_EPOCH="$(git -C "$ROOT" log -1 --format=%ct)"
+fi
+[[ "$SOURCE_DATE_EPOCH" =~ ^[0-9]+$ ]] || {
+  echo 'SOURCE_DATE_EPOCH must be a Unix timestamp' >&2
+  exit 1
+}
+export SOURCE_DATE_EPOCH
+find "$APPDIR" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
 APPIMAGE_EXTRACT_AND_RUN=1 ARCH=x86_64 "$APPIMAGE_TOOL" "$APPDIR" "$STAGED"
 chmod +x "$STAGED"
 mv -f "$STAGED" "$OUTPUT"

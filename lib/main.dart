@@ -155,38 +155,44 @@ Future<void> _ensureKdfReady() async {
 
 void _showTorFailure(String error, StoredSettings stored) {
   runApp(
-    _TorStartupError(
-      error: error,
-      onRetry: () => runApp(
-        const _TorRestartRequired(
-          message: 'Close and reopen P2Pirate to retry Tor.',
-        ),
-      ),
-      onUseDirect: () async {
-        await SettingsRepository().updateSettings(
-          stored.copyWith(torEnabled: false),
-        );
-        runApp(
-          const _TorRestartRequired(
-            message:
-                'Tor is disabled for the next launch. Close and reopen P2Pirate to use a direct connection.',
+    WindowCloseHandler(
+      child: _TorStartupError(
+        error: error,
+        onRetry: () => runApp(
+          const WindowCloseHandler(
+            child: _TorRestartRequired(
+              message: 'Close and reopen P2Pirate to retry Tor.',
+            ),
           ),
-        );
-      },
-      onClose: () async {
-        try {
-          await mm2.dispose().timeout(const Duration(seconds: 5));
-        } catch (_) {
-          // Closing still takes priority if SDK cleanup has stalled.
-        }
-        try {
-          await PirateTorService.instance.stop().timeout(
-            const Duration(seconds: 5),
+        ),
+        onUseDirect: () async {
+          await SettingsRepository().updateSettings(
+            stored.copyWith(torEnabled: false),
           );
-        } finally {
-          exit(0);
-        }
-      },
+          runApp(
+            const WindowCloseHandler(
+              child: _TorRestartRequired(
+                message:
+                    'Tor is disabled for the next launch. Close and reopen P2Pirate to use a direct connection.',
+              ),
+            ),
+          );
+        },
+        onClose: () async {
+          try {
+            await mm2.dispose().timeout(const Duration(seconds: 5));
+          } catch (_) {
+            // Closing still takes priority if SDK cleanup has stalled.
+          }
+          try {
+            await PirateTorService.instance.stop().timeout(
+              const Duration(seconds: 5),
+            );
+          } finally {
+            exit(0);
+          }
+        },
+      ),
     ),
   );
 }

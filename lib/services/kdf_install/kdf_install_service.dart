@@ -64,8 +64,16 @@ class KdfInstallService {
     await root.create(recursive: true);
     final finalDir = Directory(p.join(root.path, version));
     final installed = File(p.join(finalDir.path, 'kdf'));
-    if (!await installed.exists() ||
-        await _fileHash(installed) != executableSha256) {
+    if (await FileSystemEntity.type(finalDir.path, followLinks: false) ==
+            FileSystemEntityType.link ||
+        await FileSystemEntity.type(installed.path, followLinks: false) ==
+            FileSystemEntityType.link) {
+      throw StateError('Unsafe KDF installation link');
+    }
+    final installedHash = await installed.exists()
+        ? await _fileHash(installed)
+        : null;
+    if (installedHash != executableSha256) {
       final staging = await Directory(root.path).createTemp('.install-');
       try {
         final archiveFile = File(p.join(staging.path, 'kdf.zip'));
@@ -98,10 +106,18 @@ class KdfInstallService {
         if (chmod.exitCode != 0) {
           throw StateError('Could not make KDF executable');
         }
-        if (await finalDir.exists()) {
-          throw StateError(
-            'A different KDF installation already uses $version',
-          );
+        final existingType = await FileSystemEntity.type(
+          finalDir.path,
+          followLinks: false,
+        );
+        if (existingType == FileSystemEntityType.link ||
+            existingType == FileSystemEntityType.file) {
+          throw StateError('Unsafe KDF installation path: ${finalDir.path}');
+        }
+        if (existingType == FileSystemEntityType.directory) {
+          // The version directory contains an incomplete or corrupt install.
+          // Its contents were already rejected by the executable hash check.
+          await finalDir.delete(recursive: true);
         }
         await finalDir.create();
         try {
@@ -112,6 +128,14 @@ class KdfInstallService {
         }
       } finally {
         if (await staging.exists()) await staging.delete(recursive: true);
+      }
+    }
+
+    // A verified executable restored from a backup may have lost its mode.
+    if ((await installed.stat()).mode & 0x49 == 0) {
+      final chmod = await Process.run('chmod', ['700', installed.path]);
+      if (chmod.exitCode != 0) {
+        throw StateError('Could not make verified KDF executable');
       }
     }
 

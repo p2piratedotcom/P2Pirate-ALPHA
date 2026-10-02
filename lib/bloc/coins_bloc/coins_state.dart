@@ -95,7 +95,7 @@ class CoinsState extends Equatable {
   double? getUsdPriceForAmount(num amount, String coinAbbr) {
     final Coin? coin = coins[coinAbbr];
     final double parsedAmount = amount.toDouble();
-    final CexPrice? cexPrice = prices[coinAbbr.toUpperCase()];
+    final CexPrice? cexPrice = coin == null ? null : getPriceForAsset(coin.id);
     final double? usdPrice = cexPrice?.price?.toDouble();
 
     if (coin == null || usdPrice == null) {

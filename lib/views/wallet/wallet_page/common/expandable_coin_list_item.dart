@@ -182,64 +182,68 @@ class _ExpandableCoinListItemState extends State<ExpandableCoinListItem> {
               ],
             ),
           ),
-          const Spacer(),
+          if (showUsd) const Spacer(),
           // Right side: Price and trend info
-          Expanded(
-            flex: 7,
-            child: InkWell(
-              onTap: statsTap,
-              borderRadius: BorderRadius.circular(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  // Current balance in USD - using headlineMedium for bold 16px text
-                  if (showUsd) ...[
-                    _UsdBalanceText(
-                      coin: widget.coin,
-                      textStyle: theme.textTheme.headlineMedium,
-                    ),
-                    const SizedBox(height: 2),
-                  ],
-                  // Trend percentage
-                  if (showUsd && !hideBalances)
-                    BlocBuilder<CoinsBloc, CoinsState>(
-                      builder: (context, state) {
-                        final usdBalance = widget.coin.lastKnownUsdBalance(
-                          context.sdk,
-                        );
-                        if (usdBalance == null) {
-                          return const SizedBox.shrink();
-                        }
+          if (showUsd)
+            Expanded(
+              flex: 7,
+              child: InkWell(
+                onTap: statsTap,
+                borderRadius: BorderRadius.circular(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    // Current balance in USD - using headlineMedium for bold 16px text
+                    if (showUsd) ...[
+                      _UsdBalanceText(
+                        coin: widget.coin,
+                        textStyle: theme.textTheme.headlineMedium,
+                      ),
+                      const SizedBox(height: 2),
+                    ],
+                    // Trend percentage
+                    if (showUsd && !hideBalances)
+                      BlocBuilder<CoinsBloc, CoinsState>(
+                        builder: (context, state) {
+                          final usdBalance = widget.coin.lastKnownUsdBalance(
+                            context.sdk,
+                          );
+                          if (usdBalance == null) {
+                            return const SizedBox.shrink();
+                          }
 
-                        final change24hPercent = usdBalance == 0.0
-                            ? 0.0
-                            : state.get24hChangeForAsset(widget.coin.id);
-                        // Calculate the 24h USD change value
-                        final change24hValue =
-                            change24hPercent != null && usdBalance > 0
-                            ? (change24hPercent * usdBalance / 100)
-                            : 0.0;
-                        final themeCustom =
-                            Theme.of(context).brightness == Brightness.dark
-                            ? Theme.of(context).extension<ThemeCustomDark>()!
-                            : Theme.of(context).extension<ThemeCustomLight>()!;
-                        return TrendPercentageText(
-                          percentage: change24hPercent,
-                          value: change24hValue,
-                          upColor: themeCustom.increaseColor,
-                          downColor: themeCustom.decreaseColor,
-                          valueFormatter: (value) =>
-                              NumberFormat.currency(symbol: '\$').format(value),
-                          iconSize: 12,
-                          spacing: 2,
-                          textStyle: theme.textTheme.bodySmall,
-                        );
-                      },
-                    ),
-                ],
+                          final change24hPercent = usdBalance == 0.0
+                              ? 0.0
+                              : state.get24hChangeForAsset(widget.coin.id);
+                          // Calculate the 24h USD change value
+                          final change24hValue =
+                              change24hPercent != null && usdBalance > 0
+                              ? (change24hPercent * usdBalance / 100)
+                              : 0.0;
+                          final themeCustom =
+                              Theme.of(context).brightness == Brightness.dark
+                              ? Theme.of(context).extension<ThemeCustomDark>()!
+                              : Theme.of(
+                                  context,
+                                ).extension<ThemeCustomLight>()!;
+                          return TrendPercentageText(
+                            percentage: change24hPercent,
+                            value: change24hValue,
+                            upColor: themeCustom.increaseColor,
+                            downColor: themeCustom.decreaseColor,
+                            valueFormatter: (value) => NumberFormat.currency(
+                              symbol: '\$',
+                            ).format(value),
+                            iconSize: 12,
+                            spacing: 2,
+                            textStyle: theme.textTheme.bodySmall,
+                          );
+                        },
+                      ),
+                  ],
+                ),
               ),
             ),
-          ),
         ],
       ),
     );

@@ -56,7 +56,12 @@ class PirateTorService {
       if (_shuttingDown) throw StateError('Tor is shutting down');
       pirateTorStatus.value = PirateTorStatus.connecting;
       try {
-        await _start(torBinary, torsocksLibrary);
+        await _start(torBinary, torsocksLibrary).timeout(
+          const Duration(minutes: 3),
+          onTimeout: () => throw const _TorStartupFailure(
+            'Tor startup and seed lookup exceeded three minutes',
+          ),
+        );
         return;
       } catch (error) {
         await stop();
@@ -169,11 +174,16 @@ class PirateTorService {
       } catch (_) {
         throw const _TorStartupFailure('Tor seed lookup failed');
       }
-      _socksPort = port;
-      _httpBridge = await PirateTorHttpBridge.start(port);
-      if (!identical(_process, process)) {
+      if (!identical(_process, process) || _shuttingDown) {
+        throw const _TorStartupFailure('Tor stopped during seed lookup');
+      }
+      final bridge = await PirateTorHttpBridge.start(port);
+      if (!identical(_process, process) || _shuttingDown) {
+        await bridge.close();
         throw const _TorStartupFailure('Tor exited after bootstrap');
       }
+      _socksPort = port;
+      _httpBridge = bridge;
       pirateTorStatus.value = PirateTorStatus.ready;
     } finally {
       stalled?.cancel();

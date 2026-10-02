@@ -22,9 +22,9 @@ class _OrdersTableState extends State<OrdersTable> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocSelector<TakerBloc, TakerState, Coin?>(
-      selector: (state) => state.buyCoin,
-      builder: (context, buyCoin) {
+    return BlocBuilder<TakerBloc, TakerState>(
+      builder: (context, state) {
+        final buyCoin = state.buyCoin;
         final controller = TradeOrderController(
           order: context.read<TakerBloc>().state.selectedOrder,
           coin: buyCoin,
@@ -55,6 +55,24 @@ class _OrdersTableState extends State<OrdersTable> {
                   ),
                 ),
                 const SizedBox(height: 5),
+                if (state.bestOrders?.error != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Could not load swap offers: ${state.bestOrders!.error!.message}',
+                        ),
+                        TextButton(
+                          onPressed: () => context.read<TakerBloc>().add(
+                            TakerUpdateBestOrders(),
+                          ),
+                          child: const Text('Retry loading offers'),
+                        ),
+                      ],
+                    ),
+                  ),
                 CoinsTableContent(
                   onSelect: (Coin coin) =>
                       context.read<TakerBloc>().add(TakerSelectBuyCoin(coin)),

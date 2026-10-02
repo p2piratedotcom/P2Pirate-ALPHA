@@ -66,6 +66,9 @@ class TakerUpdateBestOrders extends TakerEvent {
 
 class TakerClear extends TakerEvent {}
 
+/// Explicit acknowledgement after checking whether an uncertain swap started.
+class TakerAcknowledgeUnknownSubmission extends TakerEvent {}
+
 class TakerSellAmountChange extends TakerEvent {
   TakerSellAmountChange(this.value);
 
