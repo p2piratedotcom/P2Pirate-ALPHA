@@ -81,6 +81,14 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
     return null;
   }
 
+  String? _premiumPercent(String? raw) {
+    final value = double.tryParse(raw?.trim() ?? '');
+    if (value == null || !value.isFinite || value.abs() >= 100) {
+      return 'Enter a premium between -100% and 100%';
+    }
+    return null;
+  }
+
   Widget _numberField(
     String label,
     TextEditingController controller, {
@@ -101,12 +109,6 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
     final baseAsset = _baseAsset.text.trim().toUpperCase();
     final quoteAsset = _quoteAsset.text.trim().toUpperCase();
     final premiumPercent = double.parse(_premium.text.trim());
-    if (premiumPercent.abs() >= 100) {
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(content: Text('Premium must be below 100%')),
-      );
-      return;
-    }
     final spec = <String, Object?>{
       'strategy_id': _id.text.trim(),
       'base': {
@@ -223,7 +225,15 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
                 onChanged: (value) =>
                     setState(() => _side = value ?? 'SELL_ARRR'),
               ),
-              _numberField('Premium (%)', _premium),
+              TextFormField(
+                controller: _premium,
+                decoration: const InputDecoration(labelText: 'Premium (%)'),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                  signed: true,
+                ),
+                validator: _premiumPercent,
+              ),
               SwitchListTile(
                 title: const Text('Automatic price'),
                 value: _autoPrice,
