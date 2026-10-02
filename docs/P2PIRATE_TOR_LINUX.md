@@ -20,13 +20,13 @@ GUI and Flutter SDK remain in separate repositories. This GUI branch needs a mat
 ```sh
 flutter pub get
 flutter build linux --release --no-pub
-scripts/prepare_tor_bundle.sh build/linux/x64/release/bundle /path/to/tor-artifacts/linux-x64
+scripts/prepare_tor_bundle.sh build/linux/x64/release/bundle /path/to/tor-artifacts/linux-x64 /path/to/ubuntu-tor-source-packages
 P2PIRATE_KDF_PATH=/path/to/separate/kdf-2.7 build/linux/x64/release/bundle/P2Pirate
 ```
 
-The Tor artifact directory must contain the pinned Ubuntu 24.04 Tor `0.4.9.11-0ubuntu0.24.04.1` executable, torsocks `2.4.0-1` shared library, and the three notices named by the script. The script checks both binary hashes. KDF 2.7 is installed or downloaded separately; it is not part of the GUI Git tree. The local Flutter build directory is ignored by Git.
+The Tor artifact directory must contain the pinned Ubuntu 24.04 Tor `0.4.9.11-0ubuntu0.24.04.1` executable, torsocks `2.4.0-1` shared library, and the three notices named by the script. The source directory must contain the six corresponding Ubuntu source package files. The script checks binary, notice and source hashes and includes all source files plus the full torsocks GPLv2 text in the bundle. KDF 2.7 is installed or downloaded separately; it is not part of the GUI Git tree. The local Flutter build directory is ignored by Git.
 
-The GUI source carries a modified MIT-licensed `webview_all_linux` 1.4.1 plugin under `packages/` and its change note in `PIRATE_PATCH.md`. The Tor and torsocks binaries are **not** committed. A public binary release needs the corresponding source for the exact binary builds and their notices; `TORSOCKS_COPYRIGHT` identifies GPL-2-or-later. Do not publish a bundle containing the reference ZIP binaries until that source is supplied and reviewed.
+The GUI source carries a modified MIT-licensed `webview_all_linux` 1.4.1 plugin under `packages/` and its change note in `PIRATE_PATCH.md`. The Tor and torsocks binaries are **not** committed. The reviewed Ubuntu Tor build is GPLv3 because it uses `--enable-gpl`; torsocks is GPL-2-or-later. Both source packages and notices are staged locally for AppImage packaging and independently rechecked by `verify_tor_bundle.sh`. See [provenance review](LINUX_ASSET_PROVENANCE.md).
 
 ## Checks and limits
 

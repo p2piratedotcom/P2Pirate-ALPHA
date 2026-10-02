@@ -97,12 +97,10 @@ those conditions.
 ## Build inputs and remaining work
 
 With SDK PR #4, build-time KDF and coin downloads are disabled. KDF is a
-runtime prerequisite. Coin metadata and icons are a different build input:
-stage the reviewed `coins.json`, `coins_config.json`, `seed_nodes.json`, and
-`coin_icons/png/` beneath `sdk/packages/komodo_defi_framework/assets/` before
-building. Those paths are ignored by Git. The ZIP snapshot's coin files can be
-used locally for comparison; their distribution terms still need review before
-they are republished. The GUI can now be built locally with this split and
-offers first-run installation from the original publisher. A public KDF
-release in the SDK fork and a public GUI binary release still need their
-source and license review.
+runtime prerequisite. For a Linux package, run `scripts/stage_coin_catalog.sh`
+before Flutter builds: it pins and verifies `coins.json`, `coins_config.json`
+and `seed_nodes.json` from the public source revision documented in
+[the provenance review](LINUX_ASSET_PROVENANCE.md). Coin PNGs from the ZIP are
+not staged because their artwork rights are undocumented. The SDK instead
+renders local ticker badges without contacting an icon CDN. The GUI offers
+first-run KDF installation from the original publisher; KDF is not bundled.

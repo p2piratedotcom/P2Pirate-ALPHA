@@ -93,8 +93,9 @@ lists the supported target commands. The older upstream setup and release
 documents are retained as historical reference and may mention removed Web or
 mobile targets. On Linux, install a
 verified KDF 2.7 executable separately before launching, or use the GUI's
-first-run installer for the pinned upstream release. Coin assets must also be staged as described in
-[external KDF](docs/P2PIRATE_EXTERNAL_KDF.md). Do not package the
+first-run installer for the pinned upstream release. Verified coin parameters must also be staged as described in
+[external KDF](docs/P2PIRATE_EXTERNAL_KDF.md). The [Linux asset provenance review](docs/LINUX_ASSET_PROVENANCE.md)
+records Tor, torsocks and catalog sources; coin artwork is excluded from the local release recipe. Do not package the
 reference ZIP's binaries as a new release solely from these commands.
 
 The Linux release bundle runs as `build/linux/x64/release/bundle/P2Pirate`.

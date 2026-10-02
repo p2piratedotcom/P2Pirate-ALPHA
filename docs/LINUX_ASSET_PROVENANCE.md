@@ -1,6 +1,6 @@
 # Linux release asset provenance review
 
-Reviewed 2 October 2026. This inventory covers the Tor transport in the
+Reviewed and prepared for local packaging on 2 October 2026. This inventory covers the Tor transport in the
 29 September 2026 reference ZIP and the coin assets required by a Linux GUI
 package. It does not approve a public AppImage release.
 
@@ -31,14 +31,13 @@ upstream Tor BSD notice alone does not describe this binary's full terms.
 `SOCKS5_PROXY_LICENSE` in the ZIP is MIT. These licenses are not transferred
 to the P2Pirate GUI merely by bundling the files.
 
-For a public AppImage, retain the exact package notices, identify both source
-packages and make the complete corresponding source available alongside the
-binary or by another distribution method compliant with their licenses. The
-GUI's `LICENSE` supplies the GPLv3 text, but the local packaging recipe does
-not currently add the full GPLv2 text for torsocks. Include it and document
-which bundled file each license covers. Record package and executable hashes
-in release notes. The byte comparison establishes the package origin; it is
-not an independent reproducible-build proof.
+`prepare_tor_bundle.sh` now requires all six source package files, verifies
+their SHA-256 digests, and includes them in the AppImage under `lib/tor-source/`.
+It also includes both package copyright notices and the full GPLv2 text for
+torsocks; the AppImage's root `LICENSE` provides GPLv3. The packaging script
+rechecks all Tor files before creating the AppImage. Record package and
+executable hashes in release notes. The byte comparison establishes the
+package origin; it is not an independent reproducible-build proof.
 
 ## Coin catalog and icons
 
@@ -49,23 +48,23 @@ are byte-identical to `coins`, `utils/coins_config_unfiltered.json` and
 All 453 PNGs in the ZIP's `coin_icons/png/` match the Git blobs in that
 commit's `icons/` directory, with no missing or changed images.
 
-The current SDK build configuration instead names
+The previous SDK build configuration named
 [`ShorelineCrypto/coins@b8f8566`](https://github.com/ShorelineCrypto/coins/tree/b8f85666325ca1cc6306ca113e7129d73e77e0f0).
-It has `fetch_at_build_enabled: false`; Git tracks only `.gitkeep` files in
-the coin asset directories. A clean build therefore needs explicitly staged
-catalogs and icons. The existing local Linux bundle has no coin catalog JSONs
-or PNGs and cannot pass `scripts/build_local_appimage.sh`.
+The local release preparation pins the snapshot commit above and keeps
+`fetch_at_build_enabled: false`. `scripts/stage_coin_catalog.sh` obtains or
+accepts the three JSON files, checks their hashes and stages them before
+Flutter builds. The AppImage packager rejects an empty or changed catalog.
 
 At the reviewed commits, neither `ShorelineCrypto/coins` nor its
 `KomodoPlatform/coins` parent declares a repository license or contains a
 license/copyright/attribution file. The 453 icon files also have no
 file-specific license records there. Public availability and exact source
-identification do not establish permission to redistribute the catalog and
-artwork. The GUI's GPL-3.0 license does not grant rights over these separate
-assets. Obtain an explicit redistribution grant that covers both catalog data
-and each icon (including any third-party contributors), or replace them with
-assets whose licenses are recorded, before publishing an AppImage containing
-them. Keep the selected commit and file hashes in the release manifest.
+identification do not establish permission to redistribute artwork. The local
+release path excludes all coin PNGs and the SDK renders ticker badges without
+fetching icon images from a CDN. The project owner treats the JSON parameter
+records as public factual network information; that is the stated basis for
+staging them, not an upstream license grant or a determination about database
+rights. The release records their origin and exact file hashes.
 
 GitHub's [repository licensing guidance](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/licensing-a-repository)
 explains why a public repository without a license is not an automatic grant

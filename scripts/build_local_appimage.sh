@@ -7,8 +7,13 @@ BUNDLE="$ROOT/build/linux/x64/release/bundle"
 OUTPUT="${P2PIRATE_APPIMAGE_OUTPUT:-$ROOT/dist/P2Pirate-x86_64.AppImage}"
 : "${APPIMAGE_TOOL:?Set APPIMAGE_TOOL to a trusted local appimagetool executable}"
 APPIMAGE_TOOL="$(realpath "$APPIMAGE_TOOL")"
+: "${APPIMAGE_RUNTIME_FILE:?Set APPIMAGE_RUNTIME_FILE to the pinned Linux x86_64 AppImage runtime}"
+APPIMAGE_RUNTIME_FILE="$(realpath "$APPIMAGE_RUNTIME_FILE")"
 [[ "$(uname -m)" == x86_64 ]] || { echo 'Linux x86_64 is required' >&2; exit 1; }
 [[ -x "$APPIMAGE_TOOL" ]] || { echo 'APPIMAGE_TOOL is not executable' >&2; exit 1; }
+printf '%s  %s\n' \
+  '156f4bdbde9c52d01814600013e0a273f0118dc2de98975f3c8c63427ec79074' \
+  "$APPIMAGE_RUNTIME_FILE" | sha256sum --check --status
 [[ -x "$BUNDLE/P2Pirate" ]] || { echo 'Build the Linux release bundle first' >&2; exit 1; }
 COIN_ASSETS="$BUNDLE/data/flutter_assets/packages/komodo_defi_framework/assets"
 for name in coins.json coins_config.json seed_nodes.json; do
@@ -17,18 +22,16 @@ for name in coins.json coins_config.json seed_nodes.json; do
     exit 1
   }
 done
-if ! find "$COIN_ASSETS/coin_icons/png" -maxdepth 1 -type f -name '*.png' -print -quit | grep -q .; then
-  echo 'Missing coin icons in Flutter bundle' >&2
+printf '%s  %s\n' \
+  '0a4b57a86b3f25385961dba9f3b57804da8576a9c0d10073ce2b6afb3401418f' "$COIN_ASSETS/config/coins.json" \
+  '5d77f607f05dc97f488011d0800e49239faa05f44a2c6578bc90df125f0459a5' "$COIN_ASSETS/config/coins_config.json" \
+  'd880dd324f0c77017ad92147dd10ad095d37dc53fff0284abc13c9b333bc85fd' "$COIN_ASSETS/config/seed_nodes.json" | sha256sum --check --status
+if find "$COIN_ASSETS/coin_icons/png" -maxdepth 1 -type f -name '*.png' -print -quit | grep -q .; then
+  echo 'Coin artwork without documented redistribution rights is not accepted' >&2
   exit 1
 fi
-[[ -x "$BUNDLE/lib/tor" && -f "$BUNDLE/lib/libtorsocks.so" ]] || {
-  echo 'Stage the reviewed Tor transport with scripts/prepare_tor_bundle.sh first' >&2
-  exit 1
-}
+"$ROOT/scripts/verify_tor_bundle.sh" "$BUNDLE"
 [[ ! -e "$BUNDLE/lib/kdf" ]] || { echo 'KDF must not be bundled with the GUI' >&2; exit 1; }
-for notice in TOR_COPYRIGHT TORSOCKS_COPYRIGHT SOCKS5_PROXY_LICENSE; do
-  [[ -f "$BUNDLE/lib/$notice" ]] || { echo "Missing $notice" >&2; exit 1; }
-done
 
 mkdir -p "$ROOT/dist" "$(dirname "$OUTPUT")"
 APPDIR="$(mktemp -d "$ROOT/dist/P2Pirate.XXXXXX.AppDir")"
@@ -37,6 +40,7 @@ trap 'rm -rf "$APPDIR"; rm -f "$STAGED"' EXIT
 cp -a "$BUNDLE/." "$APPDIR/"
 install -m 644 "$ROOT/LICENSE" "$APPDIR/LICENSE"
 install -m 644 "$ROOT/packages/webview_all_linux/LICENSE" "$APPDIR/WEBVIEW_ALL_LINUX_LICENSE"
+install -m 644 "$ROOT/licenses/coin-data/SOURCE.txt" "$APPDIR/COIN_DATA_SOURCE.txt"
 install -m 644 "$ROOT/linux/com.p2pirate.wallet.desktop" "$APPDIR/com.p2pirate.wallet.desktop"
 install -m 644 "$ROOT/linux/P2Pirate.png" "$APPDIR/P2Pirate.png"
 cat > "$APPDIR/AppRun" <<'RUN'
@@ -57,7 +61,8 @@ fi
 }
 export SOURCE_DATE_EPOCH
 find "$APPDIR" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
-APPIMAGE_EXTRACT_AND_RUN=1 ARCH=x86_64 "$APPIMAGE_TOOL" "$APPDIR" "$STAGED"
+APPIMAGE_EXTRACT_AND_RUN=1 ARCH=x86_64 "$APPIMAGE_TOOL" \
+  --runtime-file "$APPIMAGE_RUNTIME_FILE" "$APPDIR" "$STAGED"
 chmod +x "$STAGED"
 mv -f "$STAGED" "$OUTPUT"
 printf '%s\n' "$OUTPUT"
