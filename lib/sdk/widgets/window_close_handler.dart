@@ -10,6 +10,7 @@ import 'package:komodo_cex_market_data/komodo_cex_market_data.dart';
 import 'package:web_dex/app_config/app_config.dart';
 import 'package:web_dex/mm2/mm2.dart';
 import 'package:web_dex/mm2/mm2_api/mm2_api.dart';
+import 'package:web_dex/services/tor/pirate_tor_service.dart';
 import 'package:web_dex/shared/utils/platform_tuner.dart';
 import 'package:web_dex/shared/utils/utils.dart';
 import 'package:web_dex/shared/utils/window/window.dart';
@@ -39,8 +40,10 @@ class WindowCloseHandler extends StatefulWidget {
 
 class _WindowCloseHandlerState extends State<WindowCloseHandler>
     with WidgetsBindingObserver {
-  /// Tracks if the SDK has been disposed to prevent multiple disposal attempts
-  bool _hasSdkBeenDisposed = false;
+  static _WindowCloseHandlerState? _registeredDesktopHandler;
+
+  /// Share one shutdown across repeated window-close events.
+  Future<void>? _shutdown;
 
   @override
   void initState() {
@@ -51,6 +54,7 @@ class _WindowCloseHandlerState extends State<WindowCloseHandler>
   /// Sets up the appropriate close handler based on the platform.
   void _setupCloseHandler() {
     if (PlatformTuner.isNativeDesktop) {
+      _registeredDesktopHandler = this;
       // Desktop platforms: Use flutter_window_close for all platforms
       // On Linux, we use flutter_window_close for dialog, but return false to prevent
       // standard window closing, then manually trigger exit via SystemNavigator
@@ -100,12 +104,15 @@ class _WindowCloseHandlerState extends State<WindowCloseHandler>
   Future<bool> _handleWindowClose() async {
     final context =
         scaffoldKey.currentContext ?? (mounted ? this.context : null);
+    final navigator = context == null ? null : Navigator.maybeOf(context);
 
     // Show confirmation dialog
-    final shouldClose = (context == null)
+    // Bootstrap screens place this handler above MaterialApp, so they have no
+    // Navigator. In that case, close directly after shutting down Tor.
+    final shouldClose = (navigator == null)
         ? true
         : await showDialog<bool>(
-            context: context,
+            context: context!,
             builder: (context) {
               return AlertDialog(
                 title: const Text('Do you really want to quit?'),
@@ -145,37 +152,57 @@ class _WindowCloseHandlerState extends State<WindowCloseHandler>
   }
 
   /// Disposes the SDK if it hasn't been disposed already.
-  Future<void> _disposeSDKIfNeeded() async {
-    if (!_hasSdkBeenDisposed) {
-      _hasSdkBeenDisposed = true;
+  Future<void> _disposeSDKIfNeeded() => _shutdown ??= _disposeSDKAndTor();
 
-      try {
-        final getIt = GetIt.I;
-        if (getIt.isRegistered<Mm2Api>()) {
-          await getIt<Mm2Api>().dispose();
-          getIt.unregister<Mm2Api>();
+  Future<void> _disposeSDKAndTor() async {
+    try {
+      await _disposeSDK().timeout(const Duration(seconds: 5));
+      log('Window close handler: SDK disposed successfully');
+    } catch (e, s) {
+      log('Window close handler: error during SDK disposal - $e');
+      log('Stack trace: ${s.toString()}');
+    } finally {
+      // Linux exits the Dart process explicitly after this callback. Stop its
+      // child Tor process first, even when SDK cleanup fails or stalls.
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.linux) {
+        try {
+          await PirateTorService.instance.shutdown().timeout(
+            const Duration(seconds: 15),
+          );
+          log('Window close handler: Tor stopped');
+        } catch (e, s) {
+          log('Window close handler: error stopping Tor - $e');
+          log('Stack trace: ${s.toString()}');
         }
-
-        if (getIt.isRegistered<SparklineRepository>()) {
-          await getIt<SparklineRepository>().dispose();
-          getIt.unregister<SparklineRepository>();
-        }
-
-        await mm2.dispose();
-        log('Window close handler: SDK disposed successfully');
-      } catch (e, s) {
-        log('Window close handler: error during SDK disposal - $e');
-        log('Stack trace: ${s.toString()}');
       }
     }
+  }
+
+  Future<void> _disposeSDK() async {
+    final getIt = GetIt.I;
+    if (getIt.isRegistered<Mm2Api>()) {
+      await getIt<Mm2Api>().dispose();
+      getIt.unregister<Mm2Api>();
+    }
+
+    if (getIt.isRegistered<SparklineRepository>()) {
+      await getIt<SparklineRepository>().dispose();
+      getIt.unregister<SparklineRepository>();
+    }
+
+    await mm2.dispose();
   }
 
   @override
   void dispose() {
     // Clean up based on platform
     if (PlatformTuner.isNativeDesktop) {
-      // Desktop platforms: Remove flutter_window_close handler
-      FlutterWindowClose.setWindowShouldCloseHandler(null);
+      // A bootstrap handler can be disposed after its replacement is mounted.
+      // Do not clear the new handler in that case.
+      if (identical(_registeredDesktopHandler, this)) {
+        _registeredDesktopHandler = null;
+        FlutterWindowClose.setWindowShouldCloseHandler(null);
+      }
     } else if (!kIsWeb) {
       // Mobile platforms: Remove lifecycle observer
       WidgetsBinding.instance.removeObserver(this);

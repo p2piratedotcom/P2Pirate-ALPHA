@@ -17,11 +17,14 @@ class PirateTorService {
   int? _socksPort;
   PirateTorHttpBridge? _httpBridge;
   Future<void>? _startup;
+  Future<void>? _shutdownFuture;
+  bool _shuttingDown = false;
 
   int? get socksPort => _socksPort;
   int? get httpProxyPort => _httpBridge?.port;
 
   Future<void> start() async {
+    if (_shuttingDown) throw StateError('Tor is shutting down');
     if (_socksPort != null && _httpBridge != null) return;
     final pending = _startup;
     if (pending != null) return pending;
@@ -50,6 +53,7 @@ class PirateTorService {
     // Tor process gets one more chance, while every network path remains
     // blocked until bootstrap and the seed check have both succeeded.
     for (var attempt = 0; attempt < 2; attempt++) {
+      if (_shuttingDown) throw StateError('Tor is shutting down');
       pirateTorStatus.value = PirateTorStatus.connecting;
       try {
         await _start(torBinary, torsocksLibrary);
@@ -93,6 +97,10 @@ class PirateTorService {
       'notice stdout',
     ]);
     _process = process;
+    if (_shuttingDown) {
+      await stop();
+      throw StateError('Tor is shutting down');
+    }
     final ready = Completer<void>();
     var progress = 0;
     Timer? stalled;
@@ -179,11 +187,38 @@ class PirateTorService {
     _socksPort = null;
     final bridge = _httpBridge;
     _httpBridge = null;
-    if (bridge != null) await bridge.close();
     KdfTorConfig.disable();
     if (process != null) {
       process.kill(ProcessSignal.sigterm);
-      await process.exitCode;
+      try {
+        await process.exitCode.timeout(const Duration(seconds: 5));
+      } on TimeoutException {
+        process.kill(ProcessSignal.sigkill);
+        await process.exitCode;
+      }
+    }
+    // A failed proxy cleanup must never leave the Tor child running.
+    if (bridge != null) await bridge.close();
+  }
+
+  /// Stop Tor for app exit and prevent startup retries from spawning a new
+  /// child while the window is closing.
+  Future<void> shutdown() => _shutdownFuture ??= _shutdownTor();
+
+  Future<void> _shutdownTor() async {
+    _shuttingDown = true;
+    try {
+      await stop();
+    } finally {
+      final startup = _startup;
+      if (startup != null) {
+        try {
+          await startup.timeout(const Duration(seconds: 6));
+        } catch (_) {
+          // Startup may fail because its Tor process was just terminated.
+        }
+      }
+      await stop();
     }
   }
 

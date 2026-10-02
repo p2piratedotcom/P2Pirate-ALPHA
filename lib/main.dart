@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io' show HttpOverrides, exit;
+import 'dart:io' show HttpOverrides, ProcessSignal, exit;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart'
@@ -76,7 +76,18 @@ Future<void> main() async {
         !kIsWeb &&
         defaultTargetPlatform == TargetPlatform.linux;
     if (torRequested) {
-      runApp(const _TorStarting());
+      for (final signal in [ProcessSignal.sigint, ProcessSignal.sigterm]) {
+        signal.watch().listen((_) async {
+          try {
+            await PirateTorService.instance.shutdown().timeout(
+              const Duration(seconds: 15),
+            );
+          } finally {
+            exit(0);
+          }
+        });
+      }
+      runApp(const WindowCloseHandler(child: _TorStarting()));
       try {
         await PirateTorService.instance.start();
         HttpOverrides.global = PirateTorHttpOverrides(
@@ -131,10 +142,12 @@ Future<void> _ensureKdfReady() async {
   }
   final ready = Completer<void>();
   runApp(
-    KdfSetupScreen(
-      onReady: () {
-        if (!ready.isCompleted) ready.complete();
-      },
+    WindowCloseHandler(
+      child: KdfSetupScreen(
+        onReady: () {
+          if (!ready.isCompleted) ready.complete();
+        },
+      ),
     ),
   );
   await ready.future;
