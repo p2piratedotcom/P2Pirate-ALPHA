@@ -442,10 +442,11 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
         return;
       }
 
-      final prices = Map<String, CexPrice>.unmodifiable({
-        ...state.prices,
-        ...fetchedPrices,
-      });
+      final cutoff = DateTime.now().subtract(const Duration(minutes: 10));
+      final prices = Map<String, CexPrice>.unmodifiable(
+        {...state.prices, ...fetchedPrices}
+          ..removeWhere((_, price) => price.lastUpdated.isBefore(cutoff)),
+      );
       final didPricesChange = !const MapEquality().equals(state.prices, prices);
       if (!didPricesChange) {
         _log.info('Coin prices list unchanged');
@@ -460,7 +461,7 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
           if (price != null) {
             return MapEntry(key, coin.copyWith(usdPrice: price));
           }
-          return MapEntry(key, coin);
+          return MapEntry(key, coin.copyWith(clearUsdPrice: true));
         });
 
         return Map<String, Coin>.unmodifiable(map);
@@ -480,6 +481,7 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
 
   void _onQuotesExpired(CoinsQuotesExpired event, Emitter<CoinsState> emit) {
     final now = DateTime.now();
+    _coinsRepo.expireOldPrices(now);
     final fresh = Map<String, CexPrice>.fromEntries(
       state.prices.entries.where(
         (entry) =>

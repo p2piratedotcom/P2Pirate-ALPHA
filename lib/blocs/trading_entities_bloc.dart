@@ -445,16 +445,23 @@ class TradingEntitiesBloc implements BlocBase {
     final assets = _kdfSdk.assets.findAssetsByConfigId(receipt.coin);
     if (assets.isEmpty) return false;
     try {
-      final page = await _kdfSdk.transactions.getTransactionHistory(
-        assets.first,
-        pagination: const PagePagination(pageNumber: 1, itemsPerPage: 200),
-      );
-      if (!await _isCurrentWallet(walletId, revision) ||
-          !identical(_recoveries[uuid], receipt) ||
-          page.transactions.any(
-            (tx) => tx.txHash?.toLowerCase() == receipt.txHash.toLowerCase(),
-          )) {
-        return false;
+      var pageNumber = 1;
+      while (true) {
+        final page = await _kdfSdk.transactions.getTransactionHistory(
+          assets.first,
+          pagination: PagePagination(pageNumber: pageNumber, itemsPerPage: 200),
+        );
+        if (!await _isCurrentWallet(walletId, revision) ||
+            !identical(_recoveries[uuid], receipt) ||
+            page.transactions.any(
+              (tx) => tx.txHash?.toLowerCase() == receipt.txHash.toLowerCase(),
+            )) {
+          return false;
+        }
+        if (pageNumber >= page.totalPages) break;
+        // Inconsistent pagination cannot prove that the transaction is absent.
+        if (page.transactions.isEmpty) return false;
+        pageNumber++;
       }
       final updated = Map<String, SwapRecoveryReceipt>.from(_recoveries)
         ..remove(uuid);

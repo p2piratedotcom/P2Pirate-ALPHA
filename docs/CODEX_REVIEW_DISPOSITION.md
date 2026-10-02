@@ -1,7 +1,7 @@
 # Codex bot review disposition
 
 This ledger covers the 24 inline comments on merged GUI pull requests through
-#56 and the five inline comments on SDK pull requests #5–#6. The links point to
+#56, two on GUI #57, five on SDK pull requests #5–#6, and one on SDK #9. The links point to
 the original review comments. “Fixed here” describes the local remediation
 branch; it is not a release verification or a claim that the fix is merged.
 
@@ -33,23 +33,27 @@ branch; it is not a release verification or a claim that the fix is merged.
 | [#52](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/52#discussion_r4155488652) | Hidden USD column consumes width | Fixed here: omit its enclosing narrow-layout column. Narrow desktop windows still use this responsive layout. |
 | [#53](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/53#discussion_r4155895436) | Linux CI excludes PRs targeting `main` | Fixed here: include `main`. The current default branch is `cheetahdex`, but the workflow can also cover `main`. |
 | [#56](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/56#discussion_r4164581525) | Tor failure roots lose window close handler | Fixed here: wrap failure and restart roots so window close still shuts Tor down. |
+| [#57](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/57#discussion_r4165409236) | Recovery review sees only the first transaction page | Fixed here: inspect every reported page before unlocking; the SDK now fetches explicit pages from KDF rather than treating a partial local cache as complete history. |
+| [#57](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/57#discussion_r4165409242) | Expired quote returns from repository cache | Fixed here: expire the repository cache on reads, refreshes, and the periodic expiry event; filter stale quotes when combining prices in the bloc. |
 
 ## SDK
 
 | Review | Finding | Disposition |
 | --- | --- | --- |
-| [#5](https://github.com/p2piratedotcom/komodo-defi-sdk-flutter/pull/5#discussion_r4144919450) | Invalid `LD_PRELOAD` silently starts KDF directly | Fixed here: probe the exact launch environment and require the torsocks library in the process mappings before starting KDF. |
+| [#5](https://github.com/p2piratedotcom/komodo-defi-sdk-flutter/pull/5#discussion_r4144919450) | Invalid `LD_PRELOAD` silently starts KDF directly | Fixed here: ask KDF's ELF interpreter to resolve the exact executable under the launch environment and require the torsocks library before starting KDF. |
 | [#5](https://github.com/p2piratedotcom/komodo-defi-sdk-flutter/pull/5#discussion_r4144919467) | Tor mode lacks emergency seed fallback | Fixed here: resolve the emergency hostname through Tor SOCKS if bundled seeds fail; retain the Pirate NetID. |
 | [#5](https://github.com/p2piratedotcom/komodo-defi-sdk-flutter/pull/5#discussion_r4144919484) | SOCKS timeout leaves a live socket | Fixed here: close the socket from an internal handshake deadline. |
 | [#6](https://github.com/p2piratedotcom/komodo-defi-sdk-flutter/pull/6#discussion_r4146991270) | Binance cooldown blocks fallback host | Fixed here: cooldown is keyed by host. |
 | [#6](https://github.com/p2piratedotcom/komodo-defi-sdk-flutter/pull/6#discussion_r4146991278) | CoinGecko chunk timeouts add up | Fixed here: the whole queued batch shares a 12-second deadline. |
+| [#9](https://github.com/p2piratedotcom/komodo-defi-sdk-flutter/pull/9#discussion_r4165398135) | Preload probe checks `/bin/cat` rather than KDF | Fixed here: inspect KDF's ELF interpreter and reject static, privileged, or incompatible executables when Tor is required. |
 
 ## Local verification (2 October 2026)
 
 - Linux release bundle compiled successfully.
-- GUI unit suite: 182 passed, two skipped.
+- GUI unit suites: 388 passed, five skipped after the #57 follow-up fixes.
 - Isolated Linux desktop smoke run under Xvfb: two passed.
-- SDK seed tests: three passed. Binance/CoinGecko provider tests: 48 passed
+- SDK seed and startup tests: four passed; transaction strategy tests: 17 passed.
+  Binance/CoinGecko provider tests: 48 passed
   after updating three tests that still mocked the old price API.
 - `flutter analyze --no-pub`: zero errors; 70 warnings and 1,966 informational
   diagnostics across this fork and its SDK/examples. These are existing
