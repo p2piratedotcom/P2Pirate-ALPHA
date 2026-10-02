@@ -10,16 +10,19 @@ class SwapRecoveryReceipt {
     required this.coin,
     required this.txHash,
     required this.confirmed,
+    this.createdAt,
   });
 
   final String coin;
   final String txHash;
   final bool confirmed;
+  final DateTime? createdAt;
 
   Map<String, dynamic> toJson() => {
     'coin': coin,
     'tx_hash': txHash,
     'confirmed': confirmed,
+    if (createdAt != null) 'created_at': createdAt!.millisecondsSinceEpoch,
   };
 
   static SwapRecoveryReceipt? fromJson(Object? value) {
@@ -36,6 +39,9 @@ class SwapRecoveryReceipt {
       coin: coin,
       txHash: txHash,
       confirmed: value['confirmed'] == true,
+      createdAt: value['created_at'] is int
+          ? DateTime.fromMillisecondsSinceEpoch(value['created_at'] as int)
+          : null,
     );
   }
 }

@@ -44,6 +44,25 @@ class TakerFormBuyItem extends StatelessWidget {
             children: [
               _BuyHeader(),
               TakerFormBuySwitcher(controller),
+              if (state.bestOrders?.error != null)
+                Padding(
+                  padding: const EdgeInsets.only(left: 16, bottom: 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Could not load swap offers: ${state.bestOrders!.error!.message}',
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => context.read<TakerBloc>().add(
+                          TakerUpdateBestOrders(),
+                        ),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                ),
               if (state.buyCoin != null &&
                   state.selectedOrder == null &&
                   state.bestOrders != null &&

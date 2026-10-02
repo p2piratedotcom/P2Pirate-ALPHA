@@ -44,6 +44,8 @@ final class CoinsDeactivated extends CoinsEvent {
 
 final class CoinsPricesUpdated extends CoinsEvent {}
 
+final class CoinsQuotesExpired extends CoinsEvent {}
+
 final class CoinPriceRequested extends CoinsEvent {
   const CoinPriceRequested(this.ticker);
   final String ticker;

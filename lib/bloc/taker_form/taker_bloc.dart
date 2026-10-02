@@ -69,6 +69,7 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
     on<TakerClearErrors>(_onClearErrors);
     on<TakerUpdateBestOrders>(_onUpdateBestOrders);
     on<TakerClear>(_onClear);
+    on<TakerAcknowledgeUnknownSubmission>(_onAcknowledgeUnknownSubmission);
     on<TakerSellAmountChange>(_onSellAmountChange, transformer: debounce());
     on<TakerSetSellAmount>(_onSetSellAmount);
     on<TakerUpdateMaxSellAmount>(
@@ -209,13 +210,7 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
     TakerBackButtonClick event,
     Emitter<TakerState> emit,
   ) {
-    emit(
-      state.copyWith(
-        step: () => TakerStep.form,
-        errors: () => [],
-        submissionOutcomeUnknown: false,
-      ),
-    );
+    emit(state.copyWith(step: () => TakerStep.form, errors: () => []));
   }
 
   Future<void> _onFormSubmitClick(
@@ -437,7 +432,7 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
   ) async {
     final Coin? coin = state.sellCoin;
 
-    emit(state.copyWith(bestOrders: () => null));
+    emit(state.copyWith(bestOrders: () => null, selectedOrder: () => null));
 
     if (coin == null) return;
 
@@ -527,8 +522,16 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
     emit(
       TakerState.initial().copyWith(
         availableBalanceState: () => AvailableBalanceState.unavailable,
+        submissionOutcomeUnknown: state.submissionOutcomeUnknown,
       ),
     );
+  }
+
+  void _onAcknowledgeUnknownSubmission(
+    TakerAcknowledgeUnknownSubmission event,
+    Emitter<TakerState> emit,
+  ) {
+    emit(state.copyWith(submissionOutcomeUnknown: false));
   }
 
   void _subscribeMaxSellAmount() {

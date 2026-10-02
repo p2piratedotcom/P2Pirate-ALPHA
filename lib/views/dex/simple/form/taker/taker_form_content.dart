@@ -44,6 +44,7 @@ class TakerFormContent extends StatelessWidget {
             bottomWidget: const TakerFormBuyItem(),
           ),
           const TakerFormErrorList(),
+          const _UnknownSubmissionNotice(),
           const TakerOrderUuidHint(),
           const SizedBox(height: 24),
           const TakerFormExchangeInfo(),
@@ -68,6 +69,7 @@ class TakerFormDesktopControls extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             TakerFormErrorList(),
+            _UnknownSubmissionNotice(),
             TakerOrderUuidHint(),
             TakerFormExchangeInfo(),
             SizedBox(height: 20),
@@ -149,13 +151,12 @@ class TakerOrderUuidHint extends StatelessWidget {
 
 Future<bool> flipTakerPair(BuildContext context) async {
   final takerBloc = context.read<TakerBloc>();
-  final selectedOrder = takerBloc.state.selectedOrder;
-  if (selectedOrder == null) return false;
+  final buyAbbr =
+      takerBloc.state.buyCoin?.abbr ?? takerBloc.state.selectedOrder?.coin;
+  if (buyAbbr == null) return false;
 
   final knownCoins = RepositoryProvider.of<CoinsRepo>(context).getKnownCoins();
-  final buyCoin = knownCoins.firstWhereOrNull(
-    (coin) => coin.abbr == selectedOrder.coin,
-  );
+  final buyCoin = knownCoins.firstWhereOrNull((coin) => coin.abbr == buyAbbr);
   if (buyCoin == null) return false;
 
   takerBloc.add(
@@ -165,6 +166,59 @@ Future<bool> flipTakerPair(BuildContext context) async {
     ),
   );
   return true;
+}
+
+class _UnknownSubmissionNotice extends StatelessWidget {
+  const _UnknownSubmissionNotice();
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) => BlocSelector<TakerBloc, TakerState, bool>(
+    selector: (state) => state.submissionOutcomeUnknown,
+    builder: (context, unknown) {
+      if (!unknown) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            const Text(
+              'The previous swap may have started. Check Swap History and KDF before trying again.',
+            ),
+            TextButton(
+              onPressed: () async {
+                final acknowledged = await showDialog<bool>(
+                  context: context,
+                  builder: (dialogContext) => AlertDialog(
+                    title: const Text('Allow another swap?'),
+                    content: const Text(
+                      'Only continue after checking that the previous swap did not start. A second submission could create another swap.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogContext, false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogContext, true),
+                        child: const Text('I checked the swap status'),
+                      ),
+                    ],
+                  ),
+                );
+                if (acknowledged == true && context.mounted) {
+                  context.read<TakerBloc>().add(
+                    TakerAcknowledgeUnknownSubmission(),
+                  );
+                }
+              },
+              child: const Text('I checked Swap History'),
+            ),
+          ],
+        ),
+      );
+    },
+  );
 }
 
 class _FormControls extends StatelessWidget {

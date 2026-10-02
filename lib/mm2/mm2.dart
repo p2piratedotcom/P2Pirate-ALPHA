@@ -10,13 +10,11 @@ import 'package:web_dex/shared/utils/utils.dart';
 final MM2 mm2 = MM2();
 
 final class MM2 {
-  MM2() {
-    _configureSdk(const MarketDataConfig());
-  }
+  MM2();
 
   void configurePriceApi(String url) {
     final customUrl = url.trim();
-    if (_isInitializing || _initCompleter.isCompleted) {
+    if (_isInitializing || _initCompleter.isCompleted || _kdfSdk != null) {
       throw StateError('Price API must be configured before SDK startup');
     }
     final uri = Uri.tryParse(customUrl);
@@ -27,51 +25,48 @@ final class MM2 {
             uri.userInfo.isNotEmpty)) {
       throw ArgumentError.value(customUrl, 'url', 'Expected an HTTPS URL');
     }
-    _configureSdk(
-      customUrl.isEmpty
-          ? const MarketDataConfig()
-          : MarketDataConfig(
-              enableBinance: false,
-              enableCoinGecko: false,
-              enableCoinPaprika: false,
-              komodoPriceProvider: KomodoPriceProvider(
-                mainTickersUrl: customUrl,
-              ),
-            ),
-    );
+    _marketDataConfig = customUrl.isEmpty
+        ? const MarketDataConfig()
+        : MarketDataConfig(
+            enableBinance: false,
+            enableCoinGecko: false,
+            enableCoinPaprika: false,
+            komodoPriceProvider: KomodoPriceProvider(mainTickersUrl: customUrl),
+          );
     _configuredPriceApiUrl = customUrl;
   }
 
-  void _configureSdk(MarketDataConfig marketDataConfig) {
-    _kdfSdk = KomodoDefiSdk(
-      config: KomodoDefiSdkConfig(
-        // Syncing pre-activation coin states is not yet implemented,
-        // so we disable it for now.
-        // TODO: sync pre-activation of coins (show activating coins in list)
-        preActivateHistoricalAssets: false,
-        preActivateDefaultAssets: false,
-        marketDataConfig: marketDataConfig,
-        localRpcPort: const int.fromEnvironment(
-          'P2PIRATE_LOCAL_RPC_PORT',
-          defaultValue: 7783,
-        ),
+  KomodoDefiSdk get _sdk => _kdfSdk ??= KomodoDefiSdk(
+    config: KomodoDefiSdkConfig(
+      // Syncing pre-activation coin states is not yet implemented,
+      // so we disable it for now.
+      // TODO: sync pre-activation of coins (show activating coins in list)
+      preActivateHistoricalAssets: false,
+      preActivateDefaultAssets: false,
+      marketDataConfig: _marketDataConfig,
+      localRpcPort: const int.fromEnvironment(
+        'P2PIRATE_LOCAL_RPC_PORT',
+        defaultValue: 7783,
       ),
-      onLog: _handleSdkLog,
-    );
-  }
+    ),
+    onLog: _handleSdkLog,
+  );
 
-  late KomodoDefiSdk _kdfSdk;
+  KomodoDefiSdk? _kdfSdk;
+  MarketDataConfig _marketDataConfig = const MarketDataConfig();
   String _configuredPriceApiUrl = '';
   String get configuredPriceApiUrl => _configuredPriceApiUrl;
   bool _isInitializing = false;
   final Completer<KomodoDefiSdk> _initCompleter = Completer<KomodoDefiSdk>();
 
-  Future<bool> isSignedIn() => _kdfSdk.auth.isSignedIn();
+  Future<bool> isSignedIn() => _sdk.auth.isSignedIn();
 
   /// Dispose the SDK and clean up resources
   Future<void> dispose() async {
+    final sdk = _kdfSdk;
+    if (sdk == null) return;
     try {
-      await _kdfSdk.dispose();
+      await sdk.dispose();
       log('KomodoDefiSdk disposed successfully');
     } catch (e) {
       log('Error disposing KomodoDefiSdk: $e', isError: true);
@@ -79,18 +74,18 @@ final class MM2 {
   }
 
   Future<KomodoDefiSdk> initialize() async {
-    if (_initCompleter.isCompleted) return _kdfSdk;
+    if (_initCompleter.isCompleted) return _sdk;
     if (_isInitializing) return _initCompleter.future;
 
     try {
       _isInitializing = true;
 
-      await _kdfSdk.initialize();
+      await _sdk.initialize();
       // Hack to ensure that kdf is running in noauth mode
-      await _kdfSdk.auth.getUsers();
+      await _sdk.auth.getUsers();
 
-      _initCompleter.complete(_kdfSdk);
-      return _kdfSdk;
+      _initCompleter.complete(_sdk);
+      return _sdk;
     } catch (e) {
       _initCompleter.completeError(e);
       rethrow;
@@ -123,7 +118,7 @@ final class MM2 {
                 ? requestWithUserpass.toJson() as JsonMap
                 : requestWithUserpass as JsonMap);
 
-      return await _kdfSdk.client.executeRpc(jsonRequest);
+      return await _sdk.client.executeRpc(jsonRequest);
     } catch (e) {
       log('RPC call error: $e', path: 'mm2 => call', isError: true).ignore();
       rethrow;

@@ -209,6 +209,13 @@ class CoinsRepo {
     _invalidateActivatedAssetsCache();
   }
 
+  void expireOldPrices([DateTime? now]) {
+    final cutoff = (now ?? DateTime.now()).subtract(
+      const Duration(minutes: 10),
+    );
+    _pricesCache.removeWhere((_, price) => price.lastUpdated.isBefore(cutoff));
+  }
+
   void dispose() {
     for (final subscription in _balanceWatchers.values) {
       subscription.cancel();
@@ -319,6 +326,7 @@ class CoinsRepo {
   }
 
   Coin _assetToCoinWithoutAddress(Asset asset) {
+    expireOldPrices();
     final coin = asset.toCoin();
     final balanceInfo = _balancesCache[coin.id.id];
     final price = _pricesCache[coin.id.symbol.configSymbol.toUpperCase()];
@@ -860,6 +868,7 @@ class CoinsRepo {
   /// Prefer activated assets if available (to limit requests when logged in),
   /// otherwise fall back to all available SDK assets.
   Future<Map<String, CexPrice>?> fetchCurrentPrices() async {
+    expireOldPrices();
     // NOTE: key assumption here is that the Komodo Prices API supports most
     // (ideally all) assets being requested, resulting in minimal requests to
     // 3rd party fallback providers. If this assumption does not hold, then we
@@ -885,6 +894,8 @@ class CoinsRepo {
 
     // Process assets with bounded parallelism to avoid overwhelming providers
     await _fetchAssetPricesInChunks(validAssets);
+
+    expireOldPrices();
 
     return Map<String, CexPrice>.unmodifiable(
       Map<String, CexPrice>.from(_pricesCache),

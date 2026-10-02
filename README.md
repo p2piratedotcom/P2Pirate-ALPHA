@@ -10,6 +10,9 @@ the porting status. **This source is not yet a validated P2Pirate release.** See
 [PR ledger](docs/P2PIRATE_PORTING_STATUS.md) records the merged changes and
 the gaps that remain before a release.
 
+The [automated review disposition](docs/CODEX_REVIEW_DISPOSITION.md) tracks
+findings from already merged GUI and SDK pull requests.
+
 The reference is the P2Pirate Linux x86_64 source snapshot dated 29 September
 2026. It has no original commit history, so each PR records the behavior it
 recreates and any intentional difference. The ZIP and its bundled AppImage

@@ -168,6 +168,7 @@ class Coin extends Equatable {
   Asset toSdkAsset(KomodoDefiSdk sdk) => getSdkAsset(sdk, abbr);
 
   Coin copyWith({
+    bool clearUsdPrice = false,
     CoinType? type,
     String? abbr,
     AssetId? id,
@@ -215,7 +216,7 @@ class Coin extends Equatable {
         decimals: decimals ?? this.decimals,
         parentCoin: parentCoin ?? this.parentCoin,
         derivationPath: derivationPath ?? this.derivationPath,
-        usdPrice: usdPrice ?? this.usdPrice,
+        usdPrice: clearUsdPrice ? null : (usdPrice ?? this.usdPrice),
         coinpaprikaId: coinpaprikaId ?? this.coinpaprikaId,
         activeByDefault: activeByDefault ?? this.activeByDefault,
         swapContractAddress: swapContractAddress ?? _swapContractAddress,

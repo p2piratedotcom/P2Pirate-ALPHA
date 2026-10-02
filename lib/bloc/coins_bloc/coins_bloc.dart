@@ -33,6 +33,7 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     on<CoinsActivated>(_onCoinsActivated, transformer: concurrent());
     on<CoinsDeactivated>(_onCoinsDeactivated, transformer: concurrent());
     on<CoinsPricesUpdated>(_onPricesUpdated, transformer: droppable());
+    on<CoinsQuotesExpired>(_onQuotesExpired);
     on<CoinPriceRequested>(_onCoinPriceRequested, transformer: concurrent());
     on<CoinsSessionStarted>(_onLogin, transformer: restartable());
     on<CoinsSessionEnded>(_onLogout, transformer: restartable());
@@ -90,11 +91,13 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
   }
 
   final Set<String> _refreshingPubkeys = {};
+  final Set<String> _pendingPubkeyRefreshes = {};
 
   StreamSubscription<Coin>? _enabledCoinsSubscription;
   StreamSubscription<Coin>? _balanceChangesSubscription;
   Timer? _updateBalancesTimer;
   Timer? _updatePricesTimer;
+  Timer? _quoteExpiryTimer;
   bool _isInitialActivationInProgress = false;
   int _walletSessionVersion = 0;
 
@@ -104,6 +107,7 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     await _balanceChangesSubscription?.cancel();
     _updateBalancesTimer?.cancel();
     _updatePricesTimer?.cancel();
+    _quoteExpiryTimer?.cancel();
 
     await super.close();
   }
@@ -112,7 +116,10 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     CoinsPubkeysRequested event,
     Emitter<CoinsState> emit,
   ) async {
-    if (event.forceRefresh && !_refreshingPubkeys.add(event.coinId)) return;
+    if (event.forceRefresh && !_refreshingPubkeys.add(event.coinId)) {
+      _pendingPubkeyRefreshes.add(event.coinId);
+      return;
+    }
     try {
       if (_isInitialActivationInProgress) {
         _log.info(
@@ -145,7 +152,12 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     } catch (e, s) {
       _log.shout('Failed to get pubkeys for ${event.coinId}', e, s);
     } finally {
-      if (event.forceRefresh) _refreshingPubkeys.remove(event.coinId);
+      if (event.forceRefresh) {
+        _refreshingPubkeys.remove(event.coinId);
+        if (_pendingPubkeyRefreshes.remove(event.coinId) && !isClosed) {
+          add(CoinsPubkeysRequested(event.coinId, forceRefresh: true));
+        }
+      }
     }
   }
 
@@ -176,6 +188,10 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
         );
       }
       add(CoinsPricesUpdated());
+    });
+    _quoteExpiryTimer?.cancel();
+    _quoteExpiryTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      add(CoinsQuotesExpired());
     });
 
     // This is used to connect [CoinsBloc] to [CoinsManagerBloc] via [CoinsRepo],
@@ -426,10 +442,11 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
         return;
       }
 
-      final prices = Map<String, CexPrice>.unmodifiable({
-        ...state.prices,
-        ...fetchedPrices,
-      });
+      final cutoff = DateTime.now().subtract(const Duration(minutes: 10));
+      final prices = Map<String, CexPrice>.unmodifiable(
+        {...state.prices, ...fetchedPrices}
+          ..removeWhere((_, price) => price.lastUpdated.isBefore(cutoff)),
+      );
       final didPricesChange = !const MapEquality().equals(state.prices, prices);
       if (!didPricesChange) {
         _log.info('Coin prices list unchanged');
@@ -444,7 +461,7 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
           if (price != null) {
             return MapEntry(key, coin.copyWith(usdPrice: price));
           }
-          return MapEntry(key, coin);
+          return MapEntry(key, coin.copyWith(clearUsdPrice: true));
         });
 
         return Map<String, Coin>.unmodifiable(map);
@@ -460,6 +477,34 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     } catch (e, s) {
       _log.shout('Error on prices updated', e, s);
     }
+  }
+
+  void _onQuotesExpired(CoinsQuotesExpired event, Emitter<CoinsState> emit) {
+    final now = DateTime.now();
+    _coinsRepo.expireOldPrices(now);
+    final fresh = Map<String, CexPrice>.fromEntries(
+      state.prices.entries.where(
+        (entry) =>
+            now.difference(entry.value.lastUpdated) <=
+            const Duration(minutes: 10),
+      ),
+    );
+    if (fresh.length == state.prices.length) return;
+    Map<String, Coin> stripExpired(Map<String, Coin> coins) => coins.map(
+      (key, coin) => MapEntry(
+        key,
+        fresh.containsKey(coin.id.symbol.configSymbol.toUpperCase())
+            ? coin
+            : coin.copyWith(clearUsdPrice: true),
+      ),
+    );
+    emit(
+      state.copyWith(
+        prices: fresh,
+        coins: stripExpired(state.coins),
+        walletCoins: stripExpired(state.walletCoins),
+      ),
+    );
   }
 
   Future<void> _onLogin(

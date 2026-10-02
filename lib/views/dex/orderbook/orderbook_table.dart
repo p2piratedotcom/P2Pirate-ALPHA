@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:komodo_ui_kit/komodo_ui_kit.dart';
 import 'package:rational/rational.dart';
 import 'package:web_dex/bloc/coins_bloc/coins_repo.dart';
+import 'package:web_dex/bloc/coins_bloc/coins_bloc.dart';
 import 'package:web_dex/common/screen.dart';
 import 'package:web_dex/generated/codegen_loader.g.dart';
 import 'package:web_dex/model/coin.dart';
@@ -63,27 +64,35 @@ class OrderbookTable extends StatelessWidget {
     final Coin? relCoin = coinsRepository.getCoin(orderbook.rel);
     if (baseCoin == null || relCoin == null) return const SizedBox.shrink();
 
-    final double? baseUsdPrice = baseCoin.usdPrice?.price?.toDouble();
-    final double? relUsdPrice = relCoin.usdPrice?.price?.toDouble();
-    if (baseUsdPrice == null || relUsdPrice == null) {
-      return const SizedBox.shrink();
-    }
-    if (baseUsdPrice == 0 || relUsdPrice == 0) {
-      return const SizedBox.shrink();
-    }
-
-    final double spotPrice = baseUsdPrice / relUsdPrice;
-
-    return Row(
-      children: [
-        const SizedBox(width: 10),
-        Text(
-          formatAmt(spotPrice),
-          style: style.copyWith(fontWeight: FontWeight.w500),
-        ),
-        const Text(' ≈ ', style: style),
-        Text('\$$baseUsdPrice', style: style)
-      ],
+    return BlocBuilder<CoinsBloc, CoinsState>(
+      builder: (context, state) {
+        final baseUsdPrice = state
+            .getPriceForAsset(baseCoin.id)
+            ?.price
+            ?.toDouble();
+        final relUsdPrice = state
+            .getPriceForAsset(relCoin.id)
+            ?.price
+            ?.toDouble();
+        if (baseUsdPrice == null ||
+            relUsdPrice == null ||
+            baseUsdPrice <= 0 ||
+            relUsdPrice <= 0) {
+          return const SizedBox.shrink();
+        }
+        final spotPrice = baseUsdPrice / relUsdPrice;
+        return Row(
+          children: [
+            const SizedBox(width: 10),
+            Text(
+              formatAmt(spotPrice),
+              style: style.copyWith(fontWeight: FontWeight.w500),
+            ),
+            const Text(' ≈ ', style: style),
+            Text('\$$baseUsdPrice', style: style),
+          ],
+        );
+      },
     );
   }
 
@@ -97,10 +106,14 @@ class OrderbookTable extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              OrderbookTableTitle(LocaleKeys.price.tr(),
-                  suffix: Coin.normalizeAbbr(orderbook.rel)),
-              OrderbookTableTitle(LocaleKeys.volume.tr(),
-                  suffix: Coin.normalizeAbbr(orderbook.base)),
+              OrderbookTableTitle(
+                LocaleKeys.price.tr(),
+                suffix: Coin.normalizeAbbr(orderbook.rel),
+              ),
+              OrderbookTableTitle(
+                LocaleKeys.volume.tr(),
+                suffix: Coin.normalizeAbbr(orderbook.base),
+              ),
             ],
           ),
           const SizedBox(height: 1),
@@ -133,10 +146,7 @@ class OrderbookTable extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             LocaleKeys.orderBookNoAsks.tr(),
-            style: TextStyle(
-              fontSize: 11,
-              color: theme.custom.asksColor,
-            ),
+            style: TextStyle(fontSize: 11, color: theme.custom.asksColor),
           ),
         ],
       );
@@ -195,10 +205,7 @@ class OrderbookTable extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             LocaleKeys.orderBookNoBids.tr(),
-            style: TextStyle(
-              fontSize: 11,
-              color: theme.custom.bidsColor,
-            ),
+            style: TextStyle(fontSize: 11, color: theme.custom.bidsColor),
           ),
         ],
       );
@@ -235,10 +242,7 @@ class OrderbookTable extends StatelessWidget {
   }
 
   Rational _getHighestVolume() {
-    final List<Order> allOrders = [
-      ...orderbook.asks,
-      ...orderbook.bids,
-    ];
+    final List<Order> allOrders = [...orderbook.asks, ...orderbook.bids];
     Rational highest = Rational.zero;
 
     for (Order order in allOrders) {

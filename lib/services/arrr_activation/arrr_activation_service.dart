@@ -257,6 +257,9 @@ class ArrrActivationService {
 
         // Only an enabled coin can recover a stream whose final event is lost.
         if (await _isEnabledInKdf(asset.id)) {
+          if (_isActivationCancelled(asset.id)) {
+            throw _ActivationCancelledException();
+          }
           _log.info('KDF enabled ${asset.id.id} while progress was pending');
           return ActivationProgress.success();
         }

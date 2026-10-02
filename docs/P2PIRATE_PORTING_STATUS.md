@@ -128,6 +128,10 @@ to end.
 
 ## Remaining release work
 
+- Review the exact redistributed Tor and torsocks binaries against their
+  source revisions and licenses, and publish the corresponding notices.
+- Review public GUI source and license obligations and coin-asset distribution
+  terms before publishing desktop binaries.
 - Complete Tor-on first-run verification, including KDF, Dart HTTP, images and
   WebView traffic. Document the observed limits; do not assume coverage from
   a successful desktop build.

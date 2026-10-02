@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:get_it/get_it.dart';
 import 'package:komodo_defi_sdk/komodo_defi_sdk.dart';
@@ -319,12 +321,18 @@ class TakerValidator {
     if (cached != null) return cached;
 
     try {
-      return await _dexRepo.getTradePreimage(
-        state.sellCoin!.abbr,
-        state.selectedOrder!.coin,
-        state.selectedOrder!.price,
-        'sell',
-        state.sellAmount,
+      return await _dexRepo
+          .getTradePreimage(
+            state.sellCoin!.abbr,
+            state.selectedOrder!.coin,
+            state.selectedOrder!.price,
+            'sell',
+            state.sellAmount,
+          )
+          .timeout(const Duration(seconds: 30));
+    } on TimeoutException {
+      return DataFromService(
+        error: TextError(error: LocaleKeys.swapQuoteTimeout.tr()),
       );
     } catch (e, s) {
       log(

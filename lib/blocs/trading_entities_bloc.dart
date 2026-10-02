@@ -50,6 +50,7 @@ class TradingEntitiesBloc implements BlocBase {
   DateTime? _lastFetchAt;
   bool _hasLoadedInitialSwaps = false;
   Map<String, SwapRecoveryReceipt> _recoveries = {};
+  bool _recoveryHistoryReady = false;
   final Set<String> _submittingRecoveries = {};
   DateTime? _lastRecoveryCheck;
   bool _checkingRecoveries = false;
@@ -60,6 +61,17 @@ class TradingEntitiesBloc implements BlocBase {
       _submittingRecoveries.contains(uuid) ||
       (_recoveries[uuid] != null && !_recoveries[uuid]!.confirmed);
   bool isRecoveryConfirmed(String uuid) => _recoveries[uuid]?.confirmed == true;
+  bool isRecoverySubmitting(String uuid) =>
+      _submittingRecoveries.contains(uuid);
+  bool canReviewRecovery(String uuid) {
+    final receipt = _recoveries[uuid];
+    if (receipt == null || receipt.confirmed || isRecoverySubmitting(uuid)) {
+      return false;
+    }
+    final createdAt = receipt.createdAt;
+    return createdAt == null ||
+        DateTime.now().difference(createdAt) >= const Duration(hours: 24);
+  }
 
   static const Duration _pollingInterval = Duration(seconds: 10);
   static const Duration _backgroundFetchInterval = Duration(seconds: 45);
@@ -150,6 +162,7 @@ class TradingEntitiesBloc implements BlocBase {
       final recoveries = await _historyStorage.readRecoveries(walletId);
       if (!await _isCurrentWallet(walletId, revision)) return;
       _recoveries = recoveries;
+      _recoveryHistoryReady = true;
       _recoveryController.add(null);
     } catch (_) {
       await log(
@@ -188,6 +201,7 @@ class TradingEntitiesBloc implements BlocBase {
     _lastFetchAt = null;
     _lastStoredSwaps = [];
     _recoveries = {};
+    _recoveryHistoryReady = false;
     _submittingRecoveries.clear();
     _lastRecoveryCheck = null;
     _recoveryController.add(null);
@@ -372,6 +386,8 @@ class TradingEntitiesBloc implements BlocBase {
   }
 
   Future<RecoverFundsOfSwapResponse?> recoverFundsOfSwap(String uuid) async {
+    await _historyLoad;
+    if (!_recoveryHistoryReady) return null;
     if (_closed || isRecoveryPending(uuid) || isRecoveryConfirmed(uuid)) {
       return null;
     }
@@ -392,6 +408,7 @@ class TradingEntitiesBloc implements BlocBase {
           coin: response.result.coin,
           txHash: response.result.txHash,
           confirmed: false,
+          createdAt: DateTime.now().toUtc(),
         );
         _lastRecoveryCheck = null;
         _recoveryController.add(null);
@@ -409,6 +426,52 @@ class TradingEntitiesBloc implements BlocBase {
     } finally {
       _submittingRecoveries.remove(uuid);
       if (!_closed) _recoveryController.add(null);
+    }
+  }
+
+  /// Explicitly unlock a long-pending recovery only when KDF history no
+  /// longer lists its transaction. The UI must ask the user to verify it too.
+  Future<bool> reviewPendingRecovery(String uuid) async {
+    await _historyLoad;
+    if (!_recoveryHistoryReady || !canReviewRecovery(uuid)) return false;
+    final walletId = _walletId;
+    final revision = _walletRevision;
+    final receipt = _recoveries[uuid];
+    if (walletId == null ||
+        receipt == null ||
+        !await _isCurrentWallet(walletId, revision)) {
+      return false;
+    }
+    final assets = _kdfSdk.assets.findAssetsByConfigId(receipt.coin);
+    if (assets.isEmpty) return false;
+    try {
+      var pageNumber = 1;
+      while (true) {
+        final page = await _kdfSdk.transactions.getTransactionHistory(
+          assets.first,
+          pagination: PagePagination(pageNumber: pageNumber, itemsPerPage: 200),
+        );
+        if (!await _isCurrentWallet(walletId, revision) ||
+            !identical(_recoveries[uuid], receipt) ||
+            page.transactions.any(
+              (tx) => tx.txHash?.toLowerCase() == receipt.txHash.toLowerCase(),
+            )) {
+          return false;
+        }
+        if (pageNumber >= page.totalPages) break;
+        // Inconsistent pagination cannot prove that the transaction is absent.
+        if (page.transactions.isEmpty) return false;
+        pageNumber++;
+      }
+      final updated = Map<String, SwapRecoveryReceipt>.from(_recoveries)
+        ..remove(uuid);
+      await _historyStorage.writeRecoveries(walletId, updated);
+      if (!await _isCurrentWallet(walletId, revision)) return false;
+      _recoveries = updated;
+      _recoveryController.add(null);
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -458,6 +521,7 @@ class TradingEntitiesBloc implements BlocBase {
                 coin: coin,
                 txHash: entry.value.txHash,
                 confirmed: true,
+                createdAt: entry.value.createdAt,
               );
             }
           }
