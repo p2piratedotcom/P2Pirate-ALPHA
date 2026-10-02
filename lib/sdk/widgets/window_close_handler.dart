@@ -10,6 +10,7 @@ import 'package:komodo_cex_market_data/komodo_cex_market_data.dart';
 import 'package:web_dex/app_config/app_config.dart';
 import 'package:web_dex/mm2/mm2.dart';
 import 'package:web_dex/mm2/mm2_api/mm2_api.dart';
+import 'package:web_dex/services/mm_engine/mm_engine_service.dart';
 import 'package:web_dex/services/tor/pirate_tor_service.dart';
 import 'package:web_dex/shared/utils/platform_tuner.dart';
 import 'package:web_dex/shared/utils/utils.dart';
@@ -137,8 +138,27 @@ class _WindowCloseHandlerState extends State<WindowCloseHandler>
 
     // If user confirmed, dispose the SDK
     if (shouldClose == true) {
-      await _disposeSDKIfNeeded();
-      return true;
+      try {
+        await _disposeSDKIfNeeded();
+        return true;
+      } catch (error) {
+        if (context != null && context.mounted) {
+          await showDialog<void>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Trading engine needs attention'),
+              content: Text('$error'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Keep wallet open'),
+                ),
+              ],
+            ),
+          );
+        }
+        return false;
+      }
     }
 
     return false;
@@ -152,9 +172,20 @@ class _WindowCloseHandlerState extends State<WindowCloseHandler>
   }
 
   /// Disposes the SDK if it hasn't been disposed already.
-  Future<void> _disposeSDKIfNeeded() => _shutdown ??= _disposeSDKAndTor();
+  Future<void> _disposeSDKIfNeeded() async {
+    final pending = _shutdown ??= _disposeSDKAndTor();
+    try {
+      await pending;
+    } catch (_) {
+      if (identical(_shutdown, pending)) _shutdown = null;
+      rethrow;
+    }
+  }
 
   Future<void> _disposeSDKAndTor() async {
+    // Keep both KDF and Tor available if the engine cannot reconcile or cancel
+    // its orders. Closing a wallet during an active hedge would strand it.
+    await MmEngineService.instance.stop();
     try {
       await _disposeSDK().timeout(const Duration(seconds: 5));
       log('Window close handler: SDK disposed successfully');

@@ -37,6 +37,8 @@ Only Linux has been built locally for the P2Pirate port so far.
 | `LICENSE`, `licenses/` | Source license and component notices | Retain upstream GPL-3.0 text and third-party notices |
 
 Build output and downloaded executables belong outside source control. The
+separate [MM_Engine integration](docs/P2PIRATE_MM_ENGINE.md) explains the
+verified Linux download, KDF/Tor ownership and live trading safeguards. The
 reference ZIP's Tor, torsocks and AppImage binaries need separately identified
 versions, licenses, checksums and corresponding source before a public binary
 release. KDF's upstream release artifact has been identified; see

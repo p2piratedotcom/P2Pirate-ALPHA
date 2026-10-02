@@ -7,6 +7,7 @@ import 'package:web_dex/bloc/auth_bloc/auth_bloc.dart';
 import 'package:web_dex/bloc/coins_bloc/coins_bloc.dart';
 import 'package:web_dex/generated/codegen_loader.g.dart';
 import 'package:web_dex/model/wallet.dart';
+import 'package:web_dex/services/mm_engine/mm_engine_service.dart';
 
 class LogOutPopup extends StatelessWidget {
   const LogOutPopup({
@@ -75,7 +76,17 @@ class LogOutPopup extends StatelessWidget {
     );
   }
 
-  void _onConfirmLogout(BuildContext context) {
+  Future<void> _onConfirmLogout(BuildContext context) async {
+    try {
+      await MmEngineService.instance.stop();
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text('$error')));
+      return;
+    }
+    if (!context.mounted) return;
     // stop listening to balance updates before logging out
     context.read<CoinsBloc>().add(CoinsSessionEnded());
     context.read<AuthBloc>().add(const AuthSignOutRequested());
