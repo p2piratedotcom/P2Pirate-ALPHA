@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:web_dex/app_config/app_config.dart';
 import 'package:web_dex/services/tor/pirate_tor_status.dart';
 
@@ -21,11 +22,11 @@ class PirateWalletLogo extends StatelessWidget {
         themeMode == ThemeMode.dark ||
         (themeMode == null && Theme.of(context).brightness == Brightness.dark);
 
-    final mark = Image.asset(
-      '$assetsPath/logo/p2pirate_mark.png',
+    final mark = SvgPicture.asset(
+      '$assetsPath/logo/p2pirate_mark.svg',
       width: height,
       height: height,
-      filterQuality: FilterQuality.high,
+      fit: BoxFit.contain,
     );
     final name = Text(
       appShortTitle,
