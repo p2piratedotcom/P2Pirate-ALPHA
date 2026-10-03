@@ -469,7 +469,10 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            OverflowBar(
+              alignment: MainAxisAlignment.spaceBetween,
+              spacing: 12,
+              overflowSpacing: 8,
               children: [
                 Text(
                   'P2PIRATE TRADING ENGINE',
@@ -478,19 +481,22 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                     letterSpacing: 1.2,
                   ),
                 ),
-                const Spacer(),
-                if (_installed && MmEngineService.instance.isRunning)
-                  TextButton.icon(
-                    onPressed: _busy ? null : _refresh,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Refresh'),
-                  ),
-                if (_installed)
-                  TextButton.icon(
-                    onPressed: _busy ? null : _download,
-                    icon: const Icon(Icons.system_update_alt),
-                    label: const Text('Check updates'),
-                  ),
+                Wrap(
+                  children: [
+                    if (_installed && MmEngineService.instance.isRunning)
+                      TextButton.icon(
+                        onPressed: _busy ? null : _refresh,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Refresh'),
+                      ),
+                    if (_installed)
+                      TextButton.icon(
+                        onPressed: _busy ? null : _download,
+                        icon: const Icon(Icons.system_update_alt),
+                        label: const Text('Check updates'),
+                      ),
+                  ],
+                ),
               ],
             ),
             const Divider(height: 1),

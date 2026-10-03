@@ -7,6 +7,50 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_dashboard.dart';
 
 void main() {
+  testWidgets('primary actions remain usable at desktop minimum width', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var livePressed = false;
+    var newPressed = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: SingleChildScrollView(
+              child: MmEngineDashboard(
+                orders: const [],
+                strategies: const [],
+                venue: 'MEXC',
+                credentials: const {},
+                balances: const [],
+                busy: false,
+                live: false,
+                onLive: () => livePressed = true,
+                onNew: () => newPressed = true,
+                onVenue: (_) {},
+                onAdd: () {},
+                onStrategy: (_, _) {},
+                onBalances: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Start all live trading'));
+    await tester.tap(find.text('New Maker Order'));
+    expect(livePressed, isTrue);
+    expect(newPressed, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('maker table and CEX controls render without overflow', (
     tester,
   ) async {

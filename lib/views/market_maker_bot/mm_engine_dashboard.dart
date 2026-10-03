@@ -89,8 +89,10 @@ class MmEngineDashboard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 30),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        OverflowBar(
+          alignment: MainAxisAlignment.spaceBetween,
+          spacing: 12,
+          overflowSpacing: 12,
           children: [
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -196,13 +198,15 @@ class MmEngineDashboard extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 28),
-        Row(
+        OverflowBar(
+          alignment: MainAxisAlignment.spaceBetween,
+          spacing: 12,
+          overflowSpacing: 8,
           children: [
             Text(
               '$venue BALANCES',
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            const Spacer(),
             TextButton.icon(
               onPressed: busy || balanceLoading ? null : onBalances,
               icon: const Icon(Icons.refresh),
