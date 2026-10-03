@@ -24,6 +24,22 @@ class MmEngineInstallService {
 
   static Future<File?> currentExecutable() async {
     if (!Platform.isLinux || Abi.current() != Abi.linuxX64) return null;
+    final localPath = Platform.environment['P2PIRATE_MM_ENGINE_PATH'];
+    final localHash = Platform.environment['P2PIRATE_MM_ENGINE_SHA256'];
+    if (localPath != null && localHash != null) {
+      final local = File(localPath);
+      if (!p.isAbsolute(localPath) ||
+          !_validDigest(localHash) ||
+          !await local.exists() ||
+          await FileSystemEntity.isLink(localPath)) {
+        throw StateError('Invalid local MM_Engine candidate');
+      }
+      final digest = (await sha256.bind(local.openRead()).first).toString();
+      if (digest != localHash) {
+        throw StateError('Local MM_Engine checksum mismatch');
+      }
+      return local;
+    }
     final root = await _installRoot();
     final pointer = File(p.join(root.path, 'current.json'));
     if (!await pointer.exists() ||

@@ -67,4 +67,34 @@ void main() {
     await received;
     expect(result['stopping'], true);
   });
+  test('engine errors retain status and have no Bad state prefix', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    final received = server.first.then((request) async {
+      await request.drain<void>();
+      request.response
+        ..statusCode = 422
+        ..headers.contentType = ContentType.json
+        ..write('{"error":"MEXC: check Spot read permission"}');
+      await request.response.close();
+    });
+    await expectLater(
+      sendMmEngineRequest(
+        Uri.parse('http://127.0.0.1:${server.port}'),
+        'test',
+        'POST',
+        '/v1/strategies/preview',
+      ),
+      throwsA(
+        isA<MmEngineRequestException>()
+            .having((error) => error.statusCode, 'status', 422)
+            .having(
+              (error) => error.toString(),
+              'message',
+              'MEXC: check Spot read permission',
+            ),
+      ),
+    );
+    await received;
+  });
 }
