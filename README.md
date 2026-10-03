@@ -96,7 +96,9 @@ verified KDF 2.7 executable separately before launching, or use the GUI's
 first-run installer for the pinned upstream release. Verified coin parameters must also be staged as described in
 [external KDF](docs/P2PIRATE_EXTERNAL_KDF.md). The [Linux asset provenance review](docs/LINUX_ASSET_PROVENANCE.md)
 records Tor, torsocks and catalog sources; coin artwork is excluded from the local release recipe. Do not package the
-reference ZIP's binaries as a new release solely from these commands.
+reference ZIP's binaries as a new release solely from these commands. The
+[downloadable coin assets guide](docs/P2PIRATE_ASSETS.md) explains the first-run
+prompt, restored coin icons, manual updates, and the pinned fallback catalog.
 
 The Linux release bundle runs as `build/linux/x64/release/bundle/P2Pirate`.
 Its GTK application ID is `com.p2pirate.wallet`. Existing wallet data and

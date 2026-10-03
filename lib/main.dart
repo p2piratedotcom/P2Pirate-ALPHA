@@ -11,6 +11,7 @@ import 'package:get_it/get_it.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:komodo_cex_market_data/komodo_cex_market_data.dart';
 import 'package:komodo_defi_sdk/komodo_defi_sdk.dart';
+import 'package:komodo_ui/komodo_ui.dart' show AssetIcon;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:web_dex/analytics/widgets/analytics_lifecycle_handler.dart';
@@ -33,6 +34,8 @@ import 'package:web_dex/model/stored_settings.dart';
 import 'package:web_dex/performance_analytics/performance_analytics.dart';
 import 'package:web_dex/sdk/widgets/window_close_handler.dart';
 import 'package:web_dex/services/arrr_activation/arrr_activation_service.dart';
+import 'package:web_dex/services/coin_assets/coin_assets_service.dart';
+import 'package:web_dex/services/coin_assets/coin_assets_setup_screen.dart';
 import 'package:web_dex/services/fd_monitor_service.dart';
 import 'package:web_dex/services/feedback/app_feedback_wrapper.dart';
 import 'package:web_dex/services/logger/get_logger.dart';
@@ -104,6 +107,7 @@ Future<void> main() async {
     }
 
     try {
+      await _ensureCoinAssetsReady();
       await _ensureKdfReady();
       if (torRequested) {
         await _startWalletApp().timeout(const Duration(minutes: 2));
@@ -132,6 +136,26 @@ Future<void> main() async {
       _showTorFailure(error.toString(), stored);
     }
   }, catchUnhandledExceptions);
+}
+
+Future<void> _ensureCoinAssetsReady() async {
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.linux) return;
+  final assets = CoinAssetsService.instance;
+  if (await assets.currentCommit == null && !await assets.skipped) {
+    final ready = Completer<void>();
+    runApp(
+      WindowCloseHandler(
+        child: CoinAssetsSetupScreen(
+          onReady: () {
+            if (!ready.isCompleted) ready.complete();
+          },
+        ),
+      ),
+    );
+    await ready.future;
+  }
+  final iconDirectory = await assets.activateCurrent();
+  AssetIcon.setRuntimeIconDirectory(iconDirectory);
 }
 
 Future<void> _ensureKdfReady() async {
