@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:web_dex/model/settings_menu_value.dart';
 import 'package:web_dex/services/tor/pirate_tor_status.dart';
@@ -22,7 +23,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('P2Pirate'), findsOneWidget);
-    expect(find.byType(Image), findsOneWidget);
+    expect(find.byType(SvgPicture), findsOneWidget);
+    expect(find.byType(Image), findsNothing);
     expect(find.text('Tor off'), findsOneWidget);
     pirateTorStatus.value = PirateTorStatus.ready;
     await tester.pump();
