@@ -1,3 +1,4 @@
+import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 
 /// Builds a protocol-1 strategy specification. The engine validates all
@@ -52,7 +53,9 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
       _quoteAsset.text = '${quote['asset']}';
       _venue = '${spec['cex']}';
       _side = '${spec['side']}';
-      _premium.text = '${(double.parse('${spec['premium']}') * 100)}';
+      _premium.text =
+          (Decimal.parse('${spec['premium']}') * Decimal.fromInt(100))
+              .toString();
       _autoPrice = spec['price_mode'] == 'auto';
       _autoQuantity = spec['quantity_mode'] == 'auto';
       _replenish = spec['replenish'] == true;
@@ -190,22 +193,26 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
     if (quoteTicker.isEmpty) return;
     final baseAsset = _baseAsset.text.trim().toUpperCase();
     final quoteAsset = _quoteAsset.text.trim().toUpperCase();
-    final premiumPercent = double.parse(_premium.text.trim());
+    final premiumPercent = Decimal.parse(_premium.text.trim());
     final spec = <String, Object?>{
       ...?(widget.initialSpec?.cast<String, Object?>()),
       'strategy_id': widget.strategyId,
-      'base': {
-        'ticker': baseTicker,
-        'asset': baseAsset,
-        'symbol': '${baseAsset}USDT',
-      },
-      'quote': {
-        'ticker': quoteTicker,
-        'asset': quoteAsset,
-        'symbol': quoteAsset == 'USDT' ? null : '${quoteAsset}USDT',
-      },
+      'base':
+          widget.initialSpec?['base'] ??
+          {
+            'ticker': baseTicker,
+            'asset': baseAsset,
+            'symbol': '${baseAsset}USDT',
+          },
+      'quote':
+          widget.initialSpec?['quote'] ??
+          {
+            'ticker': quoteTicker,
+            'asset': quoteAsset,
+            'symbol': quoteAsset == 'USDT' ? null : '${quoteAsset}USDT',
+          },
       'side': _side,
-      'premium': (premiumPercent / 100).toStringAsFixed(6),
+      'premium': (premiumPercent / Decimal.fromInt(100)).toDecimal().toString(),
       'price_mode': _autoPrice ? 'auto' : 'fixed',
       'fixed_price': _autoPrice ? null : _fixedPrice.text.trim(),
       'quantity_mode': _autoQuantity ? 'auto' : 'fixed',

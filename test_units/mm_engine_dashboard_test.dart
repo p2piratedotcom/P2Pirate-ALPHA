@@ -162,6 +162,48 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('balance loading disables all venue and credential switches', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: MmEngineDashboard(
+              orders: const [],
+              strategies: const [],
+              venue: 'MEXC',
+              credentials: const {},
+              balances: const [],
+              busy: false,
+              balanceLoading: true,
+              live: false,
+              onLive: () {},
+              onNew: () {},
+              onVenue: (_) {},
+              onAdd: () {},
+              onStrategy: (_, _) {},
+              onBalances: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    for (final text in ['ADD CEX', 'Configure MEXC API credentials']) {
+      final button = tester.widget<TextButton>(
+        find.ancestor(of: find.text(text), matching: find.byType(TextButton)),
+      );
+      expect(button.onPressed, isNull);
+    }
+    expect(
+      tester
+          .widgetList<ChoiceChip>(find.byType(ChoiceChip))
+          .every((chip) => chip.onSelected == null),
+      isTrue,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('maker table and CEX controls render without overflow', (
     tester,
   ) async {

@@ -332,10 +332,12 @@ class MmEngineDashboard extends StatelessWidget {
                 selected: venue == exchange,
                 selectedColor: Theme.of(context).colorScheme.primary,
                 showCheckmark: false,
-                onSelected: busy ? null : (_) => onVenue(exchange),
+                onSelected: busy || balanceLoading
+                    ? null
+                    : (_) => onVenue(exchange),
               ),
             TextButton(
-              onPressed: busy ? null : onAdd,
+              onPressed: busy || balanceLoading ? null : onAdd,
               child: const Text('ADD CEX'),
             ),
           ],
@@ -365,7 +367,7 @@ class MmEngineDashboard extends StatelessWidget {
           ),
         if (credentials[venue] != true)
           TextButton(
-            onPressed: busy ? null : onAdd,
+            onPressed: busy || balanceLoading ? null : onAdd,
             child: Text('Configure $venue API credentials'),
           ),
         _table(

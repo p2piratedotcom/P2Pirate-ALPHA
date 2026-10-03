@@ -33,6 +33,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
 
   Future<void> _loadBalances() async {
     if (_balanceLoading || !MmEngineService.instance.isRunning) return;
+    final requestedVenue = _venue;
     setState(() {
       _balanceLoading = true;
       _balanceError = null;
@@ -41,9 +42,9 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     try {
       final result = await MmEngineService.instance.request(
         'GET',
-        '/v1/exchanges/balances?venue=$_venue',
+        '/v1/exchanges/balances?venue=$requestedVenue',
       );
-      if (!mounted) return;
+      if (!mounted || requestedVenue != _venue) return;
       final assets = RepositoryProvider.of<KomodoDefiSdk>(
         context,
       ).assets.available.values;
@@ -59,11 +60,13 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
             },
           )
           .toList();
-      if (mounted) {
+      if (mounted && requestedVenue == _venue) {
         setState(() => _balances = rows);
       }
     } catch (error) {
-      if (mounted) setState(() => _balanceError = '$error');
+      if (mounted && requestedVenue == _venue) {
+        setState(() => _balanceError = '$error');
+      }
     } finally {
       if (mounted) setState(() => _balanceLoading = false);
     }
@@ -205,6 +208,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
   }
 
   Future<void> _configureCredentials(String venue) async {
+    if (_busy || _balanceLoading) return;
     final key = TextEditingController();
     final secret = TextEditingController();
     var selectedVenue = venue;
