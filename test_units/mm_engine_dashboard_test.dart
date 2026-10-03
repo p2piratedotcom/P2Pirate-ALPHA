@@ -51,6 +51,159 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'paused order has tickers, auto values, number and read-only details',
+    (tester) async {
+      String? modified;
+      Map<String, dynamic>? details;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: MmEngineDashboard(
+                orders: const [],
+                strategies: const [
+                  {
+                    'id': 'internal',
+                    'creation_number': 12,
+                    'state': 'PAUSED',
+                    'enabled': 0,
+                    'detail': 'Manual pause',
+                    'spec': {
+                      'base': {'ticker': 'ARRR'},
+                      'quote': {'ticker': 'USDT-BEP20'},
+                      'side': 'BUY_ARRR',
+                      'price_mode': 'auto',
+                      'quantity_mode': 'auto',
+                      'premium': '0.02',
+                      'cex': 'MEXC',
+                    },
+                  },
+                ],
+                venue: 'MEXC',
+                credentials: const {},
+                balances: const [],
+                busy: false,
+                live: false,
+                onLive: () {},
+                onNew: () {},
+                onVenue: (_) {},
+                onAdd: () {},
+                onStrategy: (_, _) {},
+                onBalances: () {},
+                onModify: (id) => modified = id,
+                onDetails: (row) => details = row,
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(find.text('12'), findsOneWidget);
+      expect(find.text('ARRR'), findsOneWidget);
+      expect(find.text('USDT-BEP20'), findsOneWidget);
+      expect(find.text('auto'), findsNWidgets(2));
+      expect(find.text('Manual pause'), findsOneWidget);
+      await tester.ensureVisible(find.text('Modify'));
+      await tester.tap(find.text('Modify'));
+      expect(modified, 'internal');
+      await tester.ensureVisible(find.text('Details'));
+      await tester.tap(find.text('Details'));
+      expect(details?['creation_number'], 12);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('paused fixed buy price uses bought per sold coin units', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: MmEngineDashboard(
+              orders: const [],
+              strategies: const [
+                {
+                  'id': 'buy-fixed',
+                  'creation_number': 1,
+                  'state': 'PAUSED',
+                  'enabled': 0,
+                  'spec': {
+                    'base': {'ticker': 'ARRR'},
+                    'quote': {'ticker': 'USDT-BEP20'},
+                    'side': 'BUY_ARRR',
+                    'price_mode': 'fixed',
+                    'fixed_price': '0.25',
+                    'quantity_mode': 'fixed',
+                    'fixed_sold': '5',
+                    'cex': 'MEXC',
+                  },
+                },
+              ],
+              venue: 'MEXC',
+              credentials: const {},
+              balances: const [],
+              busy: false,
+              live: false,
+              onLive: () {},
+              onNew: () {},
+              onVenue: (_) {},
+              onAdd: () {},
+              onStrategy: (_, _) {},
+              onBalances: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('4'), findsOneWidget);
+    expect(find.text('0.25'), findsNothing);
+    expect(find.text('5'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('balance loading disables all venue and credential switches', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: MmEngineDashboard(
+              orders: const [],
+              strategies: const [],
+              venue: 'MEXC',
+              credentials: const {},
+              balances: const [],
+              busy: false,
+              balanceLoading: true,
+              live: false,
+              onLive: () {},
+              onNew: () {},
+              onVenue: (_) {},
+              onAdd: () {},
+              onStrategy: (_, _) {},
+              onBalances: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    for (final text in ['ADD CEX', 'Configure MEXC API credentials']) {
+      final button = tester.widget<TextButton>(
+        find.ancestor(of: find.text(text), matching: find.byType(TextButton)),
+      );
+      expect(button.onPressed, isNull);
+    }
+    expect(
+      tester
+          .widgetList<ChoiceChip>(find.byType(ChoiceChip))
+          .every((chip) => chip.onSelected == null),
+      isTrue,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('maker table and CEX controls render without overflow', (
     tester,
   ) async {
@@ -98,6 +251,7 @@ void main() {
                     MmEngineDashboard(
                       orders: const [
                         {
+                          'order_uuid': 'test-order-1',
                           'kdf_base': 'ARRR',
                           'kdf_rel': 'USDT-BEP20',
                           'kdf_volume': '15',
@@ -107,6 +261,7 @@ void main() {
                           'status': 'OPEN',
                         },
                         {
+                          'order_uuid': 'test-order-2',
                           'kdf_base': 'LTC',
                           'kdf_rel': 'DASH',
                           'kdf_volume': '0.25',
