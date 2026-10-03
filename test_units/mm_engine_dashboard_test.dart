@@ -7,6 +7,265 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_dashboard.dart';
 
 void main() {
+  for (final width in [360.0, 800.0, 1050.0, 1700.0]) {
+    testWidgets('order footer actions and copy UUID fit width $width', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(width, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      String? copied;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+            if (call.method == 'Clipboard.setData') {
+              copied = (call.arguments as Map)['text'] as String;
+            }
+            return null;
+          });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+      var modified = false;
+      var paused = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SelectionArea(
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: MmEngineDashboard(
+                    orders: const [
+                      {
+                        'strategy_id': 'active',
+                        'order_uuid': '8e137e55-1234-4db6-9123-abc123456789',
+                        'kdf_base': 'ARRR',
+                        'kdf_rel': 'USDT-BEP20',
+                        'status': 'OPEN',
+                      },
+                    ],
+                    strategies: const [
+                      {
+                        'id': 'paused',
+                        'enabled': 0,
+                        'state': 'PAUSED',
+                        'spec': {
+                          'base': {'ticker': 'DASH'},
+                          'quote': {'ticker': 'LTC'},
+                        },
+                      },
+                    ],
+                    venue: 'MEXC',
+                    credentials: const {'MEXC': true},
+                    balances: const [
+                      {'ticker': 'ARRR', 'available': '61.4'},
+                    ],
+                    busy: false,
+                    live: false,
+                    balanceLoading: true,
+                    onLive: () {},
+                    onNew: () {},
+                    onVenue: (_) {},
+                    onAdd: () {},
+                    onBalances: () {},
+                    onStrategy: (_, _) => paused = true,
+                    onModify: (_) => modified = true,
+                    onDetails: (_) {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      for (final label in ['Pause', 'Modify']) {
+        final button = find.widgetWithText(OutlinedButton, label);
+        await tester.ensureVisible(button);
+        final bounds = tester.getRect(button);
+        expect(bounds.left, greaterThanOrEqualTo(0));
+        expect(bounds.right, lessThanOrEqualTo(width));
+        await tester.tap(button);
+      }
+      expect(modified, isTrue);
+      expect(paused, isTrue);
+      await tester.ensureVisible(find.byTooltip('Copy UUID'));
+      await tester.tap(find.byTooltip('Copy UUID'));
+      expect(copied, '8e137e55-1234-4db6-9123-abc123456789');
+      expect(find.text('61.4'), findsOneWidget); // Retained while refresh runs.
+      expect(find.byType(SelectionArea), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final width in [360.0, 1050.0]) {
+    testWidgets(
+      'select one, several or all without enabling orders at width $width',
+      (tester) async {
+        tester.view.physicalSize = Size(width, 1500);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        var live = false;
+        var selected = <String>{};
+        var activations = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: StatefulBuilder(
+                  builder: (context, update) => MmEngineDashboard(
+                    orders: const [],
+                    strategies: const [
+                      {
+                        'id': 'one',
+                        'creation_number': 1,
+                        'enabled': 0,
+                        'state': 'PAUSED',
+                        'spec': {
+                          'base': {'ticker': 'ARRR'},
+                          'quote': {'ticker': 'USDT-BEP20'},
+                        },
+                      },
+                      {
+                        'id': 'two',
+                        'creation_number': 2,
+                        'enabled': 0,
+                        'state': 'PAUSED',
+                        'spec': {
+                          'base': {'ticker': 'DASH'},
+                          'quote': {'ticker': 'LTC'},
+                        },
+                      },
+                      {
+                        'id': 'blocked',
+                        'enabled': 0,
+                        'state': 'REVIEW_REQUIRED',
+                        'spec': {},
+                      },
+                    ],
+                    selectedOrders: selected,
+                    onSelection: (ids) => update(() => selected = ids),
+                    onStartSelected: () => activations++,
+                    venue: 'MEXC',
+                    credentials: const {},
+                    balances: const [],
+                    busy: false,
+                    live: live,
+                    onLive: () => update(() => live = !live),
+                    onNew: () {},
+                    onVenue: (_) {},
+                    onAdd: () {},
+                    onStrategy: (_, _) {},
+                    onBalances: () {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        final first = find.byKey(const Key('select-maker-order-one'));
+        await tester.ensureVisible(first);
+        await tester.tap(first);
+        await tester.pump();
+        expect(selected, {'one'});
+        expect(
+          tester
+              .widget<Checkbox>(
+                find.byKey(const Key('select-all-maker-orders')),
+              )
+              .value,
+          isNull,
+        );
+        expect(
+          tester
+              .widget<Checkbox>(
+                find.byKey(const Key('select-maker-order-blocked')),
+              )
+              .onChanged,
+          isNull,
+        );
+        var activate = find.widgetWithText(
+          ElevatedButton,
+          'Start selected orders (1)',
+        );
+        expect(tester.widget<ElevatedButton>(activate).onPressed, isNull);
+        await tester.ensureVisible(find.text('Start live trading'));
+        await tester.tap(find.text('Start live trading'));
+        await tester.pump();
+        expect(activations, 0);
+        expect(find.text('Stop live trading'), findsOneWidget);
+        final all = find.byKey(const Key('select-all-maker-orders'));
+        await tester.ensureVisible(all);
+        await tester.tap(all);
+        await tester.pump();
+        expect(selected, {'one', 'two'});
+        expect(tester.widget<Checkbox>(all).value, isTrue);
+        activate = find.widgetWithText(
+          ElevatedButton,
+          'Start selected orders (2)',
+        );
+        await tester.ensureVisible(activate);
+        await tester.tap(activate);
+        expect(activations, 1);
+        await tester.ensureVisible(all);
+        await tester.tap(all);
+        await tester.pump();
+        expect(selected, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('CEX section can collapse and displays the refresh countdown', (
+    tester,
+  ) async {
+    var expanded = true;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: StatefulBuilder(
+              builder: (context, update) => MmEngineDashboard(
+                orders: const [],
+                strategies: const [],
+                venue: 'MEXC',
+                credentials: const {'MEXC': true},
+                balances: const [
+                  {'ticker': 'ARRR', 'available': '61.4'},
+                ],
+                busy: false,
+                live: false,
+                cexExpanded: expanded,
+                onToggleCex: () => update(() => expanded = !expanded),
+                balanceRefreshSeconds: 42,
+                balanceUpdatedAt: DateTime(2026, 10, 3, 20, 30),
+                onLive: () {},
+                onNew: () {},
+                onVenue: (_) {},
+                onAdd: () {},
+                onStrategy: (_, _) {},
+                onBalances: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Next refresh in 42s'), findsOneWidget);
+    await tester.tap(find.text('Hide'));
+    await tester.pump();
+    expect(find.text('MY CEXs'), findsOneWidget);
+    expect(find.text('61.4'), findsNothing);
+    expect(find.byType(ChoiceChip), findsNothing);
+    await tester.tap(find.text('Show'));
+    await tester.pump();
+    expect(find.text('61.4'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('primary actions remain usable at desktop minimum width', (
     tester,
   ) async {
@@ -44,7 +303,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    await tester.tap(find.text('Start all live trading'));
+    await tester.tap(find.text('Start live trading'));
     await tester.tap(find.text('New Maker Order'));
     expect(livePressed, isTrue);
     expect(newPressed, isTrue);

@@ -91,3 +91,40 @@ The corrected CI jobs must still run remotely after the new GUI and SDK
 revisions are published. The macOS and Windows KDF runtime installation paths
 also need separate platform verification; this Linux host cannot run those
 apps. No macOS or Windows KDF executable was bundled by this change.
+
+## Trading dashboard refresh (2026-10-03)
+
+The local dashboard patch passed **215 unit/widget tests, 2 intentional skips**
+with `flutter test --no-pub test_units`. Scoped analysis of the three modified
+production Dart files and the two dashboard/refresh test files reported no issues.
+The two existing native desktop smoke tests passed under isolated Xvfb/D-Bus.
+
+Added regressions cover footer actions at viewport widths 360, 800, 1050 and
+1700 pixels; exact UUID clipboard copy; selectable page content; CEX collapse and
+refresh countdown; retained balances during requests and failures; per-exchange
+cache isolation; valid empty results; ignored replies from old engine sessions
+or other exchanges; non-overlapping reads; and polling disposal. Clock and
+network fixtures are synthetic. No real trades or transfers are exercised.
+
+A Linux release and AppImage were built locally from merged GUI commit
+`17ad50adf83d5ee15ef23208b6303aaedcc951ba` plus this local patch, retaining SDK
+`b12e16ea477c5304255319aa8e521653eb2879b7` and the existing external MM_Engine.
+The build identifies itself as `17ad50a-local`; no repository publication is
+implied by these local verification results.
+
+## Selected activation and desktop branding (2026-10-03)
+
+The combined local dashboard and selected-activation patch passed **226
+unit/widget tests with 2 intentional skips**. The three native desktop smoke
+tests passed under isolated Xvfb/D-Bus, including selection and the separation
+between live permission and the order activation button. Scoped Dart analysis
+reported no issues in changed code and tests. A new local Linux release and
+AppImage were compiled.
+
+Request fixtures verify pause-before-restart ordering for both live and preview
+transitions, absence of start-all during mode changes, abort on failed pausing or
+active-swap shutdown refusal, exact individual confirmations for selected IDs,
+rejection of ineligible selections, and interruption without retry after an
+ambiguous response. Widget fixtures cover single/multiple/all selection at
+narrow and wide widths. No real live orders or CEX trades are used by these tests.
+The global switch still does not bypass engine reconciliation and risk checks.

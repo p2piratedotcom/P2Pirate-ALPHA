@@ -10,7 +10,7 @@ import 'package:web_dex/bloc/settings/settings_state.dart';
 import 'package:web_dex/services/mm_engine/mm_engine_service.dart';
 import 'package:web_dex/views/settings/widgets/common/settings_section.dart';
 
-/// The switch controls visibility only. MM_Engine is a separate download and
+/// The switch controls visibility only. P2Pirate Trading Engine is a separate download and
 /// its live trading permissions are never enabled by a settings toggle.
 class SettingsManageTradingBot extends StatefulWidget {
   const SettingsManageTradingBot({super.key});
@@ -40,7 +40,9 @@ class _SettingsManageTradingBotState extends State<SettingsManageTradingBot> {
                 },
               ),
               const SizedBox(width: 15),
-              const Flexible(child: Text('Show MM_Engine in the wallet')),
+              const Flexible(
+                child: Text('Show P2Pirate Trading Engine in the wallet'),
+              ),
             ],
           ),
         ),
