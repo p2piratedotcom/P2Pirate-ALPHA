@@ -231,7 +231,7 @@ class MmEngineDashboard extends StatelessWidget {
           [
             for (final row in positive)
               [
-                text(row['ticker']),
+                text(row['name'] ?? row['ticker']),
                 text(row['ticker']),
                 text(row['available']),
               ],

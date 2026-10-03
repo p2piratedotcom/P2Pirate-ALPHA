@@ -120,7 +120,11 @@ void main() {
                       venue: 'MEXC',
                       credentials: const {'MEXC': true},
                       balances: const [
-                        {'ticker': 'ARRR', 'available': '61.4'},
+                        {
+                          'ticker': 'ARRR',
+                          'name': 'Pirate Chain',
+                          'available': '61.4',
+                        },
                         {'ticker': 'USDT', 'available': '19.7'},
                       ],
                       busy: false,
@@ -144,6 +148,8 @@ void main() {
     expect(find.text('MY MAKER ORDERS'), findsOneWidget);
     expect(find.text('MY CEXs'), findsOneWidget);
     expect(find.text('15'), findsOneWidget);
+    expect(find.text('Pirate Chain'), findsOneWidget);
+    expect(find.text('USDT'), findsNWidgets(2));
     await tester.tap(find.text('GATE').last);
     expect(selected, 'GATE');
     expect(tester.takeException(), isNull);
