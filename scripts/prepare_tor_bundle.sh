@@ -20,7 +20,10 @@ for name in tor libtorsocks.so TOR_COPYRIGHT TORSOCKS_COPYRIGHT SOCKS5_PROXY_LIC
     exit 1
   fi
 done
-install -d -m 755 "$bundle/lib" "$bundle/lib/tor-source"
+install -d -m 755 "$bundle/lib"
+source_staging=$(mktemp -d "$bundle/lib/.tor-source.XXXXXX")
+trap 'rm -rf -- "$source_staging"' EXIT
+chmod 755 "$source_staging"
 install -m 755 "$source_dir/tor" "$bundle/lib/tor"
 install -m 644 "$source_dir/libtorsocks.so" "$bundle/lib/libtorsocks.so"
 for name in TOR_COPYRIGHT TORSOCKS_COPYRIGHT SOCKS5_PROXY_LICENSE; do
@@ -35,7 +38,11 @@ for name in \
   torsocks_2.4.0.orig.tar.bz2 \
   torsocks_2.4.0-1.debian.tar.xz \
   torsocks_2.4.0-1.dsc; do
-  install -m 644 "$package_sources/$name" "$bundle/lib/tor-source/$name"
+  install -m 644 "$package_sources/$name" "$source_staging/$name"
 done
+# Copy first so an input source directory inside the existing bundle is safe.
+# Replacing it removes stale entries from repeated packaging runs.
+rm -rf -- "$bundle/lib/tor-source"
+mv -- "$source_staging" "$bundle/lib/tor-source"
 "$script_dir/verify_tor_bundle.sh" "$bundle"
 printf 'Tor transport prepared in %s/lib\n' "$bundle"

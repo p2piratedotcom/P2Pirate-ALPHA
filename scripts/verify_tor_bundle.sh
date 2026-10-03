@@ -25,6 +25,21 @@ cmp -s "$root/licenses/tor/TOR_SOURCE_README.txt" "$lib/TOR_SOURCE_README.txt" |
 }
 
 source_dir="$lib/tor-source"
+[ -d "$source_dir" ] && [ ! -L "$source_dir" ] || {
+  echo 'Tor source directory is missing or is a symbolic link' >&2
+  exit 1
+}
+for source_file in "$source_dir"/* "$source_dir"/.[!.]* "$source_dir"/..?*; do
+  [ -e "$source_file" ] || [ -L "$source_file" ] || continue
+  case "${source_file##*/}" in
+    tor_0.4.9.11.orig.tar.gz|tor_0.4.9.11-0ubuntu0.24.04.1.diff.gz|tor_0.4.9.11-0ubuntu0.24.04.1.dsc|torsocks_2.4.0.orig.tar.bz2|torsocks_2.4.0-1.debian.tar.xz|torsocks_2.4.0-1.dsc) ;;
+    *) echo "Unexpected Tor source entry: ${source_file##*/}" >&2; exit 1 ;;
+  esac
+  [ -f "$source_file" ] && [ ! -L "$source_file" ] || {
+    echo "Tor source must be a regular file: ${source_file##*/}" >&2
+    exit 1
+  }
+done
 for name in \
   tor_0.4.9.11.orig.tar.gz \
   tor_0.4.9.11-0ubuntu0.24.04.1.diff.gz \
