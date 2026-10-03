@@ -71,3 +71,17 @@ explains why a public repository without a license is not an automatic grant
 for reuse. The [GPLv2](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
 and [GPLv3](https://www.gnu.org/licenses/gpl-3.0.html) texts state the source
 distribution conditions for their respective binaries.
+
+## P2Pirate Assets follow-up
+
+The desktop GUI now offers a separate download from
+[`p2piratedotcom/Assets`](https://github.com/p2piratedotcom/Assets). That
+repository starts with the same documented JSON configuration snapshot and
+restores the 453 PNGs described above. The project owner states that they have
+permission to use the artwork; the Assets repository keeps a separate artwork
+notice and does not claim that the PNGs are Unlicensed. Its manifest records a
+SHA-256 digest for each file.
+The GUI downloads one commit-pinned ZIP, checks the manifest and each file,
+and activates the catalog from local storage before starting KDF. An update
+downloaded from Settings takes effect after restart. A bundled catalog remains
+available if the user skips the first download or a download fails.

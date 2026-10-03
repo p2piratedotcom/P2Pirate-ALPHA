@@ -5,6 +5,7 @@ import 'package:web_dex/common/screen.dart';
 import 'package:web_dex/shared/widgets/hidden_with_wallet.dart';
 import 'package:web_dex/shared/widgets/hidden_without_wallet.dart';
 import 'package:web_dex/views/settings/widgets/general_settings/import_swaps.dart';
+import 'package:web_dex/views/settings/widgets/general_settings/settings_coin_assets.dart';
 import 'package:web_dex/views/settings/widgets/general_settings/settings_hide_balances.dart';
 import 'package:web_dex/views/settings/widgets/general_settings/settings_manage_diagnostic_logging.dart';
 import 'package:web_dex/views/settings/widgets/general_settings/settings_manage_test_coins.dart';
@@ -17,7 +18,7 @@ import 'package:web_dex/views/settings/widgets/general_settings/settings_theme_s
 import 'package:web_dex/views/settings/widgets/general_settings/show_swap_data.dart';
 
 class GeneralSettings extends StatelessWidget {
-  const GeneralSettings({Key? key}) : super(key: key);
+  const GeneralSettings({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +30,8 @@ class GeneralSettings extends StatelessWidget {
         const SettingsThemeSwitcher(),
         const SizedBox(height: 25),
         const SettingsManageTor(),
+        const SizedBox(height: 25),
+        const SettingsCoinAssets(),
         const SizedBox(height: 25),
         const SettingsHideBalances(),
         const SizedBox(height: 25),

@@ -714,7 +714,7 @@ packages:
     source: path
     version: "0.1.0"
   komodo_coin_updates:
-    dependency: "direct overridden"
+    dependency: "direct main"
     description:
       path: "sdk/packages/komodo_coin_updates"
       relative: true
