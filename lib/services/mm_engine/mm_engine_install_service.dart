@@ -179,6 +179,7 @@ class MmEngineInstallService {
         manifest['platform'] != 'linux' ||
         manifest['architecture'] != 'x86_64' ||
         manifest['wallet_protocol'] != 1 ||
+        manifest['plugin_protocol'] != 1 ||
         manifest['kdf_major_minor'] != '2.7' ||
         manifest['binary'] != _assetName ||
         manifest['binary_sha256'] != digest.substring(7) ||

@@ -94,3 +94,47 @@ The persistent wallet live preference and crash-recovery behavior remain in
 place: orders explicitly started by the user may resume when reopening the
 wallet. The revised enable-live notice explains both the separate activation
 step and this behavior. No engine API or repository migration is required.
+
+## External CEX plugin catalog (2026-10-04)
+
+CEX-specific public configuration **and executable adapters** now belong to
+`p2piratedotcom/CEX_configs`, independently of the wallet and common engine.
+The first use of a compatible installed engine prompts to download the supported
+plugins. The trading-engine page adds a **CEX plugins** check/download action.
+MEXC/Gate credentials keep their current Secret Service profile and namespace;
+no re-entry is required. API keys are never included in public configuration.
+
+Downloads pin one catalog commit, verify repository identity/protocol/paths/file
+sizes/SHA-256, install an immutable snapshot and switch the current pointer only
+after complete validation. The engine verifies it again. A failed update retains
+the previous snapshot. Existing snapshots work offline; corrupt files fail closed.
+CEX choices in the dashboard, API-key dialog and order form come from the verified
+catalog/engine capabilities, allowing new Spot v1 venues without GUI edits.
+
+Before updating, orders are paused/withdrawn and the engine is stopped. Existing
+shutdown restrictions for active swaps remain in force. The wallet clears live
+permission and reconnects in preview. No update automatically starts orders.
+The normal Tor requirement applies to repository downloads and adapter traffic.
+
+The wallet probes `plugin-capabilities` before supplying KDF secrets or live flags.
+Normal engine release installation requires compatibility metadata
+`plugin_protocol: 1`. The old immutable release lacks it; the paired new engine,
+GUI and initial catalog must be published together before normal installation
+can use this feature. For local candidates only, `P2PIRATE_CEX_PLUGIN_DIR` selects
+an absolute verified checkout (and takes precedence over downloaded snapshots).
+Use the existing checksum-verified local engine override for the new binary.
+
+Plugin code runs in child processes inside the engine executable; it does not
+require system Python. This is failure containment, **not an OS security sandbox**.
+Publishing the catalog is trusted code distribution; SHA-256 checks are not an
+independent signature. Plugin review belongs in its repository.
+
+The common contract covers Spot limit orders, key+secret authentication and USDT
+hedge routes. Kraken/Binance are next plugin projects and are not yet offered in
+the catalog. Their native signing, nonce, asset aliases and client-ID mapping
+belong to the adapters. Protocol requirements and official references are in
+`CEX_configs/PROTOCOL.md`. Changes outside this contract require an explicit
+versioned engine extension.
+
+Local checks: 237 GUI unit/widget tests passed, 2 existing skips; scoped static
+analysis is clean. Separate engine and plugin fixture tests make no funded orders.

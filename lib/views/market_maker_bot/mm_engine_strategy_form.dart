@@ -28,11 +28,13 @@ class MmEngineStrategyForm extends StatefulWidget {
     super.key,
     required this.markets,
     required this.strategyId,
+    this.venues = const {'MEXC': 'MEXC', 'GATE': 'Gate'},
     this.initialSpec,
     this.availableBalances = const {},
   });
 
   final List<String> markets;
+  final Map<String, String> venues;
   final String strategyId;
   final Map<String, dynamic>? initialSpec;
   final Map<String, String> availableBalances;
@@ -62,6 +64,9 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
   @override
   void initState() {
     super.initState();
+    _venue = widget.venues.containsKey('MEXC')
+        ? 'MEXC'
+        : widget.venues.keys.first;
     _market = widget.markets.isEmpty ? null : widget.markets.first;
     _updateRoute();
     final spec = widget.initialSpec;
@@ -317,13 +322,20 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
               DropdownButtonFormField<String>(
                 initialValue: _venue,
                 decoration: _decoration('Hedge exchange'),
-                items: const [
-                  DropdownMenuItem(value: 'MEXC', child: Text('MEXC Spot')),
-                  DropdownMenuItem(value: 'GATE', child: Text('Gate Spot')),
+                items: [
+                  for (final entry in widget.venues.entries)
+                    DropdownMenuItem(
+                      value: entry.key,
+                      child: Text(
+                        entry.value.toLowerCase().endsWith('spot')
+                            ? entry.value
+                            : '${entry.value} Spot',
+                      ),
+                    ),
                 ],
                 onChanged: widget.initialSpec != null
                     ? null
-                    : (value) => setState(() => _venue = value ?? 'MEXC'),
+                    : (value) => setState(() => _venue = value ?? _venue),
               ),
               DropdownButtonFormField<String>(
                 initialValue: _side,

@@ -33,6 +33,25 @@ void main() {
       throwsFormatException,
     );
   });
+  testWidgets('maker form accepts only venues from the installed catalog', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: MmEngineStrategyForm(
+            markets: ['ARRR-USDT-BEP20'],
+            strategyId: 'demo-order',
+            venues: {'DEMO': 'Demo Spot'},
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Demo Spot'), findsOneWidget);
+    expect(find.text('MEXC Spot'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'new maker form has no name, explains fields and shows wallet base balance',
     (tester) async {
