@@ -191,7 +191,10 @@ class MmEngineInstallService {
   }
 
   /// Call only after the user explicitly accepts the displayed release.
-  static Future<File> install(MmEngineRelease release) async {
+  static Future<File> install(
+    MmEngineRelease release, {
+    void Function(MmEngineInstallProgress)? onProgress,
+  }) async {
     _requirePlatform();
     final root = await _installRoot();
     await root.create(recursive: true);
@@ -211,18 +214,37 @@ class MmEngineInstallService {
         await FileSystemEntity.isLink(notices.path)) {
       throw StateError('MM_Engine installation path is unsafe');
     }
+    final totalBytes = release.size + release.noticeSize;
+    void report(MmEngineInstallStage stage, int receivedBytes) {
+      onProgress?.call(
+        MmEngineInstallProgress(stage, receivedBytes, totalBytes),
+      );
+    }
+
     try {
-      await _download(release.url, temp, release.size, _maxBinaryBytes);
+      report(MmEngineInstallStage.binary, 0);
+      await _download(
+        release.url,
+        temp,
+        release.size,
+        _maxBinaryBytes,
+        onBytes: (bytes) => report(MmEngineInstallStage.binary, bytes),
+      );
+      report(MmEngineInstallStage.verifying, release.size);
       final actual = (await sha256.bind(temp.openRead()).first).toString();
       if (actual != release.sha256) {
         throw StateError('MM_Engine SHA-256 verification failed');
       }
+      report(MmEngineInstallStage.notices, release.size);
       await _download(
         release.noticeUrl,
         noticeTemp,
         release.noticeSize,
         2 * 1024 * 1024,
+        onBytes: (bytes) =>
+            report(MmEngineInstallStage.notices, release.size + bytes),
       );
+      report(MmEngineInstallStage.verifying, totalBytes);
       final noticeActual = (await sha256.bind(noticeTemp.openRead()).first)
           .toString();
       if (noticeActual != release.noticeSha256) {
@@ -253,7 +275,13 @@ class MmEngineInstallService {
     }
   }
 
-  static Future<void> _download(Uri url, File target, int size, int max) async {
+  static Future<void> _download(
+    Uri url,
+    File target,
+    int size,
+    int max, {
+    void Function(int)? onBytes,
+  }) async {
     final client = await _client();
     try {
       final request = await client.getUrl(url);
@@ -271,6 +299,7 @@ class MmEngineInstallService {
             throw StateError('MM_Engine download exceeded expected size');
           }
           output.add(chunk);
+          onBytes?.call(received);
         }
         await output.flush();
       } finally {
@@ -378,4 +407,21 @@ class MmEngineRelease {
   final Uri noticeUrl;
   final String noticeSha256;
   final int noticeSize;
+}
+
+enum MmEngineInstallStage { binary, notices, verifying }
+
+class MmEngineInstallProgress {
+  const MmEngineInstallProgress(
+    this.stage,
+    this.receivedBytes,
+    this.totalBytes,
+  );
+
+  final MmEngineInstallStage stage;
+  final int receivedBytes;
+  final int totalBytes;
+
+  double get fraction => totalBytes == 0 ? 0 : receivedBytes / totalBytes;
+  int get percent => (fraction * 100).floor();
 }

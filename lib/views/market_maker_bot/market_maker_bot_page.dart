@@ -20,6 +20,8 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
   bool _busy = true;
   bool _installed = false;
   String? _error;
+  String? _downloadStatus;
+  MmEngineInstallProgress? _downloadProgress;
   Map<String, dynamic>? _strategies;
   Map<String, dynamic>? _reconciliation;
   Map<String, dynamic>? _credentials;
@@ -317,6 +319,8 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     setState(() {
       _busy = true;
       _error = null;
+      _downloadStatus = 'Checking the latest MM_Engine release…';
+      _downloadProgress = null;
     });
     try {
       final release = await MmEngineInstallService.latestRelease();
@@ -344,15 +348,46 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
       );
       if (accepted != true || !mounted) return;
       if (MmEngineService.instance.isRunning) {
+        setState(() => _downloadStatus = 'Stopping the current engine…');
         await MmEngineService.instance.stop();
       }
-      await MmEngineInstallService.install(release);
+      setState(() => _downloadStatus = 'Downloading MM_Engine…');
+      await MmEngineInstallService.install(
+        release,
+        onProgress: (progress) {
+          if (!mounted ||
+              (_downloadProgress?.percent == progress.percent &&
+                  _downloadProgress?.stage == progress.stage)) {
+            return;
+          }
+          setState(() {
+            _downloadProgress = progress;
+            _downloadStatus = switch (progress.stage) {
+              MmEngineInstallStage.binary => 'Downloading MM_Engine…',
+              MmEngineInstallStage.notices => 'Downloading license notices…',
+              MmEngineInstallStage.verifying => 'Verifying the download…',
+            };
+          });
+        },
+      );
       _installed = true;
+      if (mounted) {
+        setState(() {
+          _downloadStatus = 'Starting MM_Engine…';
+          _downloadProgress = null;
+        });
+      }
       await _connect();
     } catch (error) {
       _error = '$error';
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _downloadStatus = null;
+          _downloadProgress = null;
+        });
+      }
     }
   }
 
@@ -400,7 +435,21 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
               'starts live trading.',
             ),
             const SizedBox(height: 20),
-            if (_busy) const LinearProgressIndicator(),
+            if (_busy) ...[
+              if (_downloadStatus != null) ...[
+                Text(_downloadStatus!),
+                const SizedBox(height: 8),
+              ],
+              LinearProgressIndicator(value: _downloadProgress?.fraction),
+              if (_downloadProgress case final progress?) ...[
+                const SizedBox(height: 6),
+                Text(
+                  '${progress.percent}% · '
+                  '${(progress.receivedBytes / (1024 * 1024)).toStringAsFixed(1)} / '
+                  '${(progress.totalBytes / (1024 * 1024)).toStringAsFixed(1)} MB',
+                ),
+              ],
+            ],
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 14),
