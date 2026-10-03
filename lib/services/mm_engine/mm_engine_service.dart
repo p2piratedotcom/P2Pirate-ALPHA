@@ -11,6 +11,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:web_dex/bloc/settings/settings_repository.dart';
 import 'package:web_dex/services/mm_engine/mm_engine_install_service.dart';
+import 'package:web_dex/services/mm_engine/mm_engine_http_client.dart';
 import 'package:web_dex/services/tor/pirate_tor_service.dart';
 
 /// The wallet is the KDF/Tor owner; this client only supervises MM_Engine.
@@ -278,30 +279,7 @@ class MmEngineService {
     if (baseUrl == null || token == null) {
       throw StateError('MM_Engine is not running');
     }
-    if (!path.startsWith('/v1/')) throw ArgumentError.value(path, 'path');
-    final client = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 10);
-    try {
-      final uri = baseUrl.resolve(path);
-      final call = await client.openUrl(method, uri);
-      call.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
-      call.headers.contentType = ContentType.json;
-      if (method == 'POST') call.write(jsonEncode(body));
-      final response = await call.close().timeout(const Duration(seconds: 20));
-      final payload = jsonDecode(await utf8.decoder.bind(response).join());
-      if (payload is! Map<String, dynamic>) {
-        throw StateError('Invalid MM_Engine response');
-      }
-      if (response.statusCode >= 400) {
-        throw StateError(
-          payload['error']?.toString() ??
-              'MM_Engine request failed (${response.statusCode})',
-        );
-      }
-      return payload;
-    } finally {
-      client.close(force: true);
-    }
+    return sendMmEngineRequest(baseUrl, token, method, path, body: body);
   }
 
   Future<void> stop() async {
