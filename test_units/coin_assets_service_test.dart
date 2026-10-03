@@ -19,11 +19,29 @@ void main() {
     return root;
   }
 
-  List<int> makeArchive({bool corruptIcon = false}) {
+  List<int> makeArchive({
+    bool corruptIcon = false,
+    String? catalogOverride,
+    String archiveCommit = commit,
+  }) {
     final files = <String, List<int>>{
       'coins': utf8.encode('[]'),
       'seed-nodes.json': utf8.encode('[]'),
-      'utils/coins_config_unfiltered.json': utf8.encode('{}'),
+      'utils/coins_config_unfiltered.json': utf8.encode(
+        catalogOverride ??
+            jsonEncode({
+              for (var i = 0; i < 100; i++)
+                'TEST$i': {
+                  'coin': 'TEST$i',
+                  'type': 'UTXO',
+                  'name': 'Test $i',
+                  'fname': 'Test $i',
+                  'mm2': 1,
+                  'is_testnet': false,
+                  'protocol': {'type': 'UTXO'},
+                },
+            }),
+      ),
       'icons/arrr.png': <int>[137, 80, 78, 71],
     };
     final manifest = utf8.encode(
@@ -42,30 +60,41 @@ void main() {
           ? <int>[0]
           : entry.value;
       archive.addFile(
-        ArchiveFile('Assets-$commit/${entry.key}', contents.length, contents),
+        ArchiveFile(
+          'Assets-$archiveCommit/${entry.key}',
+          contents.length,
+          contents,
+        ),
       );
     }
     archive.addFile(
-      ArchiveFile('Assets-$commit/manifest.json', manifest.length, manifest),
+      ArchiveFile(
+        'Assets-$archiveCommit/manifest.json',
+        manifest.length,
+        manifest,
+      ),
     );
     return ZipEncoder().encode(archive);
   }
 
-  CoinAssetsService service(Directory root, List<int> archive) =>
-      CoinAssetsService(
-        storageRoot: root,
-        client: MockClient((request) async {
-          if (request.url.host == 'api.github.com') {
-            return http.Response(
-              jsonEncode({
-                'commit': {'sha': commit},
-              }),
-              200,
-            );
-          }
-          return http.Response.bytes(archive, 200);
-        }),
-      );
+  CoinAssetsService service(
+    Directory root,
+    List<int> archive, {
+    String remoteCommit = commit,
+  }) => CoinAssetsService(
+    storageRoot: root,
+    client: MockClient((request) async {
+      if (request.url.host == 'api.github.com') {
+        return http.Response(
+          jsonEncode({
+            'commit': {'sha': remoteCommit},
+          }),
+          200,
+        );
+      }
+      return http.Response.bytes(archive, 200);
+    }),
+  );
 
   test('downloads a verified snapshot and tracks its commit', () async {
     final root = await temporaryRoot();
@@ -84,6 +113,23 @@ void main() {
     await expectLater(assets.downloadLatest(), throwsFormatException);
     expect(await assets.currentCommit, isNull);
     expect(await File('${root.path}/current').exists(), isFalse);
+  });
+
+  test('invalid hashed catalogs never replace a valid snapshot', () async {
+    final root = await temporaryRoot();
+    final valid = service(root, makeArchive());
+    await valid.downloadLatest();
+    const nextCommit = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+    for (final catalog in ['not JSON', '{}', '{"BTC": 42}']) {
+      final invalid = service(
+        root,
+        makeArchive(catalogOverride: catalog, archiveCommit: nextCommit),
+        remoteCommit: nextCommit,
+      );
+      await expectLater(invalid.downloadLatest(), throwsA(isA<Exception>()));
+      expect(await valid.currentCommit, commit);
+      expect(await Directory('${root.path}/$nextCommit').exists(), isFalse);
+    }
   });
 
   testWidgets('first-launch screen asks before downloading', (tester) async {

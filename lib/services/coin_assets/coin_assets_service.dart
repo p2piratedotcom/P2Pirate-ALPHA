@@ -5,6 +5,7 @@ import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import 'package:komodo_coin_updates/komodo_coin_updates.dart';
+import 'package:komodo_defi_types/komodo_defi_types.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -138,6 +139,7 @@ class CoinAssetsService {
       await File(
         p.join(staging.path, 'manifest.json'),
       ).writeAsBytes(manifestBytes, flush: true);
+      await _verifyDirectory(staging);
       final finalDir = Directory(p.join(root.path, commit));
       final type = await FileSystemEntity.type(
         finalDir.path,
@@ -226,19 +228,19 @@ class CoinAssetsService {
         );
       }
     }
+    await _parseCatalog(snapshot);
   }
 
-  /// Installs the selected catalog into the SDK store before SDK startup.
-  /// Settings downloads take effect after restarting the wallet.
-  Future<String?> activateCurrent() async {
-    final commit = await currentCommit;
-    if (commit == null) return null;
-    final root = await _root;
+  Future<List<Asset>> _parseCatalog(Directory snapshot) async {
     final configFile = File(
-      p.join(root.path, commit, 'utils/coins_config_unfiltered.json'),
+      p.join(snapshot.path, 'utils/coins_config_unfiltered.json'),
     );
-    final config =
-        jsonDecode(await configFile.readAsString()) as Map<String, dynamic>;
+    final decoded = jsonDecode(await configFile.readAsString());
+    if (decoded is! Map<String, dynamic> ||
+        decoded.values.any((value) => value is! Map<String, dynamic>)) {
+      throw const FormatException('Invalid Assets catalog structure');
+    }
+    final config = decoded;
     const transformer = CoinConfigTransformer();
     final transformed = <String, Map<String, dynamic>>{
       for (final item in config.entries)
@@ -254,6 +256,16 @@ class CoinAssetsService {
     if (assets.length < 100) {
       throw const FormatException('Assets catalog is unexpectedly small');
     }
+    return assets;
+  }
+
+  /// Installs the selected catalog into the SDK store before SDK startup.
+  /// Settings downloads take effect after restarting the wallet.
+  Future<String?> activateCurrent() async {
+    final commit = await currentCommit;
+    if (commit == null) return null;
+    final root = await _root;
+    final assets = await _parseCatalog(Directory(p.join(root.path, commit)));
     final documents = await getApplicationDocumentsDirectory();
     await KomodoCoinUpdater.ensureInitialized(
       p.join(documents.path, 'komodo_coins'),
