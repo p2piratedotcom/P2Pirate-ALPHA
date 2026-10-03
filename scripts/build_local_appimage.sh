@@ -16,6 +16,11 @@ printf '%s  %s\n' \
   '156f4bdbde9c52d01814600013e0a273f0118dc2de98975f3c8c63427ec79074' \
   "$APPIMAGE_RUNTIME_FILE" | sha256sum --check --status
 [[ -x "$BUNDLE/P2Pirate" ]] || { echo 'Build the Linux release bundle first' >&2; exit 1; }
+[[ -s "$BUNDLE/P2Pirate.svg" ]] || { echo 'Missing vector window icon in Linux bundle' >&2; exit 1; }
+[[ -s "$BUNDLE/data/flutter_assets/assets/logo/p2pirate_mark.svg" ]] || {
+  echo 'Missing vector wallet logo in Flutter assets' >&2
+  exit 1
+}
 COIN_ASSETS="$BUNDLE/data/flutter_assets/packages/komodo_defi_framework/assets"
 for name in coins.json coins_config.json seed_nodes.json; do
   [[ -s "$COIN_ASSETS/config/$name" ]] || {

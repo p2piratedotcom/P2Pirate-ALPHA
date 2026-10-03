@@ -15,16 +15,19 @@ if [ "$#" -eq 2 ]; then
 else
   launcher="$bundle/P2Pirate"
 fi
-if [ ! -x "$launcher" ] || [ ! -f "$bundle/P2Pirate.png" ]; then
-  echo 'Bundle executable, launcher, or P2Pirate.png is missing' >&2
+if [ ! -x "$launcher" ] || [ ! -f "$bundle/P2Pirate.png" ] \
+   || [ ! -f "$bundle/P2Pirate.svg" ]; then
+  echo 'Bundle executable, launcher, or P2Pirate icons are missing' >&2
   exit 1
 fi
 
 data_home=${XDG_DATA_HOME:-"$HOME/.local/share"}
 applications="$data_home/applications"
 icons="$data_home/icons/hicolor/512x512/apps"
-mkdir -p "$applications" "$icons"
+scalable_icons="$data_home/icons/hicolor/scalable/apps"
+mkdir -p "$applications" "$icons" "$scalable_icons"
 install -m 644 "$bundle/P2Pirate.png" "$icons/P2Pirate.png"
+install -m 644 "$bundle/P2Pirate.svg" "$scalable_icons/P2Pirate.svg"
 if command -v gtk-update-icon-cache >/dev/null 2>&1; then
   gtk-update-icon-cache -f -t "$data_home/icons/hicolor"
 fi

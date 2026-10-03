@@ -18,12 +18,23 @@ The original P icon remains in `assets/logo/pirate_icon.png` for provenance.
 The application identity now uses artwork supplied by the P2Pirate project:
 `assets/logo/p2pirate_wordmark.png` is the unchanged supplied image, while
 `assets/logo/p2pirate_emblem.png` is a square, transparent derivative made by
-removing the wordmark and completing the circular rim. The simplified
-`assets/logo/p2pirate_mark.png` was generated from that emblem for legibility at
-small sizes. It has a larger portrait and heavier shapes, with no wordmark or
-fine decorative lines. The mark appears above the P2Pirate name in the desktop
-menu and is copied to `linux/P2Pirate.png` for the GTK window and Linux
-desktop icon. This artwork is a P2Pirate identity, not the official
+removing the wordmark and completing the circular rim. The simplified raster
+reference `docs/assets/p2pirate_mark_reference.png` was generated from that
+emblem with a larger portrait and heavier shapes.
+`assets/logo/p2pirate_mark.svg` is now the canonical application mark. Its
+white and gold shapes were traced and simplified from the raster reference.
+The circular rim was redrawn as a clean vector. It contains real SVG paths
+rather than an embedded bitmap. Flutter renders this SVG directly in the
+sidebar, keeping its square proportions at every display scale. Native desktop
+icon formats use generated files:
+`scripts/render_p2pirate_icons.py` creates the Linux PNG fallback, the macOS
+AppIcon images and ICNS, and the Windows ICO from the same source. The Linux
+bundle and desktop installer also use the SVG directly for the GTK window and
+the scalable desktop icon. On Linux, install `python3-gi`, `gir1.2-rsvg-2.0`
+and `python3-pil`, then run
+`python3 scripts/render_p2pirate_icons.py` after editing the SVG. The mark
+appears above the P2Pirate name in the desktop menu and on the running app's
+window and dock icon. This artwork is a P2Pirate identity, not the official
 Pirate Chain P mark; the application does not claim official endorsement.
 
 The app theme follows the [Pirate Chain canvas](https://piratechain.com/canvas/):

@@ -64,12 +64,19 @@ static void my_application_activate(GApplication* application) {
       ? g_path_get_dirname(executable_path)
       : g_get_current_dir();
   g_autofree gchar* icon_path =
-      g_build_filename(executable_dir, "P2Pirate.png", nullptr);
+      g_build_filename(executable_dir, "P2Pirate.svg", nullptr);
   GError* error = NULL;
-  gtk_window_set_icon_from_file(window, icon_path, &error);
-  if (error) {
-    g_warning("Failed to set window icon: %s", error->message);
-    g_error_free(error);
+  if (!gtk_window_set_icon_from_file(window, icon_path, &error)) {
+    g_clear_error(&error);
+    // Some Linux installations cannot load SVG through GdkPixbuf. Keep the
+    // generated PNG as a native icon fallback on those systems.
+    g_autofree gchar* png_path =
+        g_build_filename(executable_dir, "P2Pirate.png", nullptr);
+    if (!gtk_window_set_icon_from_file(window, png_path, &error)) {
+      g_warning("Failed to set window icon: %s",
+                error != nullptr ? error->message : "unknown error");
+      g_clear_error(&error);
+    }
   }
 
   // Use a header bar when running in GNOME as this is the common style used
