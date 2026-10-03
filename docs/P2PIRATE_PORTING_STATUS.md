@@ -128,10 +128,12 @@ to end.
 
 ## Remaining release work
 
-- Review the exact redistributed Tor and torsocks binaries against their
-  source revisions and licenses, and publish the corresponding notices.
-- Review public GUI source and license obligations and coin-asset distribution
-  terms before publishing desktop binaries.
+- Publish the prepared, hash-verified Ubuntu Tor and torsocks source packages,
+  licenses and notices with a future reviewed GUI release. The local AppImage
+  already contains them; see [asset provenance](LINUX_ASSET_PROVENANCE.md).
+- Review remaining public GUI source and license obligations before publishing
+  desktop binaries. The local release recipe excludes coin PNG artwork and
+  renders ticker badges instead; it pins the factual coin parameter JSONs.
 - Complete Tor-on first-run verification, including KDF, Dart HTTP, images and
   WebView traffic. Document the observed limits; do not assume coverage from
   a successful desktop build.
@@ -141,7 +143,8 @@ to end.
 - Publish a reviewed KDF 2.7 release in the SDK fork with source revision,
   build method, license and hashes. That fork currently has no KDF executable
   release; GUI #41 pins the reviewed ShorelineCrypto release meanwhile.
-- Pin and document coin assets for reproducible offline release builds.
+- Preserve the pinned coin parameter files and their source hash manifest for
+  reproducible offline release builds.
 - Perform wallet-level checks with Tor enabled, then a swap/recovery exercise
   using an appropriate low-risk environment and the user's approval.
 
