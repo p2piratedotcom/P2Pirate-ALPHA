@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:web_dex/views/market_maker_bot/mm_engine_trading_controls.dart';
+import 'package:web_dex/views/market_maker_bot/mm_engine_balance_refresh.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:komodo_defi_sdk/komodo_defi_sdk.dart';
 import 'package:web_dex/bloc/auth_bloc/auth_bloc.dart';
@@ -8,7 +10,7 @@ import 'package:web_dex/views/market_maker_bot/mm_engine_strategy_form.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_preview.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_dashboard.dart';
 
-/// A thin wallet client. Strategy and exchange logic belongs to MM_Engine.
+/// A thin wallet client. Strategy and exchange logic belongs to P2Pirate Trading Engine.
 class MarketMakerBotPage extends StatefulWidget {
   const MarketMakerBotPage({super.key});
 
@@ -26,56 +28,59 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
   Map<String, dynamic>? _reconciliation;
   Map<String, dynamic>? _credentials;
   Map<String, dynamic>? _markets;
-  List<Map<String, dynamic>> _orders = [], _balances = [];
-  String _venue = 'MEXC';
-  String? _balanceError;
-  bool _balanceLoading = false;
+  List<Map<String, dynamic>> _orders = [];
+  final _selectedOrders = <String>{};
+  late final MmEngineBalanceRefresh _balanceRefresh;
+  String get _venue => _balanceRefresh.venue;
+  bool get _balanceLoading => _balanceRefresh.loading;
 
-  Future<void> _loadBalances() async {
-    if (_balanceLoading || !MmEngineService.instance.isRunning) return;
-    final requestedVenue = _venue;
-    setState(() {
-      _balanceLoading = true;
-      _balanceError = null;
-      _balances = [];
-    });
-    try {
-      final result = await MmEngineService.instance.request(
-        'GET',
-        '/v1/exchanges/balances?venue=$requestedVenue',
-      );
-      if (!mounted || requestedVenue != _venue) return;
-      final assets = RepositoryProvider.of<KomodoDefiSdk>(
-        context,
-      ).assets.available.values;
-      final names = <String, String>{
-        for (final asset in assets) asset.id.id: asset.id.name,
-      };
-      final rows = (result['balances'] as List)
-          .whereType<Map<String, dynamic>>()
-          .map(
-            (row) => <String, dynamic>{
-              ...row,
-              'name': names[row['ticker']] ?? row['ticker'],
-            },
-          )
-          .toList();
-      if (mounted && requestedVenue == _venue) {
-        setState(() => _balances = rows);
-      }
-    } catch (error) {
-      if (mounted && requestedVenue == _venue) {
-        setState(() => _balanceError = '$error');
-      }
-    } finally {
-      if (mounted) setState(() => _balanceLoading = false);
-    }
+  Future<List<Map<String, dynamic>>> _fetchBalances(String venue) async {
+    final result = await MmEngineService.instance.request(
+      'GET',
+      '/v1/exchanges/balances?venue=$venue',
+    );
+    if (!mounted) return [];
+    final assets = RepositoryProvider.of<KomodoDefiSdk>(
+      context,
+    ).assets.available.values;
+    final names = <String, String>{
+      for (final asset in assets) asset.id.id: asset.id.name,
+    };
+    final rows = result['balances'];
+    if (rows is! List) throw const FormatException('Missing Spot balances');
+    return rows
+        .whereType<Map<String, dynamic>>()
+        .map(
+          (row) => <String, dynamic>{
+            ...row,
+            'name': names[row['ticker']] ?? row['ticker'],
+          },
+        )
+        .toList();
   }
 
   @override
   void initState() {
     super.initState();
+    _balanceRefresh = MmEngineBalanceRefresh(
+      load: _fetchBalances,
+      canRefresh: (venue) =>
+          !_busy &&
+          MmEngineService.instance.isRunning &&
+          (_credentials?['venues'] as Map?)?[venue] == true,
+    )..addListener(_onBalanceChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  void _onBalanceChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _balanceRefresh.removeListener(_onBalanceChanged);
+    _balanceRefresh.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -97,9 +102,12 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
   }
 
   Future<void> _connect() async {
+    _balanceRefresh.invalidate(clear: true);
     final user = context.read<AuthBloc>().state.currentUser;
     if (user == null) {
-      throw StateError('Log in to the wallet before opening MM_Engine');
+      throw StateError(
+        'Log in to the wallet before opening P2Pirate Trading Engine',
+      );
     }
     await MmEngineService.instance.start(
       sdk: RepositoryProvider.of<KomodoDefiSdk>(context),
@@ -125,6 +133,12 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
       _orders = (orders['orders'] as List)
           .whereType<Map<String, dynamic>>()
           .toList();
+      final saved =
+          (_strategies?['strategies'] as List?)
+              ?.whereType<Map<String, dynamic>>()
+              .toList() ??
+          <Map<String, dynamic>>[];
+      _selectedOrders.retainAll(startableMakerOrderIds(saved, _orders));
       _error = null;
     });
   }
@@ -156,17 +170,12 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(
-          enabled ? 'Start all live trading?' : 'Stop all live trading?',
-        ),
+        title: Text(enabled ? 'Start live trading?' : 'Stop live trading?'),
         content: Text(
           enabled
-              ? 'MM_Engine can publish funded KDF maker orders and place real '
-                    'hedges on the selected CEX. All paused strategies will be started. '
-                    'Enabled strategies resume when you next open this wallet. '
-                    'Check balances, CEX API permissions and strategy limits first.'
-              : 'The engine will cancel its open maker orders and restart in '
-                    'preview mode. Active swaps must finish first.',
+              ? mmEngineStartLiveNotice
+              : 'The engine will pause all maker orders, cancel its open orders '
+                    'and return to preview mode. Active swaps must finish first.',
         ),
         actions: [
           TextButton(
@@ -175,7 +184,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text(enabled ? 'Enable live mode' : 'Stop live mode'),
+            child: Text(enabled ? 'Start live trading' : 'Stop live trading'),
           ),
         ],
       ),
@@ -185,25 +194,100 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     final sdk = RepositoryProvider.of<KomodoDefiSdk>(context);
     if (user == null) throw StateError('Wallet is no longer signed in');
     await _runBusy(() async {
-      await MmEngineService.instance.stop();
-      if (!enabled) {
-        await MmEngineService.instance.clearLivePreference(
-          user.walletId.compoundId,
+      _balanceRefresh.invalidate();
+      try {
+        await switchMmEngineTradingMode(
+          enabled: enabled,
+          request: MmEngineService.instance.request,
+          stop: MmEngineService.instance.stop,
+          clearLivePreference: () => MmEngineService.instance
+              .clearLivePreference(user.walletId.compoundId),
+          start: (live) => MmEngineService.instance.start(
+            sdk: sdk,
+            walletId: user.walletId.compoundId,
+            liveTrading: live,
+          ),
         );
+      } finally {
+        if (mounted && MmEngineService.instance.isRunning) await _refresh();
       }
-      await MmEngineService.instance.start(
-        sdk: sdk,
-        walletId: user.walletId.compoundId,
-        liveTrading: enabled,
+    });
+  }
+
+  Future<void> _startSelectedOrders() async {
+    if (_busy || !MmEngineService.instance.liveEnabled) return;
+    final rows =
+        ((_strategies?['strategies'] as List?) ?? [])
+            .whereType<Map<String, dynamic>>()
+            .toList()
+          ..sort(
+            (a, b) => (a['creation_number'] as int? ?? 999999).compareTo(
+              b['creation_number'] as int? ?? 999999,
+            ),
+          );
+    final eligible = startableMakerOrderIds(rows, _orders);
+    final selected = rows
+        .where(
+          (row) =>
+              _selectedOrders.contains(row['id']) &&
+              eligible.contains(row['id']),
+        )
+        .toList();
+    if (selected.isEmpty) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Start ${selected.length} selected maker orders?'),
+        content: SizedBox(
+          width: 540,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Only the orders below will be activated. This can publish real KDF maker orders and hedge completed swaps on their configured exchanges.',
+                ),
+                const SizedBox(height: 16),
+                for (final row in selected)
+                  Text(
+                    'Order #${row['creation_number'] ?? '—'} · '
+                    '${(row['spec'] as Map)['base']['ticker']} / ${(row['spec'] as Map)['quote']['ticker']}',
+                  ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Start selected orders'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await _runBusy(() async {
+      final result = await startSelectedMakerOrders(
+        ids: selected.map((row) => row['id'] as String).toList(),
+        eligible: eligible,
+        live: MmEngineService.instance.liveEnabled,
+        request: MmEngineService.instance.request,
       );
-      if (enabled) {
-        await MmEngineService.instance.request(
-          'POST',
-          '/v1/strategies/start-all',
-          body: {'confirmation': 'AVVIA TUTTE'},
+      if (!mounted) return;
+      _selectedOrders.removeAll(result.started);
+      await _refresh();
+      if (mounted && result.error != null) {
+        setState(
+          () => _error =
+              'Activation interrupted after ${result.started.length} confirmed starts. '
+              'Check Status for the remaining selected orders: ${result.error}',
         );
       }
-      await _refresh();
     });
   }
 
@@ -225,7 +309,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                 children: [
                   const Text(
                     'Use a trading-only API key. Transfer permissions '
-                    'are not used by MM_Engine.',
+                    'are not used by P2Pirate Trading Engine.',
                   ),
                   DropdownButtonFormField<String>(
                     initialValue: selectedVenue,
@@ -281,11 +365,8 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
         );
         await _refresh();
         if (mounted) {
-          setState(() {
-            _venue = selectedVenue;
-            _balances = [];
-            _balanceError = null;
-          });
+          _balanceRefresh.invalidate(clear: true);
+          _balanceRefresh.selectVenue(selectedVenue);
         }
       });
     } finally {
@@ -513,7 +594,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     setState(() {
       _busy = true;
       _error = null;
-      _downloadStatus = 'Checking the latest MM_Engine release…';
+      _downloadStatus = 'Checking the latest P2Pirate Trading Engine release…';
       _downloadProgress = null;
     });
     try {
@@ -522,9 +603,9 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
       final accepted = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Install MM_Engine?'),
+          title: const Text('Install P2Pirate Trading Engine?'),
           content: Text(
-            'Download version ${release.tag} from the MM_Engine repository. '
+            'Download version ${release.tag} from the P2Pirate Trading Engine repository. '
             'P2Pirate will verify that the release is immutable and its '
             'binary matches the SHA-256 published by GitHub.',
           ),
@@ -545,7 +626,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
         setState(() => _downloadStatus = 'Stopping the current engine…');
         await MmEngineService.instance.stop();
       }
-      setState(() => _downloadStatus = 'Downloading MM_Engine…');
+      setState(() => _downloadStatus = 'Downloading P2Pirate Trading Engine…');
       await MmEngineInstallService.install(
         release,
         onProgress: (progress) {
@@ -557,7 +638,8 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
           setState(() {
             _downloadProgress = progress;
             _downloadStatus = switch (progress.stage) {
-              MmEngineInstallStage.binary => 'Downloading MM_Engine…',
+              MmEngineInstallStage.binary =>
+                'Downloading P2Pirate Trading Engine…',
               MmEngineInstallStage.notices => 'Downloading license notices…',
               MmEngineInstallStage.verifying => 'Verifying the download…',
             };
@@ -567,7 +649,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
       _installed = true;
       if (mounted) {
         setState(() {
-          _downloadStatus = 'Starting MM_Engine…';
+          _downloadStatus = 'Starting P2Pirate Trading Engine…';
           _downloadProgress = null;
         });
       }
@@ -594,129 +676,139 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     final keyring = _credentials?['venues'];
     final credentials = keyring is Map ? keyring : const {};
     final live = MmEngineService.instance.liveEnabled;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1050),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            OverflowBar(
-              alignment: MainAxisAlignment.spaceBetween,
-              spacing: 12,
-              overflowSpacing: 8,
-              children: [
-                Text(
-                  'P2PIRATE TRADING ENGINE',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
+    return SelectionArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1050),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              OverflowBar(
+                alignment: MainAxisAlignment.spaceBetween,
+                spacing: 12,
+                overflowSpacing: 8,
+                children: [
+                  Text(
+                    'P2PIRATE TRADING ENGINE',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
                   ),
-                ),
-                Wrap(
-                  children: [
-                    if (_installed && MmEngineService.instance.isRunning)
-                      TextButton.icon(
-                        onPressed: _busy ? null : _refresh,
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('Refresh'),
-                      ),
-                    if (_installed)
-                      TextButton.icon(
-                        onPressed: _busy ? null : _download,
-                        icon: const Icon(Icons.system_update_alt),
-                        label: const Text('Check updates'),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-            const Divider(height: 1),
-            const SizedBox(height: 20),
-            if (_busy) ...[
-              if (_downloadStatus != null) ...[
-                Text(_downloadStatus!),
-                const SizedBox(height: 8),
-              ],
-              LinearProgressIndicator(value: _downloadProgress?.fraction),
-              if (_downloadProgress case final progress?) ...[
-                const SizedBox(height: 6),
-                Text(
-                  '${progress.percent}% · '
-                  '${(progress.receivedBytes / (1024 * 1024)).toStringAsFixed(1)} / '
-                  '${(progress.totalBytes / (1024 * 1024)).toStringAsFixed(1)} MB',
-                ),
-              ],
-            ],
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                child: SelectableText(
-                  _error!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
-              ),
-            if (!_installed)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Wrap(
                     children: [
-                      const Text('MM_Engine is not installed'),
-                      const SizedBox(height: 10),
-                      const Text(
-                        'The wallet can download the latest verified Linux release when you choose.',
-                      ),
-                      const SizedBox(height: 12),
-                      ElevatedButton(
-                        onPressed: _busy ? null : _download,
-                        child: const Text('Check and download'),
-                      ),
+                      if (_installed && MmEngineService.instance.isRunning)
+                        TextButton.icon(
+                          onPressed: _busy ? null : _refresh,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Refresh'),
+                        ),
+                      if (_installed)
+                        TextButton.icon(
+                          onPressed: _busy ? null : _download,
+                          icon: const Icon(Icons.system_update_alt),
+                          label: const Text('Check updates'),
+                        ),
                     ],
                   ),
-                ),
-              )
-            else if (MmEngineService.instance.isRunning) ...[
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    '${live ? 'LIVE trading enabled' : 'Preview mode'} · '
-                    'Active swaps: ${_reconciliation?['active_owned_swaps'] ?? '—'} · '
-                    'Open maker orders: ${_reconciliation?['owned_open_orders'] ?? '—'}',
+                ],
+              ),
+              const Divider(height: 1),
+              const SizedBox(height: 20),
+              if (_busy) ...[
+                if (_downloadStatus != null) ...[
+                  Text(_downloadStatus!),
+                  const SizedBox(height: 8),
+                ],
+                LinearProgressIndicator(value: _downloadProgress?.fraction),
+                if (_downloadProgress case final progress?) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    '${progress.percent}% · '
+                    '${(progress.receivedBytes / (1024 * 1024)).toStringAsFixed(1)} / '
+                    '${(progress.totalBytes / (1024 * 1024)).toStringAsFixed(1)} MB',
+                  ),
+                ],
+              ],
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: SelectableText(
+                    _error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
                   ),
                 ),
-              ),
-              MmEngineDashboard(
-                orders: _orders,
-                strategies: strategies.toList(),
-                venue: _venue,
-                credentials: credentials,
-                balances: _balances,
-                busy: _busy,
-                live: live,
-                balanceError: _balanceError,
-                balanceLoading: _balanceLoading,
-                onLive: () => _setLive(!live),
-                onNew: () => _createStrategy(),
-                onVenue: (venue) {
-                  if (_balanceLoading) return;
-                  setState(() {
-                    _venue = venue;
-                    _balances = [];
-                    _balanceError = null;
-                  });
-                  if (credentials[venue] == true) _loadBalances();
-                },
-                onAdd: () => _configureCredentials(_venue),
-                onBalances: _loadBalances,
-                onModify: _modifyStrategy,
-                onDetails: _showDetails,
-                onStrategy: (id, start) => _changeStrategy(id, start: start),
-              ),
+              if (!_installed)
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('P2Pirate Trading Engine is not installed'),
+                        const SizedBox(height: 10),
+                        const Text(
+                          'The wallet can download the latest verified Linux release when you choose.',
+                        ),
+                        const SizedBox(height: 12),
+                        ElevatedButton(
+                          onPressed: _busy ? null : _download,
+                          child: const Text('Check and download'),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else if (MmEngineService.instance.isRunning) ...[
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      '${live ? 'LIVE trading enabled' : 'Preview mode'} · '
+                      'Active swaps: ${_reconciliation?['active_owned_swaps'] ?? '—'} · '
+                      'Open maker orders: ${_reconciliation?['owned_open_orders'] ?? '—'}',
+                    ),
+                  ),
+                ),
+                MmEngineDashboard(
+                  orders: _orders,
+                  strategies: strategies.toList(),
+                  venue: _venue,
+                  credentials: credentials,
+                  balances: _balanceRefresh.balances,
+                  busy: _busy,
+                  live: live,
+                  balanceError: _balanceRefresh.error,
+                  balanceUpdatedAt: _balanceRefresh.updatedAt,
+                  balanceRefreshSeconds: _balanceRefresh.secondsRemaining,
+                  cexExpanded: _balanceRefresh.expanded,
+                  onToggleCex: _balanceRefresh.toggleExpanded,
+                  balanceLoading: _balanceLoading,
+                  selectedOrders: _selectedOrders,
+                  onSelection: (ids) => setState(() {
+                    _selectedOrders
+                      ..clear()
+                      ..addAll(ids);
+                  }),
+                  onStartSelected: _startSelectedOrders,
+                  onLive: () => _setLive(!live),
+                  onNew: () => _createStrategy(),
+                  onVenue: (venue) {
+                    if (_balanceLoading || _busy) return;
+                    _balanceRefresh.selectVenue(venue);
+                  },
+                  onAdd: () => _configureCredentials(_venue),
+                  onBalances: _balanceRefresh.refresh,
+                  onModify: _modifyStrategy,
+                  onDetails: _showDetails,
+                  onStrategy: (id, start) => _changeStrategy(id, start: start),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

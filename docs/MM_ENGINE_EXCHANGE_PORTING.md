@@ -44,3 +44,53 @@ The sidebar polls `get_directly_connected_peers` on local KDF every 15 seconds,
 counts peer IDs once regardless of address count, and clears unavailable/stale
 results. Polls do not overlap and stop on widget disposal. Remote traffic
 continues to use Tor.
+
+## Responsive dashboard and balance refresh (2026-10-03)
+
+Maker rows contain only the order data columns. UUID, copy, Details, Pause/Start
+and Modify share a wrapping footer that stays inside the viewport. At narrow
+widths, order data uses labelled cells rather than clipped columns. Text can be
+selected throughout the page; Copy UUID copies the exact published identifier.
+Existing confirmation, pause and modification eligibility rules are preserved.
+
+MY CEXs can be collapsed. When expanded, the selected, configured exchange is
+read automatically after connection and every 60 seconds after the previous
+attempt completes. A countdown and last-successful-update time show freshness.
+The last successful balances remain visible during refresh and after a failed
+request, with an explicit failure label. A valid empty result replaces old
+balances. Each exchange has a separate display cache. Polls never overlap, wait
+while engine operations are busy, and stop when collapsed or the page is disposed.
+Late replies from replaced engine sessions or API credentials are ignored.
+
+These snapshots are read-only display data. They do not extend MM_Engine's
+short-lived sizing or hedge coverage leases. Preview and live publication still
+perform the engine's own freshness and risk checks. No engine release or API
+change is required for this dashboard update.
+
+## Live permission and selected orders (2026-10-03)
+
+The visible engine name is **P2Pirate Trading Engine**. GitHub URLs, repository
+identity checks, environment variables, installation directories and the
+`MM_ENGINE_READY`/`MM_ENGINE_STOPPED` framing retain their existing technical
+names for compatibility. The window title is `P2Pirate | Desktop`.
+
+Start live trading pauses persisted enabled strategies through the existing
+pause-all endpoint **before** stopping and restarting with live permissions.
+It does not invoke start-all. Failure to pause/withdraw blocks this transition.
+Stop live trading also pauses configurations and returns to preview, retaining
+the existing refusal to stop while owned swaps or unresolved problems remain.
+
+Each eligible paused, disabled, unpublished order has a checkbox. The header
+selects/deselects all eligible orders; partially selected rows use a mixed-state
+checkbox. Selection itself and entering live mode do not activate orders.
+Start selected orders requires live mode and one confirmation listing the order
+numbers and markets. It sends an individually confirmed start request only for
+each selected ID. Deleted, exhausted, running and review-required rows are not
+eligible. An error stops further requests, refreshes the visible state and
+reports confirmed starts without claiming an ambiguous request did not execute.
+Selection of already activated rows is cleared after status refresh.
+
+The persistent wallet live preference and crash-recovery behavior remain in
+place: orders explicitly started by the user may resume when reopening the
+wallet. The revised enable-live notice explains both the separate activation
+step and this behavior. No engine API or repository migration is required.

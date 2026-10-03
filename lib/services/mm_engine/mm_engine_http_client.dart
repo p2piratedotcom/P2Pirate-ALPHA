@@ -6,10 +6,13 @@ class MmEngineRequestException implements Exception {
   final String message;
   final int statusCode;
   @override
-  String toString() => message;
+  String toString() => message.replaceAll(
+    RegExp(r'MM[_ ]Engine', caseSensitive: false),
+    'P2Pirate Trading Engine',
+  );
 }
 
-/// Sends one request to the local MM_Engine API.
+/// Sends one request to the local P2Pirate Trading Engine API.
 /// The Python service requires Content-Length for every POST, including {}.
 Future<Map<String, dynamic>> sendMmEngineRequest(
   Uri baseUrl,
@@ -41,12 +44,12 @@ Future<Map<String, dynamic>> sendMmEngineRequest(
     final response = await call.close().timeout(responseTimeout);
     final payload = jsonDecode(await utf8.decoder.bind(response).join());
     if (payload is! Map<String, dynamic>) {
-      throw StateError('Invalid MM_Engine response');
+      throw StateError('Invalid P2Pirate Trading Engine response');
     }
     if (response.statusCode >= 400) {
       throw MmEngineRequestException(
         payload['error']?.toString() ??
-            'MM_Engine request failed (${response.statusCode})',
+            'P2Pirate Trading Engine request failed (${response.statusCode})',
         response.statusCode,
       );
     }

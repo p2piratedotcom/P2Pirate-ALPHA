@@ -98,7 +98,11 @@ class AuthBloc extends Bloc<AuthBlocEvent, AuthBlocState> with TrezorAuthMixin {
     try {
       await MmEngineService.instance.stop();
     } catch (error, stack) {
-      _log.shout('MM_Engine prevented KDF sign out', error, stack);
+      _log.shout(
+        'P2Pirate Trading Engine prevented KDF sign out',
+        error,
+        stack,
+      );
       emit(previousState);
       return;
     }
@@ -208,7 +212,11 @@ class AuthBloc extends Bloc<AuthBlocEvent, AuthBlocState> with TrezorAuthMixin {
         walletId: user.walletId.compoundId,
       );
     } catch (error, stack) {
-      _log.shout('MM_Engine recovery needs attention', error, stack);
+      _log.shout(
+        'P2Pirate Trading Engine recovery needs attention',
+        error,
+        stack,
+      );
       if (MmEngineService.instance.needsRecovery) {
         MmEngineService.instance.attention.value =
             'Trading engine did not reconnect. Open it to recover.';

@@ -1,5 +1,7 @@
 import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:web_dex/views/market_maker_bot/mm_engine_trading_controls.dart';
 
 class MmEngineDashboard extends StatelessWidget {
   const MmEngineDashboard({
@@ -17,16 +19,30 @@ class MmEngineDashboard extends StatelessWidget {
     required this.onAdd,
     required this.onStrategy,
     required this.onBalances,
+    this.selectedOrders = const {},
+    this.onSelection,
+    this.onStartSelected,
     this.onModify,
     this.onDetails,
     this.balanceError,
     this.balanceLoading = false,
+    this.cexExpanded = true,
+    this.onToggleCex,
+    this.balanceRefreshSeconds,
+    this.balanceUpdatedAt,
   });
   final List<Map<String, dynamic>> orders, strategies, balances;
   final String venue;
+  final Set<String> selectedOrders;
+  final ValueChanged<Set<String>>? onSelection;
+  final VoidCallback? onStartSelected;
   final Map credentials;
   final bool busy, live, balanceLoading;
   final String? balanceError;
+  final bool cexExpanded;
+  final VoidCallback? onToggleCex;
+  final int? balanceRefreshSeconds;
+  final DateTime? balanceUpdatedAt;
   final VoidCallback onLive, onNew, onAdd, onBalances;
   final ValueChanged<String> onVenue;
   final void Function(String, bool) onStrategy;
@@ -41,7 +57,7 @@ class MmEngineDashboard extends StatelessWidget {
     builder: (context, constraints) => SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: SizedBox(
-        width: constraints.maxWidth < 850 ? 850 : constraints.maxWidth,
+        width: constraints.maxWidth < 520 ? 520 : constraints.maxWidth,
         child: DataTable(
           horizontalMargin: 0,
           columnSpacing: 20,
@@ -61,8 +77,7 @@ class MmEngineDashboard extends StatelessWidget {
   );
 
   Widget _makerTable(BuildContext context, List<Map<String, dynamic>> rows) {
-    final showModify = rows.any((row) => row['modifiable'] == true);
-    final headings = [
+    const headings = [
       '#',
       'SELL',
       'AMOUNT',
@@ -71,16 +86,65 @@ class MmEngineDashboard extends StatelessWidget {
       'PREMIUM',
       'HEDGING CEX',
       'STATUS',
-      'PAUSE',
-      if (showModify) 'MODIFY',
     ];
-    Widget line(List<Widget> cells) => Row(
+    final theme = Theme.of(context);
+    Widget value(Object? raw) => Text('${raw ?? '—'}');
+    final eligible = {
+      for (final row in rows)
+        if (row['selectable'] == true) row['strategy_id'] as String,
+    };
+    final selected = selectedOrders.intersection(eligible);
+    final allSelected =
+        eligible.isNotEmpty && selected.length == eligible.length;
+    Widget selectAll() => Tooltip(
+      message: 'Select all paused orders',
+      child: Checkbox(
+        key: const Key('select-all-maker-orders'),
+        tristate: true,
+        value: selected.isEmpty
+            ? false
+            : allSelected
+            ? true
+            : null,
+        onChanged: busy || eligible.isEmpty || onSelection == null
+            ? null
+            : (_) {
+                onSelection!(allSelected ? <String>{} : {...eligible});
+              },
+      ),
+    );
+    Widget selectRow(Map<String, dynamic> row) {
+      final id = row['strategy_id'];
+      return Tooltip(
+        message: row['selectable'] == true
+            ? 'Select this paused order'
+            : 'Only paused orders ready to start can be selected',
+        child: Checkbox(
+          key: Key('select-maker-order-$id'),
+          value: selected.contains(id),
+          onChanged: busy || row['selectable'] != true || onSelection == null
+              ? null
+              : (checked) {
+                  final next = {...selected};
+                  if (checked == true) {
+                    next.add(id as String);
+                  } else {
+                    next.remove(id);
+                  }
+                  onSelection!(next);
+                },
+        ),
+      );
+    }
+
+    Widget line(List<Widget> cells, Widget selection) => Row(
       children: [
+        SizedBox(width: 40, child: selection),
         for (var i = 0; i < cells.length; i++)
           Expanded(
             flex: i == 0
                 ? 1
-                : i == 6 || i == 7
+                : i == 4 || i == 6 || i == 7
                 ? 3
                 : 2,
             child: Padding(
@@ -90,91 +154,183 @@ class MmEngineDashboard extends StatelessWidget {
           ),
       ],
     );
-    Widget value(Object? raw) => Tooltip(
-      message: '${raw ?? '—'}',
-      child: Text('${raw ?? '—'}', overflow: TextOverflow.ellipsis),
-    );
     return LayoutBuilder(
-      builder: (context, constraints) => SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: SizedBox(
-          width: constraints.maxWidth < 1100 ? 1100 : constraints.maxWidth,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              line([
-                for (final heading in headings)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: Text(heading),
-                  ),
-              ]),
-              const Divider(height: 1),
-              for (var i = 0; i < rows.length; i++) ...[
-                Builder(
-                  builder: (context) {
-                    final row = rows[i];
-                    final id = row['strategy_id'];
-                    final enabled =
-                        row['enabled'] == 1 || row['order_uuid'] != null;
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: line([
-                        value(row['creation_number'] ?? i + 1),
-                        value(row['kdf_base']),
-                        value(row['kdf_volume']),
-                        value(row['kdf_price']),
-                        value(row['kdf_rel']),
-                        value(_premium(row['configured_premium'])),
-                        value(row['cex']),
-                        value(row['status']),
-                        TextButton(
-                          onPressed:
-                              busy || id is! String || (!enabled && !live)
-                              ? null
-                              : () => onStrategy(id, !enabled),
-                          child: Text(enabled ? 'Pause' : 'Start'),
-                        ),
-                        if (showModify)
-                          row['modifiable'] == true && id is String
-                              ? TextButton(
-                                  onPressed: busy || onModify == null
-                                      ? null
-                                      : () => onModify!(id),
-                                  child: const Text('Modify'),
-                                )
-                              : const SizedBox.shrink(),
-                      ]),
-                    );
-                  },
-                ),
-                Wrap(
-                  spacing: 12,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    SelectableText(
-                      'UUID: ${rows[i]['order_uuid'] ?? 'not published'}',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    if ('${rows[i]['detail'] ?? ''}'.isNotEmpty)
-                      Text(
-                        '${rows[i]['detail']}',
-                        style: Theme.of(context).textTheme.bodySmall,
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 780;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (compact)
+              Row(
+                children: [
+                  selectAll(),
+                  const Flexible(child: Text('Select all paused orders')),
+                ],
+              ),
+            if (!compact) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: line([
+                  for (final heading in headings)
+                    Text(
+                      heading,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
-                    TextButton(
-                      onPressed: onDetails == null
-                          ? null
-                          : () => onDetails!(rows[i]),
-                      child: const Text('Details'),
                     ),
-                  ],
-                ),
-                const Divider(height: 1),
-              ],
+                ], selectAll()),
+              ),
+              const Divider(height: 1),
             ],
-          ),
-        ),
-      ),
+            for (var i = 0; i < rows.length; i++)
+              Builder(
+                builder: (context) {
+                  final row = rows[i];
+                  final id = row['strategy_id'];
+                  final uuid = row['order_uuid']?.toString();
+                  final enabled = row['enabled'] == 1 || uuid != null;
+                  final values = [
+                    row['creation_number'] ?? i + 1,
+                    row['kdf_base'],
+                    row['kdf_volume'],
+                    row['kdf_price'],
+                    row['kdf_rel'],
+                    _premium(row['configured_premium']),
+                    row['cex'],
+                    row['status'],
+                  ];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (compact) ...[
+                          Row(
+                            children: [
+                              selectRow(row),
+                              const Flexible(child: Text('Select order')),
+                            ],
+                          ),
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 12,
+                            children: [
+                              for (var j = 0; j < headings.length; j++)
+                                SizedBox(
+                                  width: (constraints.maxWidth - 12) / 2,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        headings[j],
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                              color: theme
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                            ),
+                                      ),
+                                      value(values[j]),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ] else
+                          line([
+                            for (final raw in values) value(raw),
+                          ], selectRow(row)),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: constraints.maxWidth < 540
+                                  ? constraints.maxWidth
+                                  : 490,
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: SelectableText(
+                                      'UUID: ${uuid ?? 'not published'}',
+                                      style: theme.textTheme.bodySmall,
+                                    ),
+                                  ),
+                                  if (uuid != null)
+                                    IconButton(
+                                      tooltip: 'Copy UUID',
+                                      icon: const Icon(Icons.copy, size: 16),
+                                      onPressed: () async {
+                                        await Clipboard.setData(
+                                          ClipboardData(text: uuid),
+                                        );
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('UUID copied'),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                    ),
+                                ],
+                              ),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: onDetails == null
+                                  ? null
+                                  : () => onDetails!(row),
+                              icon: const Icon(Icons.info_outline, size: 16),
+                              label: const Text('Details'),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed:
+                                  busy ||
+                                      id is! String ||
+                                      (!enabled &&
+                                          (!live || row['selectable'] != true))
+                                  ? null
+                                  : () => onStrategy(id, !enabled),
+                              icon: Icon(
+                                enabled ? Icons.pause : Icons.play_arrow,
+                                size: 16,
+                              ),
+                              label: Text(enabled ? 'Pause' : 'Start'),
+                            ),
+                            if (row['modifiable'] == true && id is String)
+                              OutlinedButton.icon(
+                                onPressed: busy || onModify == null
+                                    ? null
+                                    : () => onModify!(id),
+                                icon: const Icon(Icons.edit_outlined, size: 16),
+                                label: const Text('Modify'),
+                              ),
+                          ],
+                        ),
+                        if ('${row['detail'] ?? ''}'.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            '${row['detail']}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 14),
+                        const Divider(height: 1),
+                      ],
+                    ),
+                  );
+                },
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -196,6 +352,7 @@ class MmEngineDashboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final startable = startableMakerOrderIds(strategies, orders);
     final byId = {for (final row in strategies) row['id']: row};
     final activeIds = orders.map((order) => order['strategy_id']).toSet();
     Map<String, dynamic> decorate(
@@ -210,6 +367,9 @@ class MmEngineDashboard extends StatelessWidget {
       return {
         ...order,
         'strategy_id': strategy?['id'] ?? order['strategy_id'],
+        'selectable': startable.contains(
+          strategy?['id'] ?? order['strategy_id'],
+        ),
         'creation_number': strategy?['creation_number'],
         'status': strategy?['state'] ?? order['status'],
         'detail': '${strategy?['detail'] ?? ''}'.isNotEmpty
@@ -256,6 +416,7 @@ class MmEngineDashboard extends StatelessWidget {
             b['creation_number'] as int? ?? 999999,
           ),
         );
+    final selectionCount = selectedOrders.intersection(startable).length;
     Text text(Object? value) => Text(value?.toString() ?? '—');
     final positive =
         balances
@@ -274,22 +435,20 @@ class MmEngineDashboard extends StatelessWidget {
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.black,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(20),
                 ),
               ),
               onPressed: busy ? null : onLive,
-              child: Text(
-                live ? 'Stop all live trading' : 'Start all live trading',
-              ),
+              child: Text(live ? 'Stop live trading' : 'Start live trading'),
             ),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.black,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(20),
                 ),
               ),
               onPressed: busy ? null : onNew,
@@ -299,102 +458,190 @@ class MmEngineDashboard extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 28),
-        Text(
-          'MY MAKER ORDERS',
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 10),
-        _makerTable(context, display),
-        if (display.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(top: 12),
-            child: Text(
-              'No maker orders yet. Create a new order to preview and save it paused.',
+        Card(
+          margin: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                OverflowBar(
+                  alignment: MainAxisAlignment.spaceBetween,
+                  spacing: 12,
+                  overflowSpacing: 8,
+                  children: [
+                    Text(
+                      'MY MAKER ORDERS',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Tooltip(
+                      message: live
+                          ? 'Activate only the selected paused orders'
+                          : 'Start live trading first; then activate the selected orders',
+                      child: ElevatedButton.icon(
+                        onPressed: busy || !live || selectionCount == 0
+                            ? null
+                            : onStartSelected,
+                        icon: const Icon(Icons.play_arrow),
+                        label: Text('Start selected orders ($selectionCount)'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                _makerTable(context, display),
+                if (display.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 12),
+                    child: Text(
+                      'No maker orders yet. Create a new order to preview and save it paused.',
+                    ),
+                  ),
+              ],
             ),
           ),
-        const SizedBox(height: 120),
-        Text(
-          'MY CEXs',
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 18),
-        Wrap(
-          spacing: 12,
-          runSpacing: 8,
-          children: [
-            for (final exchange in ['MEXC', 'GATE'])
-              ChoiceChip(
-                label: Text(exchange),
-                selected: venue == exchange,
-                selectedColor: Theme.of(context).colorScheme.primary,
-                showCheckmark: false,
-                onSelected: busy || balanceLoading
-                    ? null
-                    : (_) => onVenue(exchange),
-              ),
-            TextButton(
-              onPressed: busy || balanceLoading ? null : onAdd,
-              child: const Text('ADD CEX'),
-            ),
-          ],
         ),
         const SizedBox(height: 28),
-        OverflowBar(
-          alignment: MainAxisAlignment.spaceBetween,
-          spacing: 12,
-          overflowSpacing: 8,
-          children: [
-            Text(
-              '$venue BALANCES',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            TextButton.icon(
-              onPressed: busy || balanceLoading ? null : onBalances,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Refresh balances'),
-            ),
-          ],
-        ),
-        if (balanceLoading) const LinearProgressIndicator(),
-        if (balanceError != null)
-          Text(
-            balanceError!,
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
+        Card(
+          margin: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
-        if (credentials[venue] != true)
-          TextButton(
-            onPressed: busy || balanceLoading ? null : onAdd,
-            child: Text('Configure $venue API credentials'),
-          ),
-        _table(
-          context,
-          ['COIN', 'TICKER', 'AVAILABLE SPOT BALANCE'],
-          [
-            for (final row in positive)
-              [
-                text(row['name'] ?? row['ticker']),
-                text(row['ticker']),
-                text(row['available']),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'MY CEXs',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: onToggleCex,
+                      icon: Icon(
+                        cexExpanded ? Icons.expand_less : Icons.expand_more,
+                      ),
+                      label: Text(cexExpanded ? 'Hide' : 'Show'),
+                    ),
+                  ],
+                ),
+                if (cexExpanded) ...[
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    children: [
+                      for (final exchange in ['MEXC', 'GATE'])
+                        ChoiceChip(
+                          label: Text(exchange),
+                          selected: venue == exchange,
+                          selectedColor: Theme.of(context).colorScheme.primary,
+                          showCheckmark: false,
+                          onSelected: busy || balanceLoading
+                              ? null
+                              : (_) => onVenue(exchange),
+                        ),
+                      TextButton(
+                        onPressed: busy || balanceLoading ? null : onAdd,
+                        child: const Text('ADD CEX'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  const Divider(height: 1),
+                  const SizedBox(height: 12),
+                  OverflowBar(
+                    alignment: MainAxisAlignment.spaceBetween,
+                    spacing: 12,
+                    overflowSpacing: 8,
+                    children: [
+                      Text(
+                        '$venue BALANCES',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      TextButton.icon(
+                        onPressed: busy || balanceLoading ? null : onBalances,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Refresh balances'),
+                      ),
+                    ],
+                  ),
+                  if (credentials[venue] == true) ...[
+                    Text(
+                      balanceLoading
+                          ? 'Refreshing balances…'
+                          : 'Next refresh in ${balanceRefreshSeconds ?? 60}s',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    if (balanceUpdatedAt != null)
+                      Text(
+                        'Last update: ${balanceUpdatedAt!.toLocal().toIso8601String().split('.').first.replaceAll('T', ' ')}'
+                        '${balanceError != null ? ' · Last received balances; refresh failed.' : ''}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    const SizedBox(height: 8),
+                  ],
+                  if (balanceLoading) const LinearProgressIndicator(),
+                  if (balanceError != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        balanceError!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ),
+                  if (credentials[venue] != true)
+                    TextButton(
+                      onPressed: busy || balanceLoading ? null : onAdd,
+                      child: Text('Configure $venue API credentials'),
+                    ),
+                  _table(
+                    context,
+                    ['COIN', 'TICKER', 'AVAILABLE SPOT BALANCE'],
+                    [
+                      for (final row in positive)
+                        [
+                          text(row['name'] ?? row['ticker']),
+                          text(row['ticker']),
+                          text(row['available']),
+                        ],
+                    ],
+                  ),
+                  if (positive.isEmpty &&
+                      !balanceLoading &&
+                      balanceError == null &&
+                      credentials[venue] == true)
+                    Text(
+                      balanceUpdatedAt == null
+                          ? 'Loading your Spot account automatically.'
+                          : 'No positive Spot balances.',
+                    ),
+                  const SizedBox(height: 24),
+                  Text(
+                    '$venue REBALANCE CHECK',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Balances are read only. Preview checks funds required for each hedge; no funds are transferred here.',
+                  ),
+                ],
               ],
-          ],
-        ),
-        if (positive.isEmpty &&
-            !balanceLoading &&
-            balanceError == null &&
-            credentials[venue] == true)
-          const Text('Refresh balances to load your Spot account.'),
-        const SizedBox(height: 30),
-        Text(
-          '$venue REBALANCE CHECK',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Balances are read only. Preview checks funds required for each hedge; no funds are transferred here.',
+            ),
+          ),
         ),
       ],
     );

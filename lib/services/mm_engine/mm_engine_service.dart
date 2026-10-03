@@ -14,7 +14,7 @@ import 'package:web_dex/services/mm_engine/mm_engine_install_service.dart';
 import 'package:web_dex/services/mm_engine/mm_engine_http_client.dart';
 import 'package:web_dex/services/tor/pirate_tor_service.dart';
 
-/// The wallet is the KDF/Tor owner; this client only supervises MM_Engine.
+/// The wallet is the KDF/Tor owner; this client only supervises P2Pirate Trading Engine.
 /// The service continues running when its page is hidden and stops at logout
 /// or application close. Every profile gets an isolated persistent journal.
 class MmEngineService {
@@ -66,16 +66,20 @@ class MmEngineService {
     }
     if (desiredLive) _needsRecovery = true;
     if (_needsRecovery && !desiredLive) {
-      throw StateError('MM_Engine needs live recovery before preview mode');
+      throw StateError(
+        'P2Pirate Trading Engine needs live recovery before preview mode',
+      );
     }
     if (_process != null) await _stopProcess();
     if (!Platform.isLinux) {
       throw UnsupportedError(
-        'MM_Engine wallet integration currently supports Linux',
+        'P2Pirate Trading Engine wallet integration currently supports Linux',
       );
     }
     final executable = await MmEngineInstallService.currentExecutable();
-    if (executable == null) throw StateError('MM_Engine is not installed');
+    if (executable == null) {
+      throw StateError('P2Pirate Trading Engine is not installed');
+    }
     final password = await sdk.getRpcPassword();
     if (password == null || password.isEmpty) {
       throw StateError('KDF RPC credentials are not available');
@@ -89,7 +93,9 @@ class MmEngineService {
     await stateDir.create(recursive: true);
     final permissions = await Process.run('chmod', ['700', stateDir.path]);
     if (permissions.exitCode != 0) {
-      throw StateError('Cannot protect MM_Engine profile directory');
+      throw StateError(
+        'Cannot protect P2Pirate Trading Engine profile directory',
+      );
     }
     final coins = await StartupCoinsProvider.fetchRawCoinsForStartup();
     final coinsFile = File(p.join(stateDir.path, 'coins.json'));
@@ -110,7 +116,9 @@ class MmEngineService {
                   line.substring('MM_ENGINE_STOPPED '.length),
                 );
                 if (payload is! Map<String, dynamic>) {
-                  throw const FormatException('Invalid MM_Engine stop report');
+                  throw const FormatException(
+                    'Invalid P2Pirate Trading Engine stop report',
+                  );
                 }
                 if (_stopReport?.isCompleted == false) {
                   _stopReport!.complete(payload);
@@ -133,7 +141,9 @@ class MmEngineService {
                   message['protocol'] != 1 ||
                   message['port'] is! int ||
                   message['port'] < 1) {
-                throw const FormatException('Incompatible MM_Engine protocol');
+                throw const FormatException(
+                  'Incompatible P2Pirate Trading Engine protocol',
+                );
               }
               ready.complete(message['port'] as int);
             } catch (error) {
@@ -149,7 +159,7 @@ class MmEngineService {
       process.exitCode.then((code) {
         if (!ready.isCompleted) {
           ready.completeError(
-            StateError('MM_Engine exited before startup ($code)'),
+            StateError('P2Pirate Trading Engine exited before startup ($code)'),
           );
         }
         if (identical(_process, process)) {
@@ -198,7 +208,9 @@ class MmEngineService {
       if (capabilities['protocol'] != 1 ||
           capabilities['kdf_owner'] != 'wallet' ||
           capabilities['live_enabled'] != desiredLive) {
-        throw StateError('MM_Engine is incompatible with this wallet');
+        throw StateError(
+          'P2Pirate Trading Engine is incompatible with this wallet',
+        );
       }
       _liveEnabled = desiredLive;
       _needsRecovery = false;
@@ -229,7 +241,7 @@ class MmEngineService {
     if (!await file.exists()) return false;
     final decoded = jsonDecode(await file.readAsString());
     if (decoded is! Map<String, dynamic> || decoded['live_enabled'] is! bool) {
-      throw StateError('MM_Engine wallet preference is invalid');
+      throw StateError('P2Pirate Trading Engine wallet preference is invalid');
     }
     return decoded['live_enabled'] as bool;
   }
@@ -239,7 +251,9 @@ class MmEngineService {
     await directory.create(recursive: true);
     final permissions = await Process.run('chmod', ['700', directory.path]);
     if (permissions.exitCode != 0) {
-      throw StateError('Cannot protect MM_Engine profile directory');
+      throw StateError(
+        'Cannot protect P2Pirate Trading Engine profile directory',
+      );
     }
     final file = File(p.join(directory.path, 'wallet-preferences.json'));
     await file.writeAsString(
@@ -248,7 +262,9 @@ class MmEngineService {
     );
     final filePermissions = await Process.run('chmod', ['600', file.path]);
     if (filePermissions.exitCode != 0) {
-      throw StateError('Cannot protect MM_Engine wallet preferences');
+      throw StateError(
+        'Cannot protect P2Pirate Trading Engine wallet preferences',
+      );
     }
   }
 
@@ -277,7 +293,7 @@ class MmEngineService {
     final baseUrl = _baseUrl;
     final token = _token;
     if (baseUrl == null || token == null) {
-      throw StateError('MM_Engine is not running');
+      throw StateError('P2Pirate Trading Engine is not running');
     }
     return sendMmEngineRequest(baseUrl, token, method, path, body: body);
   }
@@ -299,7 +315,7 @@ class MmEngineService {
     if (process == null) {
       if (_needsRecovery) {
         throw StateError(
-          'MM_Engine exited unexpectedly; recover maker orders and hedges',
+          'P2Pirate Trading Engine exited unexpectedly; recover maker orders and hedges',
         );
       }
       return;
@@ -314,7 +330,7 @@ class MmEngineService {
         problemOrders is! int ||
         problemOrders > 0) {
       throw StateError(
-        'MM_Engine has active swaps or unresolved order problems. '
+        'P2Pirate Trading Engine has active swaps or unresolved order problems. '
         'Keep P2Pirate open and check the trading journal.',
       );
     }
@@ -340,7 +356,7 @@ class MmEngineService {
           report['orders_remaining'] != 0 ||
           report['cancel_error'] != null) {
         throw StateError(
-          'MM_Engine could not confirm cancellation of its maker orders. '
+          'P2Pirate Trading Engine could not confirm cancellation of its maker orders. '
           'Keep KDF and Tor running and inspect the trading journal.',
         );
       }
@@ -349,7 +365,9 @@ class MmEngineService {
     } on TimeoutException {
       _needsRecovery = true;
       attention.value = 'Trading engine did not stop safely.';
-      throw StateError('MM_Engine did not stop; check open maker orders');
+      throw StateError(
+        'P2Pirate Trading Engine did not stop; check open maker orders',
+      );
     } catch (_) {
       _needsRecovery = true;
       attention.value = 'Trading engine could not confirm order cancellation.';

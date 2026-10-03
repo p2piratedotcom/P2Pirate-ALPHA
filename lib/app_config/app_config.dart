@@ -57,7 +57,7 @@ const double kSimulatedBestOrdersFailureRate = 0.5; // 50%
 // This information is here because it is not contextual and is branded.
 // Names of their own are not localized. Also, the application is initialized before
 // the localization package is initialized.
-String get appTitle => 'P2Pirate | ARRR Non-Custodial Wallet';
+String get appTitle => 'P2Pirate | Desktop';
 String get appShortTitle => 'P2Pirate';
 
 Map<String, int> priorityCoinsAbbrMap = {
