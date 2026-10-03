@@ -3,9 +3,18 @@ import 'package:flutter/material.dart';
 /// Builds a protocol-1 strategy specification. The engine validates all
 /// exchange limits, available balances and hedge coverage during preview.
 class MmEngineStrategyForm extends StatefulWidget {
-  const MmEngineStrategyForm({super.key, required this.markets});
+  const MmEngineStrategyForm({
+    super.key,
+    required this.markets,
+    required this.strategyId,
+    this.initialSpec,
+    this.availableBalances = const {},
+  });
 
   final List<String> markets;
+  final String strategyId;
+  final Map<String, dynamic>? initialSpec;
+  final Map<String, String> availableBalances;
 
   @override
   State<MmEngineStrategyForm> createState() => _MmEngineStrategyFormState();
@@ -13,7 +22,6 @@ class MmEngineStrategyForm extends StatefulWidget {
 
 class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
   final _form = GlobalKey<FormState>();
-  final _id = TextEditingController();
   final _baseAsset = TextEditingController(text: 'ARRR');
   final _quoteAsset = TextEditingController();
   final _premium = TextEditingController(text: '2');
@@ -35,9 +43,34 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
     super.initState();
     _market = widget.markets.isEmpty ? null : widget.markets.first;
     _updateRoute();
+    final spec = widget.initialSpec;
+    if (spec != null) {
+      final base = spec['base'] as Map;
+      final quote = spec['quote'] as Map;
+      _market = '${base['ticker']}-${quote['ticker']}';
+      _baseAsset.text = '${base['asset']}';
+      _quoteAsset.text = '${quote['asset']}';
+      _venue = '${spec['cex']}';
+      _side = '${spec['side']}';
+      _premium.text = '${(double.parse('${spec['premium']}') * 100)}';
+      _autoPrice = spec['price_mode'] == 'auto';
+      _autoQuantity = spec['quantity_mode'] == 'auto';
+      _replenish = spec['replenish'] == true;
+      for (final pair in [
+        (_budget, 'total_sold_budget'),
+        (_maxSold, 'max_sold'),
+        (_dailyCap, 'daily_sold_cap'),
+        (_fixedPrice, 'fixed_price'),
+        (_fixedSold, 'fixed_sold'),
+        (_updateSeconds, 'update_seconds'),
+      ]) {
+        pair.$1.text = spec[pair.$2]?.toString() ?? '';
+      }
+    }
   }
 
   void _updateRoute() {
+    _baseAsset.text = _market?.split('-').first ?? '';
     final quote = _market?.split('-').skip(1).join('-') ?? '';
     _quoteAsset.text = quote == 'USDT-BEP20'
         ? 'USDT'
@@ -47,7 +80,6 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
   @override
   void dispose() {
     for (final controller in [
-      _id,
       _baseAsset,
       _quoteAsset,
       _premium,
@@ -89,13 +121,63 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
     return null;
   }
 
+  static const _help = <String, String>{
+    'KDF market':
+        'Wallet coin pair. Both coins must be active. Routing is locked when modifying an existing order.',
+    'Base CEX asset':
+        'Exact exchange asset code for the base wallet coin, for example ARRR. It may differ from the wallet ticker.',
+    'Quote CEX asset':
+        'Exact exchange asset code for the quote wallet coin, for example USDT for USDT-BEP20.',
+    'Hedge exchange':
+        'Exchange where the engine hedges completed KDF swaps. Requires Spot read and trading API permissions.',
+    'KDF maker side':
+        'Sell base spends base and receives quote; Buy base spends quote and receives base.',
+    'Premium (%)':
+        'Markup relative to the exchange reference price. Fees and risk limits also affect the final quote.',
+    'Automatic price':
+        'Recalculate KDF price from current exchange order books and the premium. Off uses a fixed quote-per-base price.',
+    'Fixed KDF price':
+        'Fixed quote coin units per one base coin. Exchange hedge and safety checks still apply.',
+    'Automatic quantity':
+        'Size each order from wallet funds, exchange hedge balances, market depth and budget limits.',
+    'Fixed sold amount':
+        'Amount of the coin you sell on KDF. Safety limits may reduce the publishable amount.',
+    'Maximum sold per order (optional)':
+        'Upper limit on the sold coin amount of each individual maker order. Empty leaves sizing to other limits.',
+    'Total sold budget':
+        'Lifetime sold-coin budget for this order configuration. Completed swaps consume it; modification does not reset consumption.',
+    'Daily sold cap (optional)':
+        'Maximum sold coin volume per day. Empty means no additional daily cap.',
+    'Update interval (seconds)':
+        'Minimum time between normal price or quantity updates. Safety pauses can happen sooner.',
+    'Replenish within budget':
+        'After fills, replenish maker orders while budget and safety checks permit. Off avoids replenishing consumed quantity.',
+  };
+  InputDecoration _decoration(String label) => InputDecoration(
+    labelText: label,
+    suffixIcon: Tooltip(
+      message: _help[label]!,
+      child: const Icon(Icons.help_outline, size: 18),
+    ),
+  );
+  Widget _helpTitle(String label) => Row(
+    children: [
+      Flexible(child: Text(label)),
+      const SizedBox(width: 8),
+      Tooltip(
+        message: _help[label]!,
+        child: const Icon(Icons.help_outline, size: 18),
+      ),
+    ],
+  );
+
   Widget _numberField(
     String label,
     TextEditingController controller, {
     bool required = true,
   }) => TextFormField(
     controller: controller,
-    decoration: InputDecoration(labelText: label),
+    decoration: _decoration(label),
     keyboardType: const TextInputType.numberWithOptions(decimal: true),
     validator: (value) => _positive(value, required: required),
   );
@@ -110,7 +192,8 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
     final quoteAsset = _quoteAsset.text.trim().toUpperCase();
     final premiumPercent = double.parse(_premium.text.trim());
     final spec = <String, Object?>{
-      'strategy_id': _id.text.trim(),
+      ...?(widget.initialSpec?.cast<String, Object?>()),
+      'strategy_id': widget.strategyId,
       'base': {
         'ticker': baseTicker,
         'asset': baseAsset,
@@ -133,14 +216,14 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
       'daily_sold_cap': _dailyCap.text.trim().isEmpty
           ? null
           : _dailyCap.text.trim(),
-      'impact': '0.01',
-      'depth_fraction': '0.50',
-      'quantity_threshold': '0.10',
-      'price_threshold': '0.0025',
+      'impact': widget.initialSpec?['impact'] ?? '0.01',
+      'depth_fraction': widget.initialSpec?['depth_fraction'] ?? '0.50',
+      'quantity_threshold': widget.initialSpec?['quantity_threshold'] ?? '0.10',
+      'price_threshold': widget.initialSpec?['price_threshold'] ?? '0.0025',
       'update_seconds': _updateSeconds.text.trim(),
-      'confirmations': 3,
-      'scale_group': '',
-      'auto_fraction': '1',
+      'confirmations': widget.initialSpec?['confirmations'] ?? 3,
+      'scale_group': widget.initialSpec?['scale_group'] ?? '',
+      'auto_fraction': widget.initialSpec?['auto_fraction'] ?? '1',
       'cex': _venue,
     };
     Navigator.of(context).pop(spec);
@@ -148,7 +231,9 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('New maker strategy'),
+    title: Text(
+      widget.initialSpec == null ? 'New Maker Order' : 'Modify Maker Order',
+    ),
     content: SizedBox(
       width: 520,
       child: Form(
@@ -157,36 +242,36 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextFormField(
-                controller: _id,
-                decoration: const InputDecoration(labelText: 'Strategy name'),
-                validator: (value) =>
-                    value == null || value.trim().isEmpty || value.length > 100
-                    ? 'Enter a name (max 100 characters)'
-                    : null,
-              ),
               DropdownButtonFormField<String>(
                 initialValue: _market,
-                decoration: const InputDecoration(labelText: 'KDF market'),
-                items: widget.markets
-                    .map(
-                      (market) =>
-                          DropdownMenuItem(value: market, child: Text(market)),
-                    )
-                    .toList(),
-                onChanged: (value) => setState(() {
-                  _market = value;
-                  _updateRoute();
-                }),
+                decoration: _decoration('KDF market'),
+                items:
+                    {
+                          ...widget.markets,
+                          if (widget.initialSpec != null && _market != null)
+                            _market!,
+                        }
+                        .map(
+                          (market) => DropdownMenuItem(
+                            value: market,
+                            child: Text(market),
+                          ),
+                        )
+                        .toList(),
+                onChanged: widget.initialSpec != null
+                    ? null
+                    : (value) => setState(() {
+                        _market = value;
+                        _updateRoute();
+                      }),
               ),
               Row(
                 children: [
                   Expanded(
                     child: TextFormField(
                       controller: _baseAsset,
-                      decoration: const InputDecoration(
-                        labelText: 'Base CEX asset',
-                      ),
+                      decoration: _decoration('Base CEX asset'),
+                      readOnly: widget.initialSpec != null,
                       validator: _asset,
                     ),
                   ),
@@ -194,9 +279,8 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
                   Expanded(
                     child: TextFormField(
                       controller: _quoteAsset,
-                      decoration: const InputDecoration(
-                        labelText: 'Quote CEX asset',
-                      ),
+                      decoration: _decoration('Quote CEX asset'),
+                      readOnly: widget.initialSpec != null,
                       validator: _asset,
                     ),
                   ),
@@ -205,16 +289,18 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 initialValue: _venue,
-                decoration: const InputDecoration(labelText: 'Hedge exchange'),
+                decoration: _decoration('Hedge exchange'),
                 items: const [
                   DropdownMenuItem(value: 'MEXC', child: Text('MEXC Spot')),
                   DropdownMenuItem(value: 'GATE', child: Text('Gate Spot')),
                 ],
-                onChanged: (value) => setState(() => _venue = value ?? 'MEXC'),
+                onChanged: widget.initialSpec != null
+                    ? null
+                    : (value) => setState(() => _venue = value ?? 'MEXC'),
               ),
               DropdownButtonFormField<String>(
                 initialValue: _side,
-                decoration: const InputDecoration(labelText: 'KDF maker side'),
+                decoration: _decoration('KDF maker side'),
                 items: const [
                   DropdownMenuItem(
                     value: 'SELL_ARRR',
@@ -222,12 +308,13 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
                   ),
                   DropdownMenuItem(value: 'BUY_ARRR', child: Text('Buy base')),
                 ],
-                onChanged: (value) =>
-                    setState(() => _side = value ?? 'SELL_ARRR'),
+                onChanged: widget.initialSpec != null
+                    ? null
+                    : (value) => setState(() => _side = value ?? 'SELL_ARRR'),
               ),
               TextFormField(
                 controller: _premium,
-                decoration: const InputDecoration(labelText: 'Premium (%)'),
+                decoration: _decoration('Premium (%)'),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                   signed: true,
@@ -235,15 +322,28 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
                 validator: _premiumPercent,
               ),
               SwitchListTile(
-                title: const Text('Automatic price'),
+                title: _helpTitle('Automatic price'),
                 value: _autoPrice,
                 onChanged: (value) => setState(() => _autoPrice = value),
               ),
               if (!_autoPrice) _numberField('Fixed KDF price', _fixedPrice),
               SwitchListTile(
-                title: const Text('Automatic quantity'),
+                title: _helpTitle('Automatic quantity'),
                 value: _autoQuantity,
                 onChanged: (value) => setState(() => _autoQuantity = value),
+              ),
+              Tooltip(
+                message:
+                    'Spendable base coin in the wallet, refreshed when this form opens. Hedge capacity is checked separately in preview.',
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Text(
+                      'Available base coin: ${widget.availableBalances[_market?.split('-').first] ?? 'unavailable'} ${_market?.split('-').first ?? ''}',
+                    ),
+                  ),
+                ),
               ),
               if (!_autoQuantity) _numberField('Fixed sold amount', _fixedSold),
               _numberField(
@@ -259,7 +359,7 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
               ),
               _numberField('Update interval (seconds)', _updateSeconds),
               SwitchListTile(
-                title: const Text('Replenish within budget'),
+                title: _helpTitle('Replenish within budget'),
                 value: _replenish,
                 onChanged: (value) => setState(() => _replenish = value),
               ),
@@ -273,11 +373,18 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
       ),
     ),
     actions: [
-      TextButton(
-        onPressed: () => Navigator.of(context).pop(),
-        child: const Text('Cancel'),
+      Tooltip(
+        message: 'Close without saving or publishing.',
+        child: TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
       ),
-      ElevatedButton(onPressed: _submit, child: const Text('Preview')),
+      Tooltip(
+        message:
+            'Read market depth and balances, validate hedge capacity and show the proposed order. This does not publish it.',
+        child: ElevatedButton(onPressed: _submit, child: const Text('Preview')),
+      ),
     ],
   );
 }

@@ -114,7 +114,8 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     final orders = await engine.request('GET', '/v1/orders');
     if (!mounted) return;
     setState(() {
-      _strategies = strategies;
+      _strategies =
+          orders['strategy_states'] as Map<String, dynamic>? ?? strategies;
       _reconciliation = reconciliation;
       _credentials = credentials;
       _markets = markets;
@@ -206,42 +207,54 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
   Future<void> _configureCredentials(String venue) async {
     final key = TextEditingController();
     final secret = TextEditingController();
+    var selectedVenue = venue;
     try {
       final submitted = await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: Text('Configure $venue Spot API'),
-          content: SizedBox(
-            width: 480,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Use a trading-only API key. Transfer permissions '
-                  'are not used by MM_Engine.',
-                ),
-                TextField(
-                  controller: key,
-                  decoration: const InputDecoration(labelText: 'API key'),
-                ),
-                TextField(
-                  controller: secret,
-                  obscureText: true,
-                  decoration: const InputDecoration(labelText: 'API secret'),
-                ),
-              ],
+        builder: (context) => StatefulBuilder(
+          builder: (context, update) => AlertDialog(
+            title: Text('Configure $selectedVenue Spot API'),
+            content: SizedBox(
+              width: 480,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Use a trading-only API key. Transfer permissions '
+                    'are not used by MM_Engine.',
+                  ),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedVenue,
+                    decoration: const InputDecoration(labelText: 'CEX name'),
+                    items: const [
+                      DropdownMenuItem(value: 'MEXC', child: Text('MEXC')),
+                      DropdownMenuItem(value: 'GATE', child: Text('Gate')),
+                    ],
+                    onChanged: (value) => update(() => selectedVenue = value!),
+                  ),
+                  TextField(
+                    controller: key,
+                    decoration: const InputDecoration(labelText: 'API key'),
+                  ),
+                  TextField(
+                    controller: secret,
+                    obscureText: true,
+                    decoration: const InputDecoration(labelText: 'API secret'),
+                  ),
+                ],
+              ),
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Store in system keyring'),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Store in system keyring'),
-            ),
-          ],
         ),
       );
       if (submitted != true || !mounted) return;
@@ -256,13 +269,20 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
           'POST',
           '/v1/credentials/store',
           body: {
-            'venue': venue,
+            'venue': selectedVenue,
             'api_key': apiKey,
             'api_secret': apiSecret,
-            'confirmation': 'STORE $venue',
+            'confirmation': 'STORE $selectedVenue',
           },
         );
         await _refresh();
+        if (mounted) {
+          setState(() {
+            _venue = selectedVenue;
+            _balances = [];
+            _balanceError = null;
+          });
+        }
       });
     } finally {
       key.dispose();
@@ -270,16 +290,47 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     }
   }
 
-  Future<void> _createStrategy() async {
+  Future<void> _createStrategy({Map<String, dynamic>? existing}) async {
+    if (_busy) return;
     final markets = _markets?['markets'];
     if (markets is! Map || markets.isEmpty) {
       setState(() => _error = 'No KDF markets are available.');
       return;
     }
+    setState(() => _busy = true);
+    final sdk = RepositoryProvider.of<KomodoDefiSdk>(context);
+    final baseBalances = <String, String>{};
+    final bases = markets.keys
+        .whereType<String>()
+        .map((m) => m.split('-').first)
+        .toSet();
+    await Future.wait(
+      bases.map((ticker) async {
+        final matches = sdk.assets.available.values.where(
+          (asset) => asset.id.id == ticker,
+        );
+        if (matches.isEmpty) return;
+        try {
+          final balance = await sdk.balances
+              .getBalance(matches.first.id)
+              .timeout(const Duration(seconds: 8));
+          baseBalances[ticker] = balance.spendable.toString();
+        } catch (_) {
+          /* Unavailable is displayed explicitly, never as zero. */
+        }
+      }),
+    );
+    if (!mounted) return;
+    setState(() => _busy = false);
     final spec = await showDialog<Map<String, Object?>>(
       context: context,
       builder: (context) => MmEngineStrategyForm(
         markets: markets.keys.whereType<String>().toList(),
+        strategyId:
+            existing?['id'] as String? ??
+            'order-${DateTime.now().microsecondsSinceEpoch}',
+        initialSpec: existing?['spec'] as Map<String, dynamic>?,
+        availableBalances: baseBalances,
       ),
     );
     if (spec == null || !mounted) return;
@@ -303,7 +354,11 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
       final accepted = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Save strategy paused?'),
+          title: Text(
+            existing == null
+                ? 'Save maker order paused?'
+                : 'Save modified order paused?',
+          ),
           content: SizedBox(
             width: 540,
             child: SingleChildScrollView(
@@ -325,14 +380,86 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
       if (accepted != true) return;
       await MmEngineService.instance.request(
         'POST',
-        '/v1/strategies/create',
-        body: {
-          'specs': [spec],
-          'confirmation': 'SALVA IN PAUSA',
-        },
+        existing == null ? '/v1/strategies/create' : '/v1/strategies/update',
+        body: existing == null
+            ? {
+                'specs': [spec],
+                'confirmation': 'SALVA IN PAUSA',
+              }
+            : {'spec': spec, 'confirmation': 'AGGIORNA IN PAUSA'},
       );
       await _refresh();
     });
+  }
+
+  Future<void> _modifyStrategy(String id) async {
+    final rows = (_strategies?['strategies'] as List?) ?? [];
+    final matches = rows.whereType<Map<String, dynamic>>().where(
+      (row) => row['id'] == id,
+    );
+    if (matches.isEmpty) return;
+    final row = matches.first;
+    if (row['enabled'] == 1 ||
+        _orders.any((o) => o['strategy_id'] == id) ||
+        ['WRITING', 'REVIEW_REQUIRED', 'DELETED'].contains(row['state'])) {
+      setState(
+        () => _error = 'Pause and withdraw this order before modifying it.',
+      );
+      return;
+    }
+    await _createStrategy(existing: row);
+  }
+
+  Future<void> _showDetails(Map<String, dynamic> row) async {
+    final id = row['strategy_id'];
+    final strategies = (_strategies?['strategies'] as List?) ?? [];
+    final matches = strategies.whereType<Map>().where((s) => s['id'] == id);
+    final spec = matches.isEmpty
+        ? const <String, dynamic>{}
+        : (matches.first['spec'] as Map);
+    final entries = <String, Object?>{
+      'Order UUID': row['order_uuid'] ?? 'Not published',
+      'Status': row['status'],
+      'Amount': row['kdf_volume'],
+      'Price': row['kdf_price'],
+      'Sell': row['kdf_base'],
+      'Buy': row['kdf_rel'],
+      'Remaining sold budget': matches.isEmpty
+          ? 'unavailable'
+          : matches.first['remaining_sold'],
+      'Remaining daily budget': matches.isEmpty
+          ? 'unavailable'
+          : matches.first['daily_remaining_sold'],
+      'Reason': row['detail'] ?? '',
+      for (final entry in spec.entries) '${entry.key}': entry.value,
+    };
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Maker Order #${row['creation_number'] ?? '—'} · Details'),
+        content: SizedBox(
+          width: 620,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final entry in entries.entries)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 5),
+                    child: SelectableText('${entry.key}: ${entry.value}'),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _changeStrategy(String id, {required bool start}) async {
@@ -567,7 +694,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                 balanceError: _balanceError,
                 balanceLoading: _balanceLoading,
                 onLive: () => _setLive(!live),
-                onNew: _createStrategy,
+                onNew: () => _createStrategy(),
                 onVenue: (venue) {
                   if (_balanceLoading) return;
                   setState(() {
@@ -579,6 +706,8 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                 },
                 onAdd: () => _configureCredentials(_venue),
                 onBalances: _loadBalances,
+                onModify: _modifyStrategy,
+                onDetails: _showDetails,
                 onStrategy: (id, start) => _changeStrategy(id, start: start),
               ),
             ],

@@ -1,3 +1,4 @@
+import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 
 class MmEngineDashboard extends StatelessWidget {
@@ -16,6 +17,8 @@ class MmEngineDashboard extends StatelessWidget {
     required this.onAdd,
     required this.onStrategy,
     required this.onBalances,
+    this.onModify,
+    this.onDetails,
     this.balanceError,
     this.balanceLoading = false,
   });
@@ -27,6 +30,8 @@ class MmEngineDashboard extends StatelessWidget {
   final VoidCallback onLive, onNew, onAdd, onBalances;
   final ValueChanged<String> onVenue;
   final void Function(String, bool) onStrategy;
+  final ValueChanged<String>? onModify;
+  final ValueChanged<Map<String, dynamic>>? onDetails;
 
   Widget _table(
     BuildContext context,
@@ -55,30 +60,202 @@ class MmEngineDashboard extends StatelessWidget {
     ),
   );
 
+  Widget _makerTable(BuildContext context, List<Map<String, dynamic>> rows) {
+    final showModify = rows.any((row) => row['modifiable'] == true);
+    final headings = [
+      '#',
+      'SELL',
+      'AMOUNT',
+      'PRICE',
+      'BUY',
+      'PREMIUM',
+      'HEDGING CEX',
+      'STATUS',
+      'PAUSE',
+      if (showModify) 'MODIFY',
+    ];
+    Widget line(List<Widget> cells) => Row(
+      children: [
+        for (var i = 0; i < cells.length; i++)
+          Expanded(
+            flex: i == 0
+                ? 1
+                : i == 6 || i == 7
+                ? 3
+                : 2,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: cells[i],
+            ),
+          ),
+      ],
+    );
+    Widget value(Object? raw) => Tooltip(
+      message: '${raw ?? '—'}',
+      child: Text('${raw ?? '—'}', overflow: TextOverflow.ellipsis),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: constraints.maxWidth < 1100 ? 1100 : constraints.maxWidth,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              line([
+                for (final heading in headings)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Text(heading),
+                  ),
+              ]),
+              const Divider(height: 1),
+              for (var i = 0; i < rows.length; i++) ...[
+                Builder(
+                  builder: (context) {
+                    final row = rows[i];
+                    final id = row['strategy_id'];
+                    final enabled =
+                        row['enabled'] == 1 || row['order_uuid'] != null;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: line([
+                        value(row['creation_number'] ?? i + 1),
+                        value(row['kdf_base']),
+                        value(row['kdf_volume']),
+                        value(row['kdf_price']),
+                        value(row['kdf_rel']),
+                        value(_premium(row['configured_premium'])),
+                        value(row['cex']),
+                        value(row['status']),
+                        TextButton(
+                          onPressed:
+                              busy || id is! String || (!enabled && !live)
+                              ? null
+                              : () => onStrategy(id, !enabled),
+                          child: Text(enabled ? 'Pause' : 'Start'),
+                        ),
+                        if (showModify)
+                          row['modifiable'] == true && id is String
+                              ? TextButton(
+                                  onPressed: busy || onModify == null
+                                      ? null
+                                      : () => onModify!(id),
+                                  child: const Text('Modify'),
+                                )
+                              : const SizedBox.shrink(),
+                      ]),
+                    );
+                  },
+                ),
+                Wrap(
+                  spacing: 12,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    SelectableText(
+                      'UUID: ${rows[i]['order_uuid'] ?? 'not published'}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    if ('${rows[i]['detail'] ?? ''}'.isNotEmpty)
+                      Text(
+                        '${rows[i]['detail']}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    TextButton(
+                      onPressed: onDetails == null
+                          ? null
+                          : () => onDetails!(rows[i]),
+                      child: const Text('Details'),
+                    ),
+                  ],
+                ),
+                const Divider(height: 1),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   String? _premium(Object? value) {
     final premium = double.tryParse('$value');
     return premium == null ? null : '${(premium * 100).toStringAsFixed(2)}%';
   }
 
+  String? _fixedPrice(Map spec, bool sellBase) {
+    final raw = spec['fixed_price']?.toString();
+    if (raw == null || sellBase) return raw;
+    final price = Decimal.tryParse(raw);
+    if (price == null || price <= Decimal.zero) return null;
+    // KDF quotes bought coin per sold coin; BUY spends the quote coin.
+    return (Decimal.one / price)
+        .toDecimal(scaleOnInfinitePrecision: 20)
+        .toString();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final byId = {for (final row in strategies) row['id']: row};
     final activeIds = orders.map((order) => order['strategy_id']).toSet();
-    final display = <Map<String, dynamic>>[
-      ...orders,
-      for (final strategy in strategies)
-        if (!activeIds.contains(strategy['id']))
-          {
-            'strategy_id': strategy['id'], 'status': strategy['state'],
-            'cex': (strategy['spec'] as Map?)?['cex'],
-            'configured_premium': (strategy['spec'] as Map?)?['premium'],
-            'enabled': strategy['enabled'],
-            'kdf_base':
-                ((strategy['preview'] as Map?)?['plan'] as Map?)?['kdf_base'],
-            'kdf_rel':
-                ((strategy['preview'] as Map?)?['plan'] as Map?)?['kdf_rel'],
-            // Paused configurations are not open orders; no live amount or price.
-          },
-    ];
+    Map<String, dynamic> decorate(
+      Map<String, dynamic> order,
+      Map<String, dynamic>? strategy,
+    ) {
+      final spec = strategy?['spec'] as Map? ?? const {};
+      final sellBase = spec['side'] != 'BUY_ARRR';
+      final sold = spec[sellBase ? 'base' : 'quote'] as Map?;
+      final bought = spec[sellBase ? 'quote' : 'base'] as Map?;
+      final active = order['order_uuid'] != null;
+      return {
+        ...order,
+        'strategy_id': strategy?['id'] ?? order['strategy_id'],
+        'creation_number': strategy?['creation_number'],
+        'status': strategy?['state'] ?? order['status'],
+        'detail': '${strategy?['detail'] ?? ''}'.isNotEmpty
+            ? strategy!['detail']
+            : strategy?['state'] == 'PAUSED'
+            ? 'Not publishing: this order is paused.'
+            : '',
+        'enabled': strategy?['enabled'] ?? (active ? 1 : 0),
+        'kdf_base': sold?['ticker'] ?? order['kdf_base'],
+        'kdf_rel': bought?['ticker'] ?? order['kdf_rel'],
+        'cex': spec['cex'] ?? order['cex'],
+        'configured_premium': spec['premium'] ?? order['configured_premium'],
+        'kdf_volume': active
+            ? order['kdf_volume']
+            : spec['quantity_mode'] == 'auto'
+            ? 'auto'
+            : spec['fixed_sold'],
+        'kdf_price': active
+            ? order['kdf_price']
+            : spec['price_mode'] == 'auto'
+            ? 'auto'
+            : _fixedPrice(spec, sellBase),
+        'modifiable':
+            strategy != null &&
+            strategy['enabled'] == 0 &&
+            !active &&
+            ![
+              'WRITING',
+              'REVIEW_REQUIRED',
+              'DELETED',
+            ].contains(strategy['state']),
+      };
+    }
+
+    final display =
+        <Map<String, dynamic>>[
+          for (final order in orders)
+            decorate(order, byId[order['strategy_id']]),
+          for (final strategy in strategies)
+            if (!activeIds.contains(strategy['id']))
+              decorate(const {}, strategy),
+        ]..sort(
+          (a, b) => (a['creation_number'] as int? ?? 999999).compareTo(
+            b['creation_number'] as int? ?? 999999,
+          ),
+        );
     Text text(Object? value) => Text(value?.toString() ?? '—');
     final positive =
         balances
@@ -129,41 +306,7 @@ class MmEngineDashboard extends StatelessWidget {
           ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 10),
-        _table(
-          context,
-          [
-            'SELL',
-            'AMOUNT',
-            'PRICE',
-            'BUY',
-            'PREMIUM',
-            'HEDGING CEX',
-            'STATUS',
-          ],
-          [
-            for (final row in display)
-              [
-                text(row['kdf_base']),
-                text(row['kdf_volume']),
-                text(row['kdf_price']),
-                text(row['kdf_rel']),
-                text(_premium(row['configured_premium'])),
-                text(row['cex']),
-                row['strategy_id'] is String
-                    ? TextButton(
-                        onPressed: busy
-                            ? null
-                            : () => onStrategy(
-                                row['strategy_id'] as String,
-                                !row.containsKey('order_uuid') &&
-                                    row['enabled'] != 1,
-                              ),
-                        child: text(row['status']),
-                      )
-                    : text(row['status']),
-              ],
-          ],
-        ),
+        _makerTable(context, display),
         if (display.isEmpty)
           const Padding(
             padding: EdgeInsets.only(top: 12),
