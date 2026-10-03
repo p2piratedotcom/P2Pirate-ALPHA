@@ -296,18 +296,19 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
 
   Future<void> _createStrategy({Map<String, dynamic>? existing}) async {
     if (_busy) return;
-    final markets = _markets?['markets'];
-    if (markets is! Map || markets.isEmpty) {
+    final existingSpec = existing?['spec'] as Map<String, dynamic>?;
+    final markets = makerOrderMarkets(
+      _markets?['markets'],
+      existingSpec: existingSpec,
+    );
+    if (markets.isEmpty) {
       setState(() => _error = 'No KDF markets are available.');
       return;
     }
     setState(() => _busy = true);
     final sdk = RepositoryProvider.of<KomodoDefiSdk>(context);
     final baseBalances = <String, String>{};
-    final bases = markets.keys
-        .whereType<String>()
-        .map((m) => m.split('-').first)
-        .toSet();
+    final bases = markets.map((m) => m.split('-').first).toSet();
     await Future.wait(
       bases.map((ticker) async {
         final matches = sdk.assets.available.values.where(
@@ -329,11 +330,11 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     final spec = await showDialog<Map<String, Object?>>(
       context: context,
       builder: (context) => MmEngineStrategyForm(
-        markets: markets.keys.whereType<String>().toList(),
+        markets: markets,
         strategyId:
             existing?['id'] as String? ??
             'order-${DateTime.now().microsecondsSinceEpoch}',
-        initialSpec: existing?['spec'] as Map<String, dynamic>?,
+        initialSpec: existingSpec,
         availableBalances: baseBalances,
       ),
     );

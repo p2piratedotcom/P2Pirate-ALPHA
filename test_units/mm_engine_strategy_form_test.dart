@@ -4,6 +4,19 @@ import 'package:web_dex/views/market_maker_bot/mm_engine_strategy_form.dart';
 import 'package:web_dex/shared/widgets/pirate_peer_status.dart';
 
 void main() {
+  test('empty market response still permits the saved edit route only', () {
+    const spec = {
+      'base': {'ticker': 'ARRR'},
+      'quote': {'ticker': 'USDT-BEP20'},
+    };
+    expect(makerOrderMarkets({}), isEmpty);
+    expect(makerOrderMarkets(null), isEmpty);
+    expect(makerOrderMarkets({}, existingSpec: spec), ['ARRR-USDT-BEP20']);
+    expect(makerOrderMarkets(null, existingSpec: spec), ['ARRR-USDT-BEP20']);
+    expect(makerOrderMarkets({'ARRR-USDT-BEP20': {}}, existingSpec: spec), [
+      'ARRR-USDT-BEP20',
+    ]);
+  });
   test('connected peer count counts IDs, not addresses', () {
     expect(
       connectedPeerCount({

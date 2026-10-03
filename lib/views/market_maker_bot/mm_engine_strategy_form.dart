@@ -1,6 +1,26 @@
 import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 
+/// Editing retains the saved route even when no markets are currently offered.
+/// New orders can only use the markets reported by the engine.
+List<String> makerOrderMarkets(
+  Object? availableMarkets, {
+  Map<String, dynamic>? existingSpec,
+}) {
+  final markets = <String>{
+    if (availableMarkets is Map) ...availableMarkets.keys.whereType<String>(),
+  };
+  final base = existingSpec?['base'];
+  final quote = existingSpec?['quote'];
+  if (base is Map &&
+      quote is Map &&
+      base['ticker'] is String &&
+      quote['ticker'] is String) {
+    markets.add('${base['ticker']}-${quote['ticker']}');
+  }
+  return markets.toList();
+}
+
 /// Builds a protocol-1 strategy specification. The engine validates all
 /// exchange limits, available balances and hedge coverage during preview.
 class MmEngineStrategyForm extends StatefulWidget {
