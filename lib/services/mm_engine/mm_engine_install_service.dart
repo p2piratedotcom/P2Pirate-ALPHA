@@ -24,6 +24,8 @@ class MmEngineInstallService {
 
   static Future<File?> currentExecutable() async {
     if (!Platform.isLinux || Abi.current() != Abi.linuxX64) return null;
+    final local = await localExecutable(Platform.environment);
+    if (local != null) return local;
     final root = await _installRoot();
     final pointer = File(p.join(root.path, 'current.json'));
     if (!await pointer.exists() ||
@@ -59,6 +61,30 @@ class MmEngineInstallService {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Resolves an explicit local candidate; incomplete overrides fail closed.
+  static Future<File?> localExecutable(Map<String, String> environment) async {
+    final localPath = environment['P2PIRATE_MM_ENGINE_PATH'];
+    final localHash = environment['P2PIRATE_MM_ENGINE_SHA256'];
+    if ((localPath == null) != (localHash == null)) {
+      throw StateError('Local MM_Engine path and checksum must both be set');
+    }
+    if (localPath != null && localHash != null) {
+      final local = File(localPath);
+      if (!p.isAbsolute(localPath) ||
+          !_validDigest(localHash) ||
+          !await local.exists() ||
+          await FileSystemEntity.isLink(localPath)) {
+        throw StateError('Invalid local MM_Engine candidate');
+      }
+      final digest = (await sha256.bind(local.openRead()).first).toString();
+      if (digest != localHash) {
+        throw StateError('Local MM_Engine checksum mismatch');
+      }
+      return local;
+    }
+    return null;
   }
 
   static Future<MmEngineRelease> latestRelease() async {

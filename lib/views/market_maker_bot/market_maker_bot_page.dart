@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:komodo_defi_sdk/komodo_defi_sdk.dart';
@@ -7,6 +5,8 @@ import 'package:web_dex/bloc/auth_bloc/auth_bloc.dart';
 import 'package:web_dex/services/mm_engine/mm_engine_install_service.dart';
 import 'package:web_dex/services/mm_engine/mm_engine_service.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_strategy_form.dart';
+import 'package:web_dex/views/market_maker_bot/mm_engine_preview.dart';
+import 'package:web_dex/views/market_maker_bot/mm_engine_dashboard.dart';
 
 /// A thin wallet client. Strategy and exchange logic belongs to MM_Engine.
 class MarketMakerBotPage extends StatefulWidget {
@@ -26,6 +26,48 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
   Map<String, dynamic>? _reconciliation;
   Map<String, dynamic>? _credentials;
   Map<String, dynamic>? _markets;
+  List<Map<String, dynamic>> _orders = [], _balances = [];
+  String _venue = 'MEXC';
+  String? _balanceError;
+  bool _balanceLoading = false;
+
+  Future<void> _loadBalances() async {
+    if (_balanceLoading || !MmEngineService.instance.isRunning) return;
+    setState(() {
+      _balanceLoading = true;
+      _balanceError = null;
+      _balances = [];
+    });
+    try {
+      final result = await MmEngineService.instance.request(
+        'GET',
+        '/v1/exchanges/balances?venue=$_venue',
+      );
+      if (!mounted) return;
+      final assets = RepositoryProvider.of<KomodoDefiSdk>(
+        context,
+      ).assets.available.values;
+      final names = <String, String>{
+        for (final asset in assets) asset.id.id: asset.id.name,
+      };
+      final rows = (result['balances'] as List)
+          .whereType<Map<String, dynamic>>()
+          .map(
+            (row) => <String, dynamic>{
+              ...row,
+              'name': names[row['ticker']] ?? row['ticker'],
+            },
+          )
+          .toList();
+      if (mounted) {
+        setState(() => _balances = rows);
+      }
+    } catch (error) {
+      if (mounted) setState(() => _balanceError = '$error');
+    } finally {
+      if (mounted) setState(() => _balanceLoading = false);
+    }
+  }
 
   @override
   void initState() {
@@ -69,12 +111,16 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     final reconciliation = await engine.request('GET', '/v1/reconciliation');
     final credentials = await engine.request('GET', '/v1/credentials/status');
     final markets = await engine.request('GET', '/v1/markets');
+    final orders = await engine.request('GET', '/v1/orders');
     if (!mounted) return;
     setState(() {
       _strategies = strategies;
       _reconciliation = reconciliation;
       _credentials = credentials;
       _markets = markets;
+      _orders = (orders['orders'] as List)
+          .whereType<Map<String, dynamic>>()
+          .toList();
       _error = null;
     });
   }
@@ -96,20 +142,23 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
 
   Future<void> _setLive(bool enabled) async {
     final keyring = _credentials?['venues'];
-    if (enabled && (keyring is! Map || keyring['MEXC'] != true)) {
+    if (enabled &&
+        (keyring is! Map || !keyring.values.any((value) => value == true))) {
       setState(
-        () => _error = 'Configure MEXC credentials before live trading.',
+        () => _error = 'Configure at least one exchange before live trading.',
       );
       return;
     }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(enabled ? 'Enable live trading?' : 'Stop live trading?'),
+        title: Text(
+          enabled ? 'Start all live trading?' : 'Stop all live trading?',
+        ),
         content: Text(
           enabled
               ? 'MM_Engine can publish funded KDF maker orders and place real '
-                    'hedges on the selected CEX after you start a strategy. '
+                    'hedges on the selected CEX. All paused strategies will be started. '
                     'Enabled strategies resume when you next open this wallet. '
                     'Check balances, CEX API permissions and strategy limits first.'
               : 'The engine will cancel its open maker orders and restart in '
@@ -143,6 +192,13 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
         walletId: user.walletId.compoundId,
         liveTrading: enabled,
       );
+      if (enabled) {
+        await MmEngineService.instance.request(
+          'POST',
+          '/v1/strategies/start-all',
+          body: {'confirmation': 'AVVIA TUTTE'},
+        );
+      }
       await _refresh();
     });
   }
@@ -227,6 +283,14 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
       ),
     );
     if (spec == null || !mounted) return;
+    final venue = spec['cex'];
+    final available = _credentials?['venues'];
+    if (available is! Map || available[venue] != true) {
+      setState(
+        () => _error = 'Configure $venue API credentials before preview.',
+      );
+      return;
+    }
     await _runBusy(() async {
       final preview = await MmEngineService.instance.request(
         'POST',
@@ -243,9 +307,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
           content: SizedBox(
             width: 540,
             child: SingleChildScrollView(
-              child: SelectableText(
-                const JsonEncoder.withIndent('  ').convert(preview['previews']),
-              ),
+              child: MmEnginePreview(preview: preview),
             ),
           ),
           actions: [
@@ -407,33 +469,37 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            OverflowBar(
+              alignment: MainAxisAlignment.spaceBetween,
+              spacing: 12,
+              overflowSpacing: 8,
               children: [
                 Text(
-                  'Trading engine',
-                  style: Theme.of(context).textTheme.headlineMedium,
+                  'P2PIRATE TRADING ENGINE',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                  ),
                 ),
-                const Spacer(),
-                if (_installed && MmEngineService.instance.isRunning)
-                  TextButton.icon(
-                    onPressed: _busy ? null : _refresh,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Refresh'),
-                  ),
-                if (_installed)
-                  TextButton.icon(
-                    onPressed: _busy ? null : _download,
-                    icon: const Icon(Icons.system_update_alt),
-                    label: const Text('Check updates'),
-                  ),
+                Wrap(
+                  children: [
+                    if (_installed && MmEngineService.instance.isRunning)
+                      TextButton.icon(
+                        onPressed: _busy ? null : _refresh,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Refresh'),
+                      ),
+                    if (_installed)
+                      TextButton.icon(
+                        onPressed: _busy ? null : _download,
+                        icon: const Icon(Icons.system_update_alt),
+                        label: const Text('Check updates'),
+                      ),
+                  ],
+                ),
               ],
             ),
-            const SizedBox(height: 12),
-            const Text(
-              'MM_Engine runs as a separate application connected to this '
-              'wallet’s KDF and Tor processes. Enabling this page never '
-              'starts live trading.',
-            ),
+            const Divider(height: 1),
             const SizedBox(height: 20),
             if (_busy) ...[
               if (_downloadStatus != null) ...[
@@ -490,79 +556,31 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 12,
-                runSpacing: 8,
-                children: [
-                  OutlinedButton(
-                    onPressed: _busy
-                        ? null
-                        : () => _configureCredentials('MEXC'),
-                    child: Text(
-                      'MEXC key: ${credentials['MEXC'] == true ? 'configured' : 'configure'}',
-                    ),
-                  ),
-                  OutlinedButton(
-                    onPressed: _busy
-                        ? null
-                        : () => _configureCredentials('GATE'),
-                    child: Text(
-                      'Gate key: ${credentials['GATE'] == true ? 'configured' : 'configure'}',
-                    ),
-                  ),
-                  ElevatedButton(
-                    onPressed: _busy ? null : () => _setLive(!live),
-                    child: Text(
-                      live ? 'Stop live trading' : 'Enable live trading',
-                    ),
-                  ),
-                ],
+              MmEngineDashboard(
+                orders: _orders,
+                strategies: strategies.toList(),
+                venue: _venue,
+                credentials: credentials,
+                balances: _balances,
+                busy: _busy,
+                live: live,
+                balanceError: _balanceError,
+                balanceLoading: _balanceLoading,
+                onLive: () => _setLive(!live),
+                onNew: _createStrategy,
+                onVenue: (venue) {
+                  if (_balanceLoading) return;
+                  setState(() {
+                    _venue = venue;
+                    _balances = [];
+                    _balanceError = null;
+                  });
+                  if (credentials[venue] == true) _loadBalances();
+                },
+                onAdd: () => _configureCredentials(_venue),
+                onBalances: _loadBalances,
+                onStrategy: (id, start) => _changeStrategy(id, start: start),
               ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Text(
-                    'Strategies',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const Spacer(),
-                  ElevatedButton.icon(
-                    onPressed: _busy ? null : _createStrategy,
-                    icon: const Icon(Icons.add),
-                    label: const Text('New strategy'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (strategies.isEmpty)
-                const Text(
-                  'No strategies have been created for this wallet profile.',
-                )
-              else
-                ...strategies.map((row) {
-                  final spec = row['spec'];
-                  final details = spec is Map ? spec : const {};
-                  return Card(
-                    child: ListTile(
-                      title: Text(row['id']?.toString() ?? 'Strategy'),
-                      subtitle: Text(
-                        '${details['cex'] ?? '—'} · ${details['side'] ?? '—'} · '
-                        '${row['state'] ?? '—'} · '
-                        'Remaining: ${row['remaining_sold'] ?? '—'}',
-                      ),
-                      trailing: TextButton(
-                        onPressed: _busy
-                            ? null
-                            : () => _changeStrategy(
-                                row['id']?.toString() ?? '',
-                                start: row['enabled'] != 1,
-                              ),
-                        child: Text(row['enabled'] == 1 ? 'Pause' : 'Start'),
-                      ),
-                    ),
-                  );
-                }),
             ],
           ],
         ),

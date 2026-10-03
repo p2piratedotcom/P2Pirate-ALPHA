@@ -1,6 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
 
+class MmEngineRequestException implements Exception {
+  const MmEngineRequestException(this.message, this.statusCode);
+  final String message;
+  final int statusCode;
+  @override
+  String toString() => message;
+}
+
 /// Sends one request to the local MM_Engine API.
 /// The Python service requires Content-Length for every POST, including {}.
 Future<Map<String, dynamic>> sendMmEngineRequest(
@@ -25,7 +33,9 @@ Future<Map<String, dynamic>> sendMmEngineRequest(
     // both legs before it computes a quote. The engine still enforces a short
     // independent freshness deadline on the final order book.
     final responseTimeout =
-        path == '/v1/strategies/preview' || path == '/v1/strategies/create'
+        path == '/v1/strategies/preview' ||
+            path == '/v1/strategies/create' ||
+            path.startsWith('/v1/exchanges/balances')
         ? const Duration(seconds: 60)
         : const Duration(seconds: 20);
     final response = await call.close().timeout(responseTimeout);
@@ -34,9 +44,10 @@ Future<Map<String, dynamic>> sendMmEngineRequest(
       throw StateError('Invalid MM_Engine response');
     }
     if (response.statusCode >= 400) {
-      throw StateError(
+      throw MmEngineRequestException(
         payload['error']?.toString() ??
             'MM_Engine request failed (${response.statusCode})',
+        response.statusCode,
       );
     }
     return payload;
