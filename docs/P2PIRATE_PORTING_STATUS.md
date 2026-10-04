@@ -154,7 +154,7 @@ archive contains executable SHA-256 `bd171eee…`, matching the ZIP reference.
 That identifies the release artifact, not a reproducible source build.
 
 
-## Wallet balances after swap settlement (local change, 4 October 2026)
+## Wallet balances after swap settlement (4 October 2026)
 
 A fresh KDF swap snapshot now requests balances for the active maker/taker
 assets when a swap becomes terminal. Newly observed payment refunds also
@@ -173,6 +173,11 @@ logout and disposal cancel pending work and reject previous-session results.
 
 This changes refresh scheduling, not blockchain finality: balances remain
 KDF-reported and can require confirmations or shielded-wallet synchronization.
-No transaction, trade or balance is inferred from swap amounts. Compilation
-and static analysis do not establish end-to-end timing for a funded swap;
-that must be observed with an actual completed swap in the new build.
+No transaction, trade or balance is inferred from swap amounts.
+
+Verification: Linux release compilation and local AppImage packaging succeeded;
+static analysis reported zero errors (existing repository diagnostics remain).
+After restarting the local build, the user completed a real swap and confirmed
+that Wallet balances updated immediately on completion. This observation is
+not a timing guarantee for every asset/network. No additional funded swap was
+initiated by the agent.
