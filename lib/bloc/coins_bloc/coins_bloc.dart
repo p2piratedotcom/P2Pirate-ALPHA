@@ -32,8 +32,8 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     on<CoinsBalanceMonitoringStarted>(_onCoinsBalanceMonitoringStarted);
     on<CoinsBalanceMonitoringStopped>(_onCoinsBalanceMonitoringStopped);
     on<CoinsBalancesRefreshed>(_onCoinsRefreshed, transformer: droppable());
-    // Settlement reads have their own coalesced queue: a slow unrelated asset
-    // in a manual/fallback whole-wallet scan must not delay swap balances.
+    // Coalescing keeps one settlement batch per wallet session. Concurrent
+    // dispatch lets a new session bypass old work, and avoids bulk-scan queues.
     on<CoinsSwapBalancesRefreshed>(
       (event, emit) => _onCoinsRefreshed(
         CoinsBalancesRefreshed(
@@ -43,7 +43,7 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
         ),
         emit,
       ),
-      transformer: sequential(),
+      transformer: concurrent(),
     );
     on<CoinsActivationStatusRefreshed>(
       _onActivationStatusRefreshed,

@@ -162,7 +162,8 @@ ID, including network/SegWit suffixes, rather than the grouped base ticker.
 Newly observed payment refunds also
 request a refresh. For tokens, the active platform coin is included to update
 network fees. Historical completed swaps at login do not trigger a refresh
-storm. Known in-progress swaps retain the 10-second status poll outside the
+storm; the initial baseline is marked loaded only after a successful RPC
+snapshot (a null failure response is not treated as an empty snapshot). Known in-progress swaps retain the 10-second status poll outside the
 Swap/Bridge page so settlement can update Wallet promptly.
 
 The SDK exposes `refreshPubkeys` and `refreshBalance` to fetch current KDF
@@ -171,8 +172,10 @@ and balance watchers are notified. Failed refreshes preserve the last valid
 balance. The GUI requests an immediate refresh and follow-ups at 5, 15, 30 and
 60 seconds. Completions share one bounded sequence; requests arriving during
 an existing settlement refresh are coalesced rather than accumulating a queue.
-Settlement uses an independent event queue, so a slow manual/fallback whole-
-wallet scan cannot block the affected coins. Bulk refreshes retain their original
+Settlement dispatch is independent of bulk/previous-session handlers, with
+coalescing retaining one batch per wallet session. Forced asset reads have a
+15-second local deadline; SDK work that completes later remains wallet-guarded
+and can still update valid watchers. Bulk refreshes retain their original
 droppable behavior. Login,
 logout and disposal cancel pending work and reject previous-session results.
 

@@ -129,16 +129,15 @@ class TradingEntitiesBloc implements BlocBase {
     final orders = await _myOrdersService.getOrders();
     if (!await _isCurrentWallet(walletId, walletRevision)) return;
     myOrders = orders ?? [];
-    final recentSwaps =
-        await getRecentSwaps(
-          MyRecentSwapsRequest(
-            limit: _hasLoadedInitialSwaps
-                ? _refreshSwapsLimit
-                : _initialSwapsLimit,
-          ),
-        ) ??
-        [];
+    final recentSwaps = await getRecentSwaps(
+      MyRecentSwapsRequest(
+        limit: _hasLoadedInitialSwaps ? _refreshSwapsLimit : _initialSwapsLimit,
+      ),
+    );
     if (!await _isCurrentWallet(walletId, walletRevision)) return;
+    // An RPC failure is not an empty successful snapshot. Keep the initial
+    // baseline pending so a later success cannot classify history as live.
+    if (recentSwaps == null) return;
     final previous = {for (final swap in _swaps) swap.uuid: swap};
     final settledTickers = <String>{};
     for (final swap in recentSwaps) {

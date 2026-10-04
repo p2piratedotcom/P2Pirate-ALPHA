@@ -30,7 +30,7 @@ final class CoinsBalancesRefreshed extends CoinsEvent {
 }
 
 /// Priority, session-scoped refresh of assets affected by swap settlement.
-/// Uses an independent queue so bulk balance reads cannot block settlement.
+/// Coalesced per session; bulk/previous-session reads cannot block dispatch.
 final class CoinsSwapBalancesRefreshed extends CoinsEvent {
   const CoinsSwapBalancesRefreshed({
     required this.coinIds,

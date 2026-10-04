@@ -972,7 +972,9 @@ class CoinsRepo {
       try {
         // Use the SDK's balance manager to get the current balance
         final balanceInfo = forceRefresh
-            ? await _kdfSdk.balances.refreshBalance(coin.id)
+            ? await _kdfSdk.balances
+                  .refreshBalance(coin.id)
+                  .timeout(const Duration(seconds: 15))
             : await _kdfSdk.balances.getBalance(coin.id);
         if (epoch != _balanceCacheEpoch) return;
 
