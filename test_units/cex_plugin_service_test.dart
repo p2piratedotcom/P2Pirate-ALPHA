@@ -137,6 +137,55 @@ void main() {
     },
   );
 
+  for (final damage in ['missing', 'checksum', 'pointer']) {
+    test(
+      'explicit download repairs $damage but startup stays fail closed',
+      () async {
+        await service(fixture()).download(commit: firstCommit);
+        final adapter = File(
+          '${root.path}/$firstCommit/plugins/demo/adapter.zip',
+        );
+        if (damage == 'missing') {
+          await adapter.delete();
+        } else if (damage == 'checksum') {
+          await adapter.writeAsBytes([1, 2, 3]);
+        } else {
+          await File('${root.path}/current').writeAsString('broken pointer');
+        }
+        await expectLater(service(fixture()).current(), throwsFormatException);
+        expect(await service(fixture()).currentForDownload(), isNull);
+        final repaired = await service(fixture()).download(commit: firstCommit);
+        expect(repaired.labels, {'DEMO': 'Demo Spot'});
+        expect((await service(fixture()).current())?.commit, firstCommit);
+        if (damage != 'pointer') {
+          expect(
+            await root
+                .list()
+                .where((e) => e.path.contains('.quarantine-'))
+                .length,
+            1,
+          );
+        }
+      },
+    );
+  }
+
+  test('invalid replacement leaves a damaged snapshot untouched', () async {
+    await service(fixture()).download(commit: firstCommit);
+    final adapter = File('${root.path}/$firstCommit/plugins/demo/adapter.zip');
+    await adapter.writeAsBytes([7, 8, 9]);
+    await expectLater(
+      service(fixture(), corrupt: true).download(commit: firstCommit),
+      throwsFormatException,
+    );
+    expect(await adapter.readAsBytes(), [7, 8, 9]);
+    expect(
+      await root.list().where((e) => e.path.contains('.quarantine-')).isEmpty,
+      isTrue,
+    );
+    await expectLater(service(fixture()).current(), throwsFormatException);
+  });
+
   test('repository identity is checked before resolving a download', () async {
     final wrong = CexPluginService(
       root: root,

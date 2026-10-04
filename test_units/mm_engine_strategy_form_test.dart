@@ -73,6 +73,37 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  testWidgets('removed saved venue stays visible and blocks preview', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: MmEngineStrategyForm(
+            markets: ['ARRR-USDT-BEP20'],
+            strategyId: 'old-venue-order',
+            venues: {'DEMO': 'Demo Spot'},
+            initialSpec: {
+              'base': {'ticker': 'ARRR', 'asset': 'ARRR'},
+              'quote': {'ticker': 'USDT-BEP20', 'asset': 'USDT'},
+              'cex': 'GATE',
+              'side': 'SELL_ARRR',
+              'premium': '0.02',
+              'price_mode': 'auto',
+              'quantity_mode': 'auto',
+              'total_sold_budget': '10',
+              'update_seconds': '60',
+            },
+          ),
+        ),
+      ),
+    );
+    expect(find.text('GATE (plugin unavailable)'), findsOneWidget);
+    final preview = find.widgetWithText(ElevatedButton, 'Preview');
+    expect(tester.widget<ElevatedButton>(preview).onPressed, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'modify preserves route mappings, precise premium and risk settings',
     (tester) async {

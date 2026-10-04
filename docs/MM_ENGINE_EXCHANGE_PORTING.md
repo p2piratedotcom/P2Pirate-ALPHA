@@ -108,19 +108,28 @@ Downloads pin one catalog commit, verify repository identity/protocol/paths/file
 sizes/SHA-256, install an immutable snapshot and switch the current pointer only
 after complete validation. The engine verifies it again. A failed update retains
 the previous snapshot. Existing snapshots work offline; corrupt files fail closed.
+Explicit reinstall can repair an invalid snapshot: a fully verified replacement
+is staged first and the damaged entry is retained in quarantine. Startup still
+refuses invalid content.
 CEX choices in the dashboard, API-key dialog and order form come from the verified
 catalog/engine capabilities, allowing new Spot v1 venues without GUI edits.
 
 Before updating, orders are paused/withdrawn and the engine is stopped. Existing
 shutdown restrictions for active swaps remain in force. The wallet clears live
 permission and reconnects in preview. No update automatically starts orders.
+A wallet awaiting recovery of its previously enabled live session installs the
+first missing catalog, recovers the session and completes guarded pause/shutdown
+before clearing live permission. Recovery or shutdown failures preserve that
+permission; ordinary preview-only installation never invokes live recovery.
+Saved orders whose exchange plugin is missing keep their route, show an unavailable
+entry and cannot be previewed or modified until that plugin is restored.
 The normal Tor requirement applies to repository downloads and adapter traffic.
 
 The wallet probes `plugin-capabilities` before supplying KDF secrets or live flags.
 Normal engine release installation requires compatibility metadata
-`plugin_protocol: 1`. The old immutable release lacks it; the paired new engine,
-GUI and initial catalog must be published together before normal installation
-can use this feature. For local candidates only, `P2PIRATE_CEX_PLUGIN_DIR` selects
+`plugin_protocol: 1`. Linux release `MM_Engine v0.2.0` supplies it, from merged source
+`78938149b765bdbf9fb4137bca8e6c2b54cea374`. The initial catalog is published
+on the CEX_configs main branch. For local candidates only, `P2PIRATE_CEX_PLUGIN_DIR` selects
 an absolute verified checkout (and takes precedence over downloaded snapshots).
 Use the existing checksum-verified local engine override for the new binary.
 
@@ -136,5 +145,5 @@ belong to the adapters. Protocol requirements and official references are in
 `CEX_configs/PROTOCOL.md`. Changes outside this contract require an explicit
 versioned engine extension.
 
-Local checks: 237 GUI unit/widget tests passed, 2 existing skips; scoped static
+Local checks: 248 GUI unit/widget tests passed, 2 existing skips; scoped static
 analysis is clean. Separate engine and plugin fixture tests make no funded orders.

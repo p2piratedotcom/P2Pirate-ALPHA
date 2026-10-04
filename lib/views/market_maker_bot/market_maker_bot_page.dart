@@ -1,3 +1,4 @@
+import 'package:web_dex/services/mm_engine/mm_engine_plugin_migration.dart';
 import 'package:flutter/material.dart';
 import 'package:web_dex/services/mm_engine/cex_plugin_service.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_trading_controls.dart';
@@ -104,7 +105,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     }
   }
 
-  Future<void> _connect() async {
+  Future<void> _connect({bool? liveTrading}) async {
     _balanceRefresh.invalidate(clear: true);
     _pluginsReady = await CexPluginService.instance.current() != null;
     if (!mounted || !_pluginsReady) return;
@@ -117,6 +118,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     await MmEngineService.instance.start(
       sdk: RepositoryProvider.of<KomodoDefiSdk>(context),
       walletId: user.walletId.compoundId,
+      liveTrading: liveTrading,
     );
     if (!mounted) return;
     if (!_venues.containsKey(_venue)) {
@@ -684,7 +686,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     if (_busy) return;
     await _runBusy(() async {
       final service = CexPluginService.instance;
-      final current = await service.current(localOverride: false);
+      final current = await service.currentForDownload();
       final latest = await service.latestCommit();
       if (!mounted) return;
       if (current?.commit == latest) {
@@ -693,12 +695,16 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
         );
         return;
       }
+      final user = context.read<AuthBloc>().state.currentUser;
+      if (user == null) throw StateError('Wallet is no longer signed in');
+      final walletId = user.walletId.compoundId;
+      final sdk = RepositoryProvider.of<KomodoDefiSdk>(context);
       final accepted = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Download CEX plugins?'),
           content: const Text(
-            'Download exchange adapters and public configuration from P2Pirate CEX_configs. Existing API keys stay local. If the engine is running, its orders must be paused and the engine stopped first. After installation it opens in preview mode.',
+            'Download exchange adapters and public configuration from P2Pirate CEX_configs. Existing API keys stay local. Running orders are paused and the engine stopped before an update. A wallet awaiting live recovery first restores its live session to reconcile existing orders and hedges; pending swaps can prevent shutdown. It enters preview only after recovery and guarded shutdown succeed.',
           ),
           actions: [
             TextButton(
@@ -713,27 +719,54 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
         ),
       );
       if (accepted != true || !mounted) return;
-      final engine = MmEngineService.instance;
-      if (engine.isRunning) {
-        await engine.request(
-          'POST',
-          '/v1/strategies/pause-all',
-          body: {'confirmation': 'PAUSA TUTTE'},
-        );
-        await engine.stop();
+      void checkWallet() {
+        if (!mounted ||
+            context.read<AuthBloc>().state.currentUser?.walletId.compoundId !=
+                walletId) {
+          throw StateError('Wallet changed during CEX plugin installation');
+        }
       }
-      if (!mounted) return;
-      final user = context.read<AuthBloc>().state.currentUser;
-      if (user == null) throw StateError('Wallet is no longer signed in');
-      await engine.clearLivePreference(user.walletId.compoundId);
+
+      final engine = MmEngineService.instance;
       try {
-        await service.download(
-          commit: latest,
-          onStage: (stage) {
-            if (mounted) setState(() => _downloadStatus = stage);
+        await migrateCexPlugins(
+          needsRecovery: engine.needsRecovery,
+          isRunning: engine.isRunning,
+          catalogAvailable: current != null,
+          download: () async {
+            checkWallet();
+            await service.download(
+              commit: latest,
+              onStage: (stage) {
+                if (mounted) setState(() => _downloadStatus = stage);
+              },
+            );
+            checkWallet();
+          },
+          recoverLive: () async {
+            checkWallet();
+            await engine.start(sdk: sdk, walletId: walletId, liveTrading: true);
+            checkWallet();
+          },
+          pauseAndStop: () async {
+            checkWallet();
+            await engine.request(
+              'POST',
+              '/v1/strategies/pause-all',
+              body: {'confirmation': 'PAUSA TUTTE'},
+            );
+            await engine.stop();
+            checkWallet();
+          },
+          clearLivePreference: () async {
+            checkWallet();
+            await engine.clearLivePreference(walletId);
+          },
+          connectPreview: () async {
+            checkWallet();
+            await _connect(liveTrading: false);
           },
         );
-        await _connect();
       } finally {
         if (mounted) setState(() => _downloadStatus = null);
       }

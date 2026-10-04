@@ -55,6 +55,18 @@ class CexPluginService {
     return verify(Directory(p.join(root.path, commit)), commit);
   }
 
+  /// Explicit installation may repair corruption; startup still uses current()
+  /// and refuses any invalid installed snapshot.
+  Future<CexPluginSnapshot?> currentForDownload() async {
+    try {
+      return await current(localOverride: false);
+    } on FormatException {
+      return null;
+    } on FileSystemException {
+      return null;
+    }
+  }
+
   Future<String> latestCommit() async {
     if (_storage == null) {
       final stored = await SettingsRepository.loadStoredSettings();
@@ -114,7 +126,7 @@ class CexPluginService {
     if (!_commit.hasMatch(commit)) {
       throw const FormatException("Invalid plugin commit");
     }
-    final existing = await current(localOverride: false);
+    final existing = await currentForDownload();
     if (existing?.commit == commit) return existing!;
     final root = await _root;
     var parent = root;
@@ -164,10 +176,46 @@ class CexPluginService {
       onStage?.call('Verifying CEX plugin compatibility…');
       await verify(staging, commit);
       final target = Directory(p.join(root.path, commit));
-      if (await FileSystemEntity.type(target.path, followLinks: false) !=
-          FileSystemEntityType.notFound) {
-        // Never overwrite an installed snapshot that a process may be using.
-        await verify(target, commit);
+      final targetType = await FileSystemEntity.type(
+        target.path,
+        followLinks: false,
+      );
+      if (targetType != FileSystemEntityType.notFound) {
+        var valid = false;
+        try {
+          await verify(target, commit);
+          valid = true;
+        } on FormatException {
+          // Replacement staging was fully verified above; retain the bad copy.
+        } on FileSystemException {
+          // Missing/unreadable installed content can also be repaired explicitly.
+        }
+        if (!valid) {
+          final quarantine = await root.createTemp('.quarantine-');
+          final saved = p.join(quarantine.path, 'snapshot');
+          switch (targetType) {
+            case FileSystemEntityType.directory:
+              await target.rename(saved);
+            case FileSystemEntityType.link:
+              await Link(target.path).rename(saved);
+            default:
+              await File(target.path).rename(saved);
+          }
+          try {
+            await staging.rename(target.path);
+          } catch (_) {
+            // Preserve the old pointer and restore its entry if installation fails.
+            switch (targetType) {
+              case FileSystemEntityType.directory:
+                await Directory(saved).rename(target.path);
+              case FileSystemEntityType.link:
+                await Link(saved).rename(target.path);
+              default:
+                await File(saved).rename(target.path);
+            }
+            rethrow;
+          }
+        }
       } else {
         await staging.rename(target.path);
       }

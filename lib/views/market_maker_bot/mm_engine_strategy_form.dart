@@ -97,6 +97,8 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
     }
   }
 
+  bool get _venueAvailable => widget.venues.containsKey(_venue);
+
   void _updateRoute() {
     _baseAsset.text = _market?.split('-').first ?? '';
     final quote = _market?.split('-').skip(1).join('-') ?? '';
@@ -323,6 +325,12 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
                 initialValue: _venue,
                 decoration: _decoration('Hedge exchange'),
                 items: [
+                  if (!_venueAvailable)
+                    DropdownMenuItem(
+                      value: _venue,
+                      enabled: false,
+                      child: Text('$_venue (plugin unavailable)'),
+                    ),
                   for (final entry in widget.venues.entries)
                     DropdownMenuItem(
                       value: entry.key,
@@ -337,6 +345,10 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
                     ? null
                     : (value) => setState(() => _venue = value ?? _venue),
               ),
+              if (!_venueAvailable)
+                const Text(
+                  'The saved CEX plugin is unavailable. Restore it before previewing or modifying this order; its route is preserved.',
+                ),
               DropdownButtonFormField<String>(
                 initialValue: _side,
                 decoration: _decoration('KDF maker side'),
@@ -422,7 +434,10 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
       Tooltip(
         message:
             'Read market depth and balances, validate hedge capacity and show the proposed order. This does not publish it.',
-        child: ElevatedButton(onPressed: _submit, child: const Text('Preview')),
+        child: ElevatedButton(
+          onPressed: _venueAvailable ? _submit : null,
+          child: const Text('Preview'),
+        ),
       ),
     ],
   );

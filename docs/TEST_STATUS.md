@@ -131,7 +131,7 @@ The global switch still does not bypass engine reconciliation and risk checks.
 
 ## CEX plugin protocol candidate — 2026-10-04
 
-- GUI unit/widget suite: **237 passed, 2 existing skips**.
+- GUI unit/widget suite: **248 passed, 2 existing skips**.
 - Scoped analysis of modified production/test Dart files: **no issues**.
 - Isolated Xvfb desktop smoke suite: **3 passed**; no KDF or funded wallet.
 - Separate MM_Engine suite: **37 passed**, including a synthetic third venue,
@@ -142,9 +142,10 @@ The global switch still does not bypass engine reconciliation and risk checks.
   MEXC/Gate plugins complete handshakes without any remote request.
 
 These results do not assert that Kraken/Binance are implemented or that live
-exchange execution was tested. The initial catalog is local until approved
-publication; normal first-use downloads require it and the compatible engine
-release to be published. The existing app/profile was not restarted or modified.
+exchange execution was tested. The initial catalog and compatible immutable Linux engine
+release v0.2.0 are published. Three GUI review findings are covered by regression
+tests: live-recovery migration, corrupt-snapshot repair and missing saved CEX
+plugins. The existing app/profile was not restarted or modified.
 
 Additional inherited engine regression: **132 core strategy/API/hedging/unwind
 checks passed**. The terminal PTY suite has **2 passes and 2 failures** both on
