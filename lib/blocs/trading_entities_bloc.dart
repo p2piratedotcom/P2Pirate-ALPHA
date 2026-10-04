@@ -23,6 +23,13 @@ import 'package:web_dex/services/orders_service/my_orders_service.dart';
 import 'package:web_dex/services/swaps/swap_history_storage.dart';
 import 'package:web_dex/shared/utils/utils.dart';
 
+/// A live swap settlement hint, scoped to the wallet that produced it.
+class SwapBalanceRefresh {
+  const SwapBalanceRefresh(this.walletId, this.tickers);
+  final WalletId walletId;
+  final Set<String> tickers;
+}
+
 class TradingEntitiesBloc implements BlocBase {
   TradingEntitiesBloc(
     KomodoDefiSdk kdfSdk,
@@ -93,6 +100,10 @@ class TradingEntitiesBloc implements BlocBase {
       StreamController<List<Swap>>.broadcast();
   Sink<List<Swap>> get _inSwaps => _swapsController.sink;
   Stream<List<Swap>> get outSwaps => _swapsController.stream;
+  final _swapBalanceRefreshController =
+      StreamController<SwapBalanceRefresh>.broadcast();
+  Stream<SwapBalanceRefresh> get outSwapBalanceRefreshes =>
+      _swapBalanceRefreshController.stream;
   List<Swap> get swaps => _swaps;
   set swaps(List<Swap> swapList) {
     swapList.sort(
@@ -128,8 +139,36 @@ class TradingEntitiesBloc implements BlocBase {
         ) ??
         [];
     if (!await _isCurrentWallet(walletId, walletRevision)) return;
+    final previous = {for (final swap in _swaps) swap.uuid: swap};
+    final settledTickers = <String>{};
+    for (final swap in recentSwaps) {
+      final old = previous[swap.uuid];
+      // Suppress historical completions on the first snapshot/login. An
+      // unseen completion in a later live poll can have finished between polls.
+      if (swap.isCompleted &&
+          old?.isCompleted != true &&
+          (_hasLoadedInitialSwaps || old != null)) {
+        settledTickers.addAll([swap.makerCoin, swap.takerCoin]);
+      }
+      // Refunds can appear after an error already marked a swap completed.
+      if (old != null &&
+          swap.events.any(
+            (event) =>
+                event.event.type.endsWith('PaymentRefunded') &&
+                !old.events.any(
+                  (before) => before.event.type == event.event.type,
+                ),
+          )) {
+        settledTickers.addAll([swap.makerCoin, swap.takerCoin]);
+      }
+    }
     _hasLoadedInitialSwaps = true;
     swaps = _mergeSwaps(_swaps, recentSwaps);
+    if (settledTickers.isNotEmpty) {
+      _swapBalanceRefreshController.add(
+        SwapBalanceRefresh(walletId, Set.unmodifiable(settledTickers)),
+      );
+    }
     final completed = _swaps.where(_isCompletedForCache).toList();
     if (!_savingHistory &&
         !const ListEquality<Swap>().equals(_lastStoredSwaps, completed)) {
@@ -230,6 +269,7 @@ class TradingEntitiesBloc implements BlocBase {
     timer?.cancel();
     _myOrdersController.close();
     _swapsController.close();
+    _swapBalanceRefreshController.close();
     _recoveryController.close();
   }
 
@@ -278,7 +318,9 @@ class TradingEntitiesBloc implements BlocBase {
   }
 
   bool _shouldRunBackgroundFetch() {
-    if (_isTradingMenuActive) return true;
+    if (_isTradingMenuActive || _swaps.any((swap) => !swap.isCompleted)) {
+      return true;
+    }
     if (_lastFetchAt == null) return true;
     return DateTime.now().difference(_lastFetchAt!) >= _backgroundFetchInterval;
   }
