@@ -29,6 +29,20 @@ final class CoinsBalancesRefreshed extends CoinsEvent {
   ];
 }
 
+/// Priority, session-scoped refresh of assets affected by swap settlement.
+/// Uses an independent queue so bulk balance reads cannot block settlement.
+final class CoinsSwapBalancesRefreshed extends CoinsEvent {
+  const CoinsSwapBalancesRefreshed({
+    required this.coinIds,
+    required this.sessionVersion,
+  });
+  final Set<String> coinIds;
+  final int sessionVersion;
+
+  @override
+  List<Object> get props => [coinIds, sessionVersion];
+}
+
 /// Reconcile coins still shown as activating with KDF's enabled coin list.
 final class CoinsActivationStatusRefreshed extends CoinsEvent {}
 

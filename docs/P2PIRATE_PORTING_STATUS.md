@@ -168,7 +168,10 @@ address/balance data, bypassing persisted and memory pubkey caches. Address
 and balance watchers are notified. Failed refreshes preserve the last valid
 balance. The GUI requests an immediate refresh and follow-ups at 5, 15, 30 and
 60 seconds. Completions share one bounded sequence; requests arriving during
-an existing refresh are coalesced rather than accumulating a queue. Login,
+an existing settlement refresh are coalesced rather than accumulating a queue.
+Settlement uses an independent event queue, so a slow manual/fallback whole-
+wallet scan cannot block the affected coins. Bulk refreshes retain their original
+droppable behavior. Login,
 logout and disposal cancel pending work and reject previous-session results.
 
 This changes refresh scheduling, not blockchain finality: balances remain

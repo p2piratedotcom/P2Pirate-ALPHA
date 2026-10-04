@@ -31,7 +31,20 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     // TODO: move auth listener to ui layer: bloclistener should fire auth events
     on<CoinsBalanceMonitoringStarted>(_onCoinsBalanceMonitoringStarted);
     on<CoinsBalanceMonitoringStopped>(_onCoinsBalanceMonitoringStopped);
-    on<CoinsBalancesRefreshed>(_onCoinsRefreshed, transformer: sequential());
+    on<CoinsBalancesRefreshed>(_onCoinsRefreshed, transformer: droppable());
+    // Settlement reads have their own coalesced queue: a slow unrelated asset
+    // in a manual/fallback whole-wallet scan must not delay swap balances.
+    on<CoinsSwapBalancesRefreshed>(
+      (event, emit) => _onCoinsRefreshed(
+        CoinsBalancesRefreshed(
+          coinIds: event.coinIds,
+          forceRefresh: true,
+          sessionVersion: event.sessionVersion,
+        ),
+        emit,
+      ),
+      transformer: sequential(),
+    );
     on<CoinsActivationStatusRefreshed>(
       _onActivationStatusRefreshed,
       transformer: droppable(),
@@ -311,9 +324,8 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     }
     _postSwapRefreshQueued = true;
     add(
-      CoinsBalancesRefreshed(
+      CoinsSwapBalancesRefreshed(
         coinIds: Set.unmodifiable(_pendingPostSwapCoinIds),
-        forceRefresh: true,
         sessionVersion: sessionVersion,
       ),
     );
