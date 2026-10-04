@@ -152,3 +152,40 @@ The CheetahDEX `v0.9.4` tag pins SDK commit `50d0cb8`, which points to Rust
 commit `968f32a`. Its Linux KDF archive SHA-256 is `cf80e5d5…`; the reviewed
 archive contains executable SHA-256 `bd171eee…`, matching the ZIP reference.
 That identifies the release artifact, not a reproducible source build.
+
+
+## Wallet balances after swap settlement (4 October 2026)
+
+A fresh KDF swap snapshot now requests balances for the active maker/taker
+assets when a swap becomes terminal. Matching uses the complete KDF configuration
+ID, including network/SegWit suffixes, rather than the grouped base ticker.
+Newly observed payment refunds also
+request a refresh. For tokens, the active platform coin is included to update
+network fees. Historical completed swaps at login do not trigger a refresh
+storm; the initial baseline is marked loaded only after a successful RPC
+snapshot (a null failure response is not treated as an empty snapshot). Known in-progress swaps retain the 10-second status poll outside the
+Swap/Bridge page so settlement can update Wallet promptly.
+
+The SDK exposes `refreshPubkeys` and `refreshBalance` to fetch current KDF
+address/balance data, bypassing persisted and memory pubkey caches. Address
+and balance watchers are notified. Failed refreshes preserve the last valid
+balance. The GUI requests an immediate refresh and follow-ups at 5, 15, 30 and
+60 seconds. Completions share one bounded sequence; requests arriving during
+an existing settlement refresh are coalesced rather than accumulating a queue.
+Settlement dispatch is independent of bulk/previous-session handlers, with
+coalescing retaining one batch per wallet session. Forced asset reads have a
+15-second local deadline; SDK work that completes later remains wallet-guarded
+and can still update valid watchers. Bulk refreshes retain their original
+droppable behavior. Login,
+logout and disposal cancel pending work and reject previous-session results.
+
+This changes refresh scheduling, not blockchain finality: balances remain
+KDF-reported and can require confirmations or shielded-wallet synchronization.
+No transaction, trade or balance is inferred from swap amounts.
+
+Verification: Linux release compilation and local AppImage packaging succeeded;
+static analysis reported zero errors (existing repository diagnostics remain).
+After restarting the local build, the user completed a real swap and confirmed
+that Wallet balances updated immediately on completion. This observation is
+not a timing guarantee for every asset/network. No additional funded swap was
+initiated by the agent.

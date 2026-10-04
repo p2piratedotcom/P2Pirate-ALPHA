@@ -183,6 +183,7 @@ class AppBlocRoot extends StatelessWidget {
               komodoDefiSdk,
               coinsRepository,
               context.read<TradingStatusService>(),
+              tradingEntitiesBloc: tradingEntitiesBloc,
             )..add(CoinsStarted()),
           ),
           BlocProvider<PriceChartBloc>(

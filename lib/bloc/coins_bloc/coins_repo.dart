@@ -82,6 +82,7 @@ class CoinsRepo {
   // The type is being kept as ({ double balance, double spendable }) to minimize
   // the changes needed for full migration in the future
   final Map<String, ({double balance, double spendable})> _balancesCache = {};
+  int _balanceCacheEpoch = 0;
 
   // Map to keep track of active balance watchers
   final Map<AssetId, StreamSubscription<BalanceInfo>> _balanceWatchers = {};
@@ -196,6 +197,7 @@ class CoinsRepo {
   }
 
   void flushCache() {
+    _balanceCacheEpoch++;
     // Intentionally avoid flushing the prices cache - prices are independent
     // of the user's session and should be updated on a regular basis.
     _addressCache.clear();
@@ -947,11 +949,15 @@ class CoinsRepo {
 
   /// Updates balances for active coins by querying the SDK
   /// Yields coins that have balance changes
-  Stream<Coin> updateIguanaBalances(Map<String, Coin> walletCoins) async* {
+  Stream<Coin> updateIguanaBalances(
+    Map<String, Coin> walletCoins, {
+    bool forceRefresh = false,
+  }) async* {
     // This method is now mostly a fallback, as we primarily use
     // the SDK's balance watchers to get live updates. We still
     // implement it for backward compatibility.
     final walletCoinsCopy = Map<String, Coin>.from(walletCoins);
+    final epoch = _balanceCacheEpoch;
     final coins = _tradingStatusService
         .filterAllowedAssetsMap(walletCoinsCopy, (coin) => coin.id)
         .values
@@ -960,9 +966,17 @@ class CoinsRepo {
 
     // Get balances from the SDK for all active coins
     for (final coin in coins) {
+      // A failed request can finish after logout; do not start another asset
+      // refresh using the next wallet's KDF session.
+      if (epoch != _balanceCacheEpoch) return;
       try {
         // Use the SDK's balance manager to get the current balance
-        final balanceInfo = await _kdfSdk.balances.getBalance(coin.id);
+        final balanceInfo = forceRefresh
+            ? await _kdfSdk.balances
+                  .refreshBalance(coin.id)
+                  .timeout(const Duration(seconds: 15))
+            : await _kdfSdk.balances.getBalance(coin.id);
+        if (epoch != _balanceCacheEpoch) return;
 
         // Convert to double for compatibility with existing code
         final newBalance = balanceInfo.total.toDouble();

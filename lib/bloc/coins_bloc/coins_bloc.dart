@@ -10,6 +10,7 @@ import 'package:logging/logging.dart';
 import 'package:web_dex/app_config/app_config.dart';
 import 'package:web_dex/bloc/coins_bloc/coins_repo.dart';
 import 'package:web_dex/bloc/trading_status/trading_status_service.dart';
+import 'package:web_dex/blocs/trading_entities_bloc.dart';
 import 'package:web_dex/model/cex_price.dart';
 import 'package:web_dex/model/coin.dart';
 import 'package:web_dex/model/wallet.dart';
@@ -19,13 +20,31 @@ part 'coins_state.dart';
 
 /// Responsible for coin activation, deactivation, syncing, and fiat price
 class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
-  CoinsBloc(this._kdfSdk, this._coinsRepo, this._tradingStatusService)
-    : super(CoinsState.initial()) {
+  CoinsBloc(
+    this._kdfSdk,
+    this._coinsRepo,
+    this._tradingStatusService, {
+    TradingEntitiesBloc? tradingEntitiesBloc,
+  }) : _tradingEntitiesBloc = tradingEntitiesBloc,
+       super(CoinsState.initial()) {
     on<CoinsStarted>(_onCoinsStarted, transformer: droppable());
     // TODO: move auth listener to ui layer: bloclistener should fire auth events
     on<CoinsBalanceMonitoringStarted>(_onCoinsBalanceMonitoringStarted);
     on<CoinsBalanceMonitoringStopped>(_onCoinsBalanceMonitoringStopped);
     on<CoinsBalancesRefreshed>(_onCoinsRefreshed, transformer: droppable());
+    // Coalescing keeps one settlement batch per wallet session. Concurrent
+    // dispatch lets a new session bypass old work, and avoids bulk-scan queues.
+    on<CoinsSwapBalancesRefreshed>(
+      (event, emit) => _onCoinsRefreshed(
+        CoinsBalancesRefreshed(
+          coinIds: event.coinIds,
+          forceRefresh: true,
+          sessionVersion: event.sessionVersion,
+        ),
+        emit,
+      ),
+      transformer: concurrent(),
+    );
     on<CoinsActivationStatusRefreshed>(
       _onActivationStatusRefreshed,
       transformer: droppable(),
@@ -38,7 +57,7 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     on<CoinsSessionStarted>(_onLogin, transformer: restartable());
     on<CoinsSessionEnded>(_onLogout, transformer: restartable());
     on<CoinsWalletCoinUpdated>(_onWalletCoinUpdated, transformer: sequential());
-    on<CoinsBalanceChanged>(_onBalanceChanged, transformer: droppable());
+    on<CoinsBalanceChanged>(_onBalanceChanged, transformer: sequential());
     on<CoinsPubkeysRequested>(
       _onCoinsPubkeysRequested,
       transformer: concurrent(),
@@ -48,6 +67,7 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
   final KomodoDefiSdk _kdfSdk;
   final CoinsRepo _coinsRepo;
   final TradingStatusService _tradingStatusService;
+  final TradingEntitiesBloc? _tradingEntitiesBloc;
 
   final _log = Logger('CoinsBloc');
   final Set<String> _pendingPrices = {};
@@ -95,6 +115,11 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
 
   StreamSubscription<Coin>? _enabledCoinsSubscription;
   StreamSubscription<Coin>? _balanceChangesSubscription;
+  StreamSubscription<SwapBalanceRefresh>? _swapBalanceRefreshSubscription;
+  final List<Timer> _postSwapRefreshTimers = [];
+  final Set<String> _postSwapCoinIds = {};
+  final Set<String> _pendingPostSwapCoinIds = {};
+  bool _postSwapRefreshQueued = false;
   Timer? _updateBalancesTimer;
   Timer? _updatePricesTimer;
   Timer? _quoteExpiryTimer;
@@ -105,6 +130,8 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
   Future<void> close() async {
     await _enabledCoinsSubscription?.cancel();
     await _balanceChangesSubscription?.cancel();
+    await _swapBalanceRefreshSubscription?.cancel();
+    _cancelPostSwapRefreshes();
     _updateBalancesTimer?.cancel();
     _updatePricesTimer?.cancel();
     _quoteExpiryTimer?.cancel();
@@ -116,6 +143,7 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     CoinsPubkeysRequested event,
     Emitter<CoinsState> emit,
   ) async {
+    final sessionVersion = _walletSessionVersion;
     if (event.forceRefresh && !_refreshingPubkeys.add(event.coinId)) {
       _pendingPubkeyRefreshes.add(event.coinId);
       return;
@@ -142,17 +170,17 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
 
       // Get pubkeys from the SDK through the repo
       final asset = _kdfSdk.assets.available[coin.id]!;
-      if (event.forceRefresh) {
-        await _kdfSdk.pubkeys.precachePubkeys(asset);
-      }
-      final pubkeys = await _kdfSdk.pubkeys.getPubkeys(asset);
+      final pubkeys = event.forceRefresh
+          ? await _kdfSdk.pubkeys.refreshPubkeys(asset)
+          : await _kdfSdk.pubkeys.getPubkeys(asset);
+      if (sessionVersion != _walletSessionVersion) return;
 
       // Update state with new pubkeys
       emit(state.copyWith(pubkeys: {...state.pubkeys, event.coinId: pubkeys}));
     } catch (e, s) {
       _log.shout('Failed to get pubkeys for ${event.coinId}', e, s);
     } finally {
-      if (event.forceRefresh) {
+      if (event.forceRefresh && sessionVersion == _walletSessionVersion) {
         _refreshingPubkeys.remove(event.coinId);
         if (_pendingPubkeyRefreshes.remove(event.coinId) && !isClosed) {
           add(CoinsPubkeysRequested(event.coinId, forceRefresh: true));
@@ -207,8 +235,26 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     // Subscribe to real-time balance changes from the repository
     await _balanceChangesSubscription?.cancel();
     _balanceChangesSubscription = _coinsRepo.balanceChanges.stream.listen(
-      (Coin coin) => add(CoinsBalanceChanged(coin)),
+      (Coin coin) =>
+          add(CoinsBalanceChanged(coin, sessionVersion: _walletSessionVersion)),
     );
+    await _swapBalanceRefreshSubscription?.cancel();
+    _swapBalanceRefreshSubscription = _tradingEntitiesBloc
+        ?.outSwapBalanceRefreshes
+        .listen((event) {
+          unawaited(
+            _schedulePostSwapRefresh(event).catchError((
+              Object error,
+              StackTrace stack,
+            ) {
+              _log.warning(
+                'Could not schedule post-swap balance refresh',
+                error,
+                stack,
+              );
+            }),
+          );
+        });
 
     // An already enabled ARRR coin can broadcast its active state immediately.
     // Start listening before kicking off activation for an existing session.
@@ -222,22 +268,130 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     CoinsBalancesRefreshed event,
     Emitter<CoinsState> emit,
   ) async {
-    final coinUpdateStream = _coinsRepo.updateIguanaBalances(state.walletCoins);
-    await emit.forEach(
-      coinUpdateStream,
-      onData: (Coin coin) {
-        final key = coin.id.id;
-        if (!state.walletCoins.containsKey(key)) {
-          _log.warning(
-            'Coin ${coin.abbr} not found in wallet coins, skipping update',
+    final sessionVersion = _walletSessionVersion;
+    if (event.sessionVersion != null &&
+        event.sessionVersion != sessionVersion) {
+      return;
+    }
+    final postSwap = event.forceRefresh && event.sessionVersion != null;
+    final coinIds = event.coinIds == null
+        ? null
+        : {...event.coinIds!, if (postSwap) ..._pendingPostSwapCoinIds};
+    if (postSwap) _pendingPostSwapCoinIds.clear();
+    try {
+      final selected = Map<String, Coin>.fromEntries(
+        state.walletCoins.entries.where(
+          (entry) => coinIds == null || coinIds.contains(entry.key),
+        ),
+      );
+      final coinUpdateStream = _coinsRepo.updateIguanaBalances(
+        selected,
+        forceRefresh: event.forceRefresh,
+      );
+      await emit.forEach(
+        coinUpdateStream,
+        onData: (Coin coin) {
+          if (sessionVersion != _walletSessionVersion) return state;
+          final key = coin.id.id;
+          if (!state.walletCoins.containsKey(key)) {
+            _log.warning(
+              'Coin ${coin.abbr} not found in wallet coins, skipping update',
+            );
+            return state;
+          }
+          return state.copyWith(
+            walletCoins: {...state.walletCoins, key: coin},
+            coins: {...state.coins, key: coin},
           );
-          return state;
+        },
+      );
+    } finally {
+      if (postSwap && sessionVersion == _walletSessionVersion) {
+        _postSwapRefreshQueued = false;
+        if (_pendingPostSwapCoinIds.isNotEmpty) {
+          _queuePostSwapRefresh(sessionVersion);
         }
-        return state.copyWith(
-          walletCoins: {...state.walletCoins, key: coin},
-          coins: {...state.coins, key: coin},
-        );
-      },
+      }
+    }
+  }
+
+  void _queuePostSwapRefresh(int sessionVersion) {
+    if (isClosed ||
+        sessionVersion != _walletSessionVersion ||
+        _postSwapRefreshQueued ||
+        _pendingPostSwapCoinIds.isEmpty) {
+      return;
+    }
+    _postSwapRefreshQueued = true;
+    add(
+      CoinsSwapBalancesRefreshed(
+        coinIds: Set.unmodifiable(_pendingPostSwapCoinIds),
+        sessionVersion: sessionVersion,
+      ),
+    );
+  }
+
+  void _cancelPostSwapRefreshes() {
+    for (final timer in _postSwapRefreshTimers) {
+      timer.cancel();
+    }
+    _postSwapRefreshTimers.clear();
+    _postSwapCoinIds.clear();
+    _pendingPostSwapCoinIds.clear();
+    _postSwapRefreshQueued = false;
+    _refreshingPubkeys.clear();
+    _pendingPubkeyRefreshes.clear();
+  }
+
+  Future<void> _schedulePostSwapRefresh(SwapBalanceRefresh event) async {
+    final sessionVersion = _walletSessionVersion;
+    final user = await _kdfSdk.auth.currentUser;
+    if (isClosed ||
+        sessionVersion != _walletSessionVersion ||
+        user?.walletId != event.walletId) {
+      return;
+    }
+    // KDF swap tickers are complete configuration IDs, including network
+    // suffixes. A grouped base symbol would miss tokens/SegWit variants.
+    final configuredIds = event.tickers.map((id) => id.toUpperCase()).toSet();
+    for (final coin in state.walletCoins.values) {
+      if (!coin.isActive || !configuredIds.contains(coin.id.id.toUpperCase())) {
+        continue;
+      }
+      _postSwapCoinIds.add(coin.id.id);
+      // Token swaps also spend network fees in the platform coin.
+      final parent = coin.id.parentId;
+      if (parent != null && state.walletCoins[parent.id]?.isActive == true) {
+        _postSwapCoinIds.add(parent.id);
+      }
+    }
+    if (_postSwapCoinIds.isEmpty) return;
+    for (final timer in _postSwapRefreshTimers) {
+      timer.cancel();
+    }
+    _postSwapRefreshTimers.clear();
+    void refresh() {
+      if (isClosed || sessionVersion != _walletSessionVersion) return;
+      _pendingPostSwapCoinIds.addAll(_postSwapCoinIds);
+      _queuePostSwapRefresh(sessionVersion);
+    }
+
+    refresh();
+    // Follow-ups cover delayed KDF/chain balance visibility. New completions
+    // coalesce their assets into this same bounded sequence, not per-swap loops.
+    for (final seconds in [5, 15, 30, 60]) {
+      _postSwapRefreshTimers.add(
+        Timer(Duration(seconds: seconds), () {
+          refresh();
+          if (seconds == 60) {
+            _postSwapCoinIds.clear();
+            _postSwapRefreshTimers.clear();
+          }
+        }),
+      );
+    }
+    _log.info(
+      'Swap settled: requesting fresh balances for ${_postSwapCoinIds.length} active assets',
     );
   }
 
@@ -303,6 +457,10 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     CoinsBalanceChanged event,
     Emitter<CoinsState> emit,
   ) async {
+    if (event.sessionVersion != null &&
+        event.sessionVersion != _walletSessionVersion) {
+      return;
+    }
     final updated = event.coin;
     final assetId = updated.id.id;
     final existing = state.walletCoins[assetId] ?? state.coins[assetId];
@@ -325,11 +483,10 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
       ),
     );
 
-    // Refresh expanded address balances after a live ARRR total update.
-    // Avoid work for wallets whose address details are not open yet.
-    if (merged.abbr.toUpperCase() == 'ARRR' &&
-        state.pubkeys.containsKey(assetId)) {
-      add(CoinsPubkeysRequested(assetId, forceRefresh: true));
+    // The SDK has already refreshed its address cache before notifying us.
+    // Copy it into open address details without causing another RPC loop.
+    if (state.pubkeys.containsKey(assetId)) {
+      add(CoinsPubkeysRequested(assetId));
     }
   }
 
@@ -512,6 +669,7 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     Emitter<CoinsState> emit,
   ) async {
     _walletSessionVersion++;
+    _cancelPostSwapRefreshes();
     _isInitialActivationInProgress = true;
     try {
       // Ensure any cached addresses/pubkeys from a previous wallet are cleared
@@ -554,6 +712,7 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
     Emitter<CoinsState> emit,
   ) async {
     _walletSessionVersion++;
+    _cancelPostSwapRefreshes();
     _resetInitialActivationState();
     add(CoinsBalanceMonitoringStopped());
 

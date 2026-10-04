@@ -11,7 +11,37 @@ sealed class CoinsEvent extends Equatable {
 final class CoinsStarted extends CoinsEvent {}
 
 /// Event emitted when user requests to refresh their coin balances manually
-final class CoinsBalancesRefreshed extends CoinsEvent {}
+final class CoinsBalancesRefreshed extends CoinsEvent {
+  const CoinsBalancesRefreshed({
+    this.coinIds,
+    this.forceRefresh = false,
+    this.sessionVersion,
+  });
+  final Set<String>? coinIds;
+  final bool forceRefresh;
+  final int? sessionVersion;
+
+  @override
+  List<Object> get props => [
+    coinIds ?? const <String>{},
+    forceRefresh,
+    sessionVersion ?? -1,
+  ];
+}
+
+/// Priority, session-scoped refresh of assets affected by swap settlement.
+/// Coalesced per session; bulk/previous-session reads cannot block dispatch.
+final class CoinsSwapBalancesRefreshed extends CoinsEvent {
+  const CoinsSwapBalancesRefreshed({
+    required this.coinIds,
+    required this.sessionVersion,
+  });
+  final Set<String> coinIds;
+  final int sessionVersion;
+
+  @override
+  List<Object> get props => [coinIds, sessionVersion];
+}
 
 /// Reconcile coins still shown as activating with KDF's enabled coin list.
 final class CoinsActivationStatusRefreshed extends CoinsEvent {}
@@ -56,12 +86,13 @@ final class CoinPriceRequested extends CoinsEvent {
 
 /// Emitted when a coin's balance has changed (real-time from SDK)
 final class CoinsBalanceChanged extends CoinsEvent {
-  const CoinsBalanceChanged(this.coin);
+  const CoinsBalanceChanged(this.coin, {this.sessionVersion});
 
   final Coin coin;
+  final int? sessionVersion;
 
   @override
-  List<Object> get props => [coin];
+  List<Object> get props => [coin, sessionVersion ?? -1];
 }
 
 /// Successful user login (session)
