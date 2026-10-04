@@ -351,10 +351,11 @@ class CoinsBloc extends Bloc<CoinsEvent, CoinsState> {
         user?.walletId != event.walletId) {
       return;
     }
-    final tickers = event.tickers.map((ticker) => ticker.toUpperCase()).toSet();
+    // KDF swap tickers are complete configuration IDs, including network
+    // suffixes. A grouped base symbol would miss tokens/SegWit variants.
+    final configuredIds = event.tickers.map((id) => id.toUpperCase()).toSet();
     for (final coin in state.walletCoins.values) {
-      if (!coin.isActive ||
-          !tickers.contains(coin.id.symbol.configSymbol.toUpperCase())) {
+      if (!coin.isActive || !configuredIds.contains(coin.id.id.toUpperCase())) {
         continue;
       }
       _postSwapCoinIds.add(coin.id.id);

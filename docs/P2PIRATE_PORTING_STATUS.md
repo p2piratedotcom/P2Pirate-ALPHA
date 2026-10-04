@@ -157,7 +157,9 @@ That identifies the release artifact, not a reproducible source build.
 ## Wallet balances after swap settlement (4 October 2026)
 
 A fresh KDF swap snapshot now requests balances for the active maker/taker
-assets when a swap becomes terminal. Newly observed payment refunds also
+assets when a swap becomes terminal. Matching uses the complete KDF configuration
+ID, including network/SegWit suffixes, rather than the grouped base ticker.
+Newly observed payment refunds also
 request a refresh. For tokens, the active platform coin is included to update
 network fees. Historical completed swaps at login do not trigger a refresh
 storm. Known in-progress swaps retain the 10-second status poll outside the
