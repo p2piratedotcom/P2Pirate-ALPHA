@@ -966,6 +966,9 @@ class CoinsRepo {
 
     // Get balances from the SDK for all active coins
     for (final coin in coins) {
+      // A failed request can finish after logout; do not start another asset
+      // refresh using the next wallet's KDF session.
+      if (epoch != _balanceCacheEpoch) return;
       try {
         // Use the SDK's balance manager to get the current balance
         final balanceInfo = forceRefresh
