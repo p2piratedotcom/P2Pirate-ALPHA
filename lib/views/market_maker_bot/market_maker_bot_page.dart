@@ -1,4 +1,6 @@
+import 'package:web_dex/services/mm_engine/mm_engine_plugin_migration.dart';
 import 'package:flutter/material.dart';
+import 'package:web_dex/services/mm_engine/cex_plugin_service.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_trading_controls.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_balance_refresh.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -21,6 +23,8 @@ class MarketMakerBotPage extends StatefulWidget {
 class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
   bool _busy = true;
   bool _installed = false;
+  bool _pluginsReady = false;
+  Map<String, String> get _venues => MmEngineService.instance.venueLabels;
   String? _error;
   String? _downloadStatus;
   MmEngineInstallProgress? _downloadProgress;
@@ -101,8 +105,10 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     }
   }
 
-  Future<void> _connect() async {
+  Future<void> _connect({bool? liveTrading}) async {
     _balanceRefresh.invalidate(clear: true);
+    _pluginsReady = await CexPluginService.instance.current() != null;
+    if (!mounted || !_pluginsReady) return;
     final user = context.read<AuthBloc>().state.currentUser;
     if (user == null) {
       throw StateError(
@@ -112,7 +118,12 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     await MmEngineService.instance.start(
       sdk: RepositoryProvider.of<KomodoDefiSdk>(context),
       walletId: user.walletId.compoundId,
+      liveTrading: liveTrading,
     );
+    if (!mounted) return;
+    if (!_venues.containsKey(_venue)) {
+      _balanceRefresh.selectVenue(_venues.keys.first);
+    }
     await _refresh();
   }
 
@@ -314,9 +325,12 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                   DropdownButtonFormField<String>(
                     initialValue: selectedVenue,
                     decoration: const InputDecoration(labelText: 'CEX name'),
-                    items: const [
-                      DropdownMenuItem(value: 'MEXC', child: Text('MEXC')),
-                      DropdownMenuItem(value: 'GATE', child: Text('Gate')),
+                    items: [
+                      for (final entry in _venues.entries)
+                        DropdownMenuItem(
+                          value: entry.key,
+                          child: Text(entry.value),
+                        ),
                     ],
                     onChanged: (value) => update(() => selectedVenue = value!),
                   ),
@@ -412,6 +426,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
       context: context,
       builder: (context) => MmEngineStrategyForm(
         markets: markets,
+        venues: _venues,
         strategyId:
             existing?['id'] as String? ??
             'order-${DateTime.now().microsecondsSinceEpoch}',
@@ -667,6 +682,97 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     }
   }
 
+  Future<void> _downloadPlugins() async {
+    if (_busy) return;
+    await _runBusy(() async {
+      final service = CexPluginService.instance;
+      final current = await service.currentForDownload();
+      final latest = await service.latestCommit();
+      if (!mounted) return;
+      if (current?.commit == latest) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('CEX plugins are up to date.')),
+        );
+        return;
+      }
+      final user = context.read<AuthBloc>().state.currentUser;
+      if (user == null) throw StateError('Wallet is no longer signed in');
+      final walletId = user.walletId.compoundId;
+      final sdk = RepositoryProvider.of<KomodoDefiSdk>(context);
+      final accepted = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Download CEX plugins?'),
+          content: const Text(
+            'Download exchange adapters and public configuration from P2Pirate CEX_configs. Existing API keys stay local. Running orders are paused and the engine stopped before an update. A wallet awaiting live recovery first restores its live session to reconcile existing orders and hedges; pending swaps can prevent shutdown. It enters preview only after recovery and guarded shutdown succeed.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Download'),
+            ),
+          ],
+        ),
+      );
+      if (accepted != true || !mounted) return;
+      void checkWallet() {
+        if (!mounted ||
+            context.read<AuthBloc>().state.currentUser?.walletId.compoundId !=
+                walletId) {
+          throw StateError('Wallet changed during CEX plugin installation');
+        }
+      }
+
+      final engine = MmEngineService.instance;
+      try {
+        await migrateCexPlugins(
+          needsRecovery: engine.needsRecovery,
+          isRunning: engine.isRunning,
+          catalogAvailable: current != null,
+          download: () async {
+            checkWallet();
+            await service.download(
+              commit: latest,
+              onStage: (stage) {
+                if (mounted) setState(() => _downloadStatus = stage);
+              },
+            );
+            checkWallet();
+          },
+          recoverLive: () async {
+            checkWallet();
+            await engine.start(sdk: sdk, walletId: walletId, liveTrading: true);
+            checkWallet();
+          },
+          pauseAndStop: () async {
+            checkWallet();
+            await engine.request(
+              'POST',
+              '/v1/strategies/pause-all',
+              body: {'confirmation': 'PAUSA TUTTE'},
+            );
+            await engine.stop();
+            checkWallet();
+          },
+          clearLivePreference: () async {
+            checkWallet();
+            await engine.clearLivePreference(walletId);
+          },
+          connectPreview: () async {
+            checkWallet();
+            await _connect(liveTrading: false);
+          },
+        );
+      } finally {
+        if (mounted) setState(() => _downloadStatus = null);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final rows = _strategies?['strategies'];
@@ -709,6 +815,12 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                           onPressed: _busy ? null : _download,
                           icon: const Icon(Icons.system_update_alt),
                           label: const Text('Check updates'),
+                        ),
+                      if (_installed)
+                        TextButton.icon(
+                          onPressed: _busy ? null : _downloadPlugins,
+                          icon: const Icon(Icons.extension_outlined),
+                          label: const Text('CEX plugins'),
                         ),
                     ],
                   ),
@@ -762,6 +874,27 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                     ),
                   ),
                 )
+              else if (!_pluginsReady)
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('CEX plugins are not installed'),
+                        const SizedBox(height: 10),
+                        const Text(
+                          'Download the supported exchange adapters and public configuration. API keys stay in your system keyring.',
+                        ),
+                        const SizedBox(height: 12),
+                        FilledButton(
+                          onPressed: _busy ? null : _downloadPlugins,
+                          child: const Text('Download CEX plugins'),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
               else if (MmEngineService.instance.isRunning) ...[
                 Card(
                   child: Padding(
@@ -777,6 +910,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                   orders: _orders,
                   strategies: strategies.toList(),
                   venue: _venue,
+                  venueLabels: _venues,
                   credentials: credentials,
                   balances: _balanceRefresh.balances,
                   busy: _busy,

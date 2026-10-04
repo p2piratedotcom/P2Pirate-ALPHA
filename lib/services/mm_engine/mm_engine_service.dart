@@ -12,6 +12,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:web_dex/bloc/settings/settings_repository.dart';
 import 'package:web_dex/services/mm_engine/mm_engine_install_service.dart';
 import 'package:web_dex/services/mm_engine/mm_engine_http_client.dart';
+import 'package:web_dex/services/mm_engine/cex_plugin_service.dart';
 import 'package:web_dex/services/tor/pirate_tor_service.dart';
 
 /// The wallet is the KDF/Tor owner; this client only supervises P2Pirate Trading Engine.
@@ -33,6 +34,9 @@ class MmEngineService {
   bool _needsRecovery = false;
   Future<void>? _starting;
   Completer<Map<String, dynamic>>? _stopReport;
+
+  Map<String, String> _venueLabels = const {};
+  Map<String, String> get venueLabels => _venueLabels;
 
   bool get isRunning => _process != null && _baseUrl != null;
   bool get liveEnabled => _liveEnabled;
@@ -79,6 +83,29 @@ class MmEngineService {
     final executable = await MmEngineInstallService.currentExecutable();
     if (executable == null) {
       throw StateError('P2Pirate Trading Engine is not installed');
+    }
+    final plugins = await CexPluginService.instance.current();
+    if (plugins == null) {
+      throw StateError(
+        'Download the CEX plugins from the Trading Engine page first.',
+      );
+    }
+    // Probe before sending wallet secrets or live flags. Old binaries must never
+    // silently ignore the plugin bootstrap and start their bundled adapters.
+    final probe = await Process.run(executable.path, [
+      'plugin-capabilities',
+    ]).timeout(const Duration(seconds: 10));
+    if (probe.exitCode != 0 || (probe.stdout as String).length > 4096) {
+      throw StateError(
+        'Update P2Pirate Trading Engine: Spot plugin protocol 1 is required.',
+      );
+    }
+    final protocol = jsonDecode(probe.stdout as String);
+    if (protocol is! Map ||
+        protocol['protocol'] != 1 ||
+        protocol['transport'] != 'stdio' ||
+        protocol['wallet_protocol'] != 1) {
+      throw StateError('Incompatible CEX plugin protocol. Update the engine.');
     }
     final password = await sdk.getRpcPassword();
     if (password == null || password.isEmpty) {
@@ -181,6 +208,7 @@ class MmEngineService {
     );
     final bootstrap = <String, Object>{
       'state_dir': stateDir.path,
+      'cex_plugin_directory': plugins.directory.path,
       'coin_registry_path': coinsFile.path,
       'kdf_rpc_url': 'http://127.0.0.1:$rpcPort',
       'kdf_rpc_userpass': password,
@@ -207,11 +235,20 @@ class MmEngineService {
       final capabilities = await request('GET', '/v1/capabilities');
       if (capabilities['protocol'] != 1 ||
           capabilities['kdf_owner'] != 'wallet' ||
-          capabilities['live_enabled'] != desiredLive) {
+          capabilities['live_enabled'] != desiredLive ||
+          capabilities['plugin_protocol'] != 1 ||
+          capabilities['plugins_external'] != true ||
+          capabilities['venues'] is! List ||
+          (capabilities['venues'] as List)
+              .toSet()
+              .difference(plugins.labels.keys.toSet())
+              .isNotEmpty ||
+          (capabilities['venues'] as List).length != plugins.labels.length) {
         throw StateError(
           'P2Pirate Trading Engine is incompatible with this wallet',
         );
       }
+      _venueLabels = Map.unmodifiable(plugins.labels);
       _liveEnabled = desiredLive;
       _needsRecovery = false;
       attention.value = null;

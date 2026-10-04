@@ -19,6 +19,7 @@ class MmEngineDashboard extends StatelessWidget {
     required this.onAdd,
     required this.onStrategy,
     required this.onBalances,
+    this.venueLabels = const {'MEXC': 'MEXC', 'GATE': 'Gate'},
     this.selectedOrders = const {},
     this.onSelection,
     this.onStartSelected,
@@ -33,6 +34,7 @@ class MmEngineDashboard extends StatelessWidget {
   });
   final List<Map<String, dynamic>> orders, strategies, balances;
   final String venue;
+  final Map<String, String> venueLabels;
   final Set<String> selectedOrders;
   final ValueChanged<Set<String>>? onSelection;
   final VoidCallback? onStartSelected;
@@ -542,9 +544,9 @@ class MmEngineDashboard extends StatelessWidget {
                     spacing: 12,
                     runSpacing: 8,
                     children: [
-                      for (final exchange in ['MEXC', 'GATE'])
+                      for (final exchange in venueLabels.keys)
                         ChoiceChip(
-                          label: Text(exchange),
+                          label: Text(venueLabels[exchange] ?? exchange),
                           selected: venue == exchange,
                           selectedColor: Theme.of(context).colorScheme.primary,
                           showCheckmark: false,

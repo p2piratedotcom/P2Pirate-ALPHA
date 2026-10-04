@@ -128,3 +128,28 @@ rejection of ineligible selections, and interruption without retry after an
 ambiguous response. Widget fixtures cover single/multiple/all selection at
 narrow and wide widths. No real live orders or CEX trades are used by these tests.
 The global switch still does not bypass engine reconciliation and risk checks.
+
+## CEX plugin protocol candidate — 2026-10-04
+
+- GUI unit/widget suite: **248 passed, 2 existing skips**.
+- Scoped analysis of modified production/test Dart files: **no issues**.
+- Isolated Xvfb desktop smoke suite: **3 passed**; no KDF or funded wallet.
+- Separate MM_Engine suite: **37 passed**, including a synthetic third venue,
+  validation/redaction, private plugin state, child cleanup and uncertain writes
+  without replay. CEX_configs adapter/catalog fixtures: **2 passed**, covering
+  both MEXC and Gate with fake transports.
+- Local Linux release GUI and paired frozen engine compile successfully. Frozen
+  MEXC/Gate plugins complete handshakes without any remote request.
+
+These results do not assert that Kraken/Binance are implemented or that live
+exchange execution was tested. The initial catalog and compatible immutable Linux engine
+release v0.2.0 are published. Three GUI review findings are covered by regression
+tests: live-recovery migration, corrupt-snapshot repair and missing saved CEX
+plugins. The existing app/profile was not restarted or modified.
+
+Additional inherited engine regression: **132 core strategy/API/hedging/unwind
+checks passed**. The terminal PTY suite has **2 passes and 2 failures** both on
+unchanged engine base `e365642c3fc0395977b69f9ce02e1d8765243813` and the new
+candidate (`test_select_save_modify_start_back`,
+`test_typing_q_resize_escape_and_terminal_restoration`). These preexisting
+terminal fixture failures are not included in successful GUI/engine counts.

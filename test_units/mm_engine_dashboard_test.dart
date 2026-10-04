@@ -8,6 +8,42 @@ import 'package:web_dex/views/market_maker_bot/mm_engine_dashboard.dart';
 
 void main() {
   for (final width in [360.0, 800.0, 1050.0, 1700.0]) {
+    testWidgets(
+      'CEX controls accept a catalog exchange without registry edits',
+      (tester) async {
+        String? selected;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: MmEngineDashboard(
+                  orders: const [],
+                  strategies: const [],
+                  venue: 'DEMO',
+                  venueLabels: const {'DEMO': 'Demo Spot'},
+                  credentials: const {'DEMO': true},
+                  balances: const [],
+                  busy: false,
+                  live: false,
+                  onLive: () {},
+                  onNew: () {},
+                  onVenue: (value) => selected = value,
+                  onAdd: () {},
+                  onStrategy: (_, __) {},
+                  onBalances: () {},
+                ),
+              ),
+            ),
+          ),
+        );
+        expect(find.text('Gate'), findsNothing);
+        expect(find.text('MEXC'), findsNothing);
+        await tester.tap(find.text('Demo Spot'));
+        expect(selected, 'DEMO');
+        expect(tester.takeException(), isNull);
+      },
+    );
+
     testWidgets('order footer actions and copy UUID fit width $width', (
       tester,
     ) async {
@@ -564,7 +600,7 @@ void main() {
     expect(find.text('15'), findsOneWidget);
     expect(find.text('Pirate Chain'), findsOneWidget);
     expect(find.text('USDT'), findsNWidgets(2));
-    await tester.tap(find.text('GATE').last);
+    await tester.tap(find.text('Gate').last);
     expect(selected, 'GATE');
     expect(tester.takeException(), isNull);
     final output = Platform.environment['P2PIRATE_DESIGN_CAPTURE'];

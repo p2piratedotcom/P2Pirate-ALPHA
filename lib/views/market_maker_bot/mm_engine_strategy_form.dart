@@ -28,11 +28,13 @@ class MmEngineStrategyForm extends StatefulWidget {
     super.key,
     required this.markets,
     required this.strategyId,
+    this.venues = const {'MEXC': 'MEXC', 'GATE': 'Gate'},
     this.initialSpec,
     this.availableBalances = const {},
   });
 
   final List<String> markets;
+  final Map<String, String> venues;
   final String strategyId;
   final Map<String, dynamic>? initialSpec;
   final Map<String, String> availableBalances;
@@ -62,6 +64,9 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
   @override
   void initState() {
     super.initState();
+    _venue = widget.venues.containsKey('MEXC')
+        ? 'MEXC'
+        : widget.venues.keys.first;
     _market = widget.markets.isEmpty ? null : widget.markets.first;
     _updateRoute();
     final spec = widget.initialSpec;
@@ -91,6 +96,8 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
       }
     }
   }
+
+  bool get _venueAvailable => widget.venues.containsKey(_venue);
 
   void _updateRoute() {
     _baseAsset.text = _market?.split('-').first ?? '';
@@ -317,14 +324,31 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
               DropdownButtonFormField<String>(
                 initialValue: _venue,
                 decoration: _decoration('Hedge exchange'),
-                items: const [
-                  DropdownMenuItem(value: 'MEXC', child: Text('MEXC Spot')),
-                  DropdownMenuItem(value: 'GATE', child: Text('Gate Spot')),
+                items: [
+                  if (!_venueAvailable)
+                    DropdownMenuItem(
+                      value: _venue,
+                      enabled: false,
+                      child: Text('$_venue (plugin unavailable)'),
+                    ),
+                  for (final entry in widget.venues.entries)
+                    DropdownMenuItem(
+                      value: entry.key,
+                      child: Text(
+                        entry.value.toLowerCase().endsWith('spot')
+                            ? entry.value
+                            : '${entry.value} Spot',
+                      ),
+                    ),
                 ],
                 onChanged: widget.initialSpec != null
                     ? null
-                    : (value) => setState(() => _venue = value ?? 'MEXC'),
+                    : (value) => setState(() => _venue = value ?? _venue),
               ),
+              if (!_venueAvailable)
+                const Text(
+                  'The saved CEX plugin is unavailable. Restore it before previewing or modifying this order; its route is preserved.',
+                ),
               DropdownButtonFormField<String>(
                 initialValue: _side,
                 decoration: _decoration('KDF maker side'),
@@ -410,7 +434,10 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
       Tooltip(
         message:
             'Read market depth and balances, validate hedge capacity and show the proposed order. This does not publish it.',
-        child: ElevatedButton(onPressed: _submit, child: const Text('Preview')),
+        child: ElevatedButton(
+          onPressed: _venueAvailable ? _submit : null,
+          child: const Text('Preview'),
+        ),
       ),
     ],
   );
