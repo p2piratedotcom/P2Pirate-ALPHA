@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:decimal/decimal.dart';
 import 'package:web_dex/services/mm_engine/mm_engine_service.dart';
 
 /// Presentation only: targets, proposal ownership and trading live in the engine.
@@ -13,12 +14,17 @@ class MmEngineRebalancePanel extends StatefulWidget {
     required this.configured,
     required this.onBusy,
     required this.onChanged,
+    required this.strategies,
+    required this.balances,
+    required this.balanceLoading,
   });
 
   final String venue;
   final bool busy, live, configured;
   final ValueChanged<bool> onBusy;
   final VoidCallback onChanged;
+  final List<Map<String, dynamic>> strategies, balances;
+  final bool balanceLoading;
 
   @override
   State<MmEngineRebalancePanel> createState() => _MmEngineRebalancePanelState();
@@ -26,7 +32,12 @@ class MmEngineRebalancePanel extends StatefulWidget {
 
 class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
   Map<String, dynamic>? _plan;
-  List<String>? _scope;
+  final _scope = <String>{};
+  final _percentages = <String, int>{};
+  final _enabledAssets = <String>{};
+  String? _allocationId;
+  Map? _allocation;
+  bool _selectionTouched = false;
   List<Map<String, dynamic>> _history = [];
   String? _error, _message;
   bool _busy = false;
@@ -59,7 +70,7 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
           !_busy &&
           !widget.busy &&
           widget.configured &&
-          MmEngineService.instance.rebalanceSupported &&
+          MmEngineService.instance.rebalanceSelectionSupported &&
           (!_loadedStatus ||
               (_pending &&
                   (_nextStatusAt == null ||
@@ -72,7 +83,7 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
       if (mounted &&
           !widget.busy &&
           widget.configured &&
-          MmEngineService.instance.rebalanceSupported) {
+          MmEngineService.instance.rebalanceSelectionSupported) {
         unawaited(_status());
       }
     });
@@ -110,7 +121,49 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
     body: {'venue': widget.venue, ...extra},
   );
 
+  void _selectionChanged(VoidCallback change) {
+    setState(() {
+      change();
+      _selectionTouched = true;
+      _allocationId = null;
+      _allocation = null;
+      _plan = null;
+      _message =
+          'Selection changed. Analyze starts a new spending budget from fresh balances.';
+    });
+  }
+
+  List<Map<String, dynamic>> get _makers => widget.strategies.where((row) {
+    final spec = row['spec'] as Map?;
+    return spec?['cex'] == widget.venue && row['state'] != 'DELETED';
+  }).toList();
+
+  bool get _validSelection =>
+      _scope.isNotEmpty &&
+      _scope.every((id) => _makers.any((row) => '${row['id']}' == id)) &&
+      _enabledAssets.any((asset) => (_percentages[asset] ?? 0) > 0);
+
+  String _amount(String asset, Object? raw) {
+    final value = Decimal.tryParse('$raw') ?? Decimal.zero;
+    return (value *
+            Decimal.fromInt(_percentages[asset] ?? 0) *
+            Decimal.parse('0.01'))
+        .toString();
+  }
+
   void _readStatus(Map<String, dynamic> result) {
+    final allocation = result['allocation'];
+    if (!_selectionTouched && _allocationId == null && allocation is Map) {
+      _allocationId = '${allocation['id']}';
+      _scope.addAll((allocation['strategy_ids'] as List).cast<String>());
+      for (final entry in (allocation['percentages'] as Map).entries) {
+        _percentages['${entry.key}'] = entry.value as int;
+        _enabledAssets.add('${entry.key}');
+      }
+    }
+    if (allocation is Map && allocation['id'] == _allocationId) {
+      _allocation = allocation;
+    }
     _loadedStatus = true;
     _nextStatusAt = DateTime.now().add(const Duration(seconds: 15));
     _history = (result['orders'] as List? ?? [])
@@ -130,21 +183,53 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
   });
 
   Future<void> _analyze() => _run(() async {
-    final ids = _scope;
+    if (!_validSelection || widget.balanceLoading) return;
+    final ids = _scope.toList()..sort();
     setState(() {
       _plan = null;
       _message = null;
     });
     final result = await _request('analyze', {
-      if (ids != null && ids.isNotEmpty) 'strategy_ids': ids,
+      'strategy_ids': ids,
+      'asset_percentages': {
+        for (final asset in _enabledAssets) asset: _percentages[asset] ?? 0,
+      },
+      if (_allocationId != null) 'allocation_id': _allocationId,
     });
     if (mounted) {
       setState(() {
         _plan = result;
-        _scope = (result['strategy_ids'] as List).cast<String>();
+        _allocation = result['allocation'] as Map;
+        _allocationId = _allocation!['id'] as String;
       });
     }
   });
+
+  Future<void> _resetBudget() async {
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset spending limits?'),
+        content: const Text(
+          'The next Analyze applies your percentages to fresh balances and starts a new budget. '
+          'This authorizes additional spending beyond the previous budget. No trade is sent by resetting.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Reset limits'),
+          ),
+        ],
+      ),
+    );
+    if (yes == true && mounted) {
+      _selectionChanged(() {});
+    }
+  }
 
   Future<void> _pause() async {
     final yes = await showDialog<bool>(
@@ -266,8 +351,9 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
 
   @override
   Widget build(BuildContext context) {
-    final supported = MmEngineService.instance.rebalanceSupported;
+    final supported = MmEngineService.instance.rebalanceSelectionSupported;
     final disabled = _busy || widget.busy || !widget.configured || !supported;
+    final inputDisabled = disabled || widget.balanceLoading || _pending;
     final plan = _plan;
     final funding = plan?['funding'] as Map? ?? {};
     final orders = (plan?['orders'] as List? ?? []).whereType<Map>();
@@ -275,36 +361,155 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text(
+          'SELECT MAKER ORDERS TO REBALANCE ON ${widget.venue}',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 12),
+        if (_makers.isEmpty)
+          const Text('No maker orders configured for this CEX.'),
+        if (_makers.isNotEmpty)
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Select all maker orders'),
+            value: _makers.every((row) => _scope.contains('${row['id']}')),
+            onChanged: inputDisabled
+                ? null
+                : (value) => _selectionChanged(() {
+                    _scope.clear();
+                    if (value == true) {
+                      _scope.addAll(_makers.map((row) => '${row['id']}'));
+                    }
+                  }),
+          ),
+        for (final row in _makers)
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              "#${row['creation_number']} · ${(row['spec'] as Map)['base']['ticker']} / ${(row['spec'] as Map)['quote']['ticker']}",
+            ),
+            subtitle: Text('${row['state']}'),
+            value: _scope.contains('${row['id']}'),
+            onChanged: inputDisabled
+                ? null
+                : (value) => _selectionChanged(() {
+                    if (value) {
+                      _scope.add('${row['id']}');
+                    } else {
+                      _scope.remove('${row['id']}');
+                    }
+                  }),
+          ),
+        const SizedBox(height: 24),
+        Text(
+          'SELECT ${widget.venue} COINS AND HOW MUCH TO USE',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Percentages limit total debits, including fees. Existing hedge reserves are protected. '
+          'Budgets stay fixed across partial fills and repeated Analyze; changing the selection starts a new budget.',
+        ),
+        const SizedBox(height: 12),
+        for (final row in widget.balances.where(
+          (row) =>
+              (Decimal.tryParse('${row['available']}') ?? Decimal.zero) >
+              Decimal.zero,
+        ))
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final asset = '${row['ticker']}';
+              final enabled = _enabledAssets.contains(asset);
+              final percent = _percentages[asset] ?? 0;
+              final remaining = _allocation?['remaining'] as Map?;
+              final caps = _allocation?['caps'] as Map?;
+              final selectedAmount = _allocationId == null
+                  ? '$percent% · ${_amount(asset, row['available'])} $asset'
+                  : '$percent% · limit ${caps?[asset] ?? "0"} $asset · left ${remaining?[asset] ?? "0"}';
+              final description =
+                  '$selectedAmount\nAvailable Spot balance: ${row['available']} $asset';
+              final selector = Row(
+                children: [
+                  Switch(
+                    value: enabled,
+                    onChanged: inputDisabled
+                        ? null
+                        : (value) => _selectionChanged(() {
+                            if (value) {
+                              _enabledAssets.add(asset);
+                            } else {
+                              _enabledAssets.remove(asset);
+                            }
+                          }),
+                  ),
+                  SizedBox(width: 70, child: Text(asset)),
+                  Expanded(
+                    child: Tooltip(
+                      message:
+                          'Maximum percentage of the fresh available balance to use. Fees count against this limit.',
+                      child: Slider(
+                        value: percent.toDouble(),
+                        min: 0,
+                        max: 100,
+                        divisions: 20,
+                        label: '$percent%',
+                        onChanged: inputDisabled || !enabled
+                            ? null
+                            : (value) => _selectionChanged(
+                                () => _percentages[asset] = value.round(),
+                              ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: constraints.maxWidth < 720
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [selector, SelectableText(description)],
+                      )
+                    : Row(
+                        children: [
+                          Expanded(child: selector),
+                          SizedBox(
+                            width: 290,
+                            child: SelectableText(description),
+                          ),
+                        ],
+                      ),
+              );
+            },
+          ),
+        for (final asset in _enabledAssets.where(
+          (asset) => !widget.balances.any((row) => row['ticker'] == asset),
+        ))
+          Text(
+            '$asset: no current available balance. Analyze rechecks the remaining budget.',
+          ),
+        if (widget.balances.isEmpty && !widget.balanceLoading)
+          const Text('Refresh balances to choose available Spot coins.'),
+        if (_allocation != null)
+          SelectableText(
+            'Remaining spending budget, including confirmed sale proceeds: '
+            '${(_allocation!['remaining'] as Map).entries.map((e) => "${e.key} ${e.value}").join(', ')}',
+          ),
+        const SizedBox(height: 24),
         Wrap(
           spacing: 12,
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Text(
-              '${widget.venue} REBALANCE',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
             OutlinedButton.icon(
-              onPressed: disabled ? null : _analyze,
+              onPressed: inputDisabled || !_validSelection ? null : _analyze,
               icon: const Icon(Icons.analytics_outlined),
               label: const Text('Analyze'),
             ),
-            if (_scope != null)
-              Tooltip(
-                message:
-                    'Select current open/enabled maker orders again, including newly added makers.',
-                child: TextButton(
-                  onPressed: disabled
-                      ? null
-                      : () {
-                          setState(() {
-                            _scope = null;
-                            _plan = null;
-                          });
-                          unawaited(_analyze());
-                        },
-                  child: const Text('New analysis'),
-                ),
+            if (_allocationId != null)
+              TextButton(
+                onPressed: inputDisabled ? null : _resetBudget,
+                child: const Text('Reset spending limits'),
               ),
             ElevatedButton.icon(
               onPressed:
@@ -327,12 +532,14 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
         ),
         const SizedBox(height: 8),
         const SelectableText(
-          'Analyze coverage for open and enabled maker orders using fresh Spot balances and market depth, '
-          'with a 20% reserve. When all makers are paused, analyze their configured targets. '
-          'Only surplus in strategy assets can be sold; unrelated holdings are kept.',
+          'Analyze the selected maker hedge targets, with a 20% reserve. Selected coins can fund conversions via USDT. '
+          'Only the first confirmed LIMIT trade is sent; later steps require a verified fill and another Analyze. '
+          'Partial coverage does not change maker quantities or bypass live hedge checks.',
         ),
         if (!supported)
-          const Text('Update P2Pirate Trading Engine to enable rebalance.'),
+          const Text(
+            'Update P2Pirate Trading Engine to enable selected-coin rebalance.',
+          ),
         if (!widget.live)
           const Text(
             'Analysis is available in preview mode. Execution requires live mode and paused makers.',
@@ -361,12 +568,16 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
             'Maker orders included: ${(plan['maker_orders'] as List? ?? []).map((row) => "#${row['number']} ${row['sell']}/${row['buy']}").join(', ')} · '
             '${_expired ? 'Proposal expired — Analyze again' : 'Proposal valid until ${DateTime.fromMillisecondsSinceEpoch(((plan['expires'] as num) * 1000).toInt()).toLocal().toIso8601String().split('.').first.replaceAll('T', ' ')}'}',
           ),
+          if (plan['coverage_percent'] != null)
+            SelectableText(
+              'Maximum common coverage: ${plan['coverage_percent']}% · includes 20% reserve',
+            ),
           for (final entry in funding.entries)
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: SelectableText(
                 '${entry.key}: available ${entry.value['available']} · '
-                'target ${entry.value['required']} · missing ${entry.value['missing']}',
+                'target ${entry.value['required']} · full target ${entry.value['full_required'] ?? entry.value['required']} · missing ${entry.value['missing']}',
               ),
             ),
           const SizedBox(height: 12),
@@ -382,6 +593,16 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
                 '${item['symbol']} · limit ${item['price']} USDT · ${item['notional']} USDT before fees',
               ),
             ),
+          if ((plan['projected_orders'] as List? ?? []).isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Text(
+              'Projected sequence — later buys depend on confirmed sale proceeds:',
+            ),
+            for (final item in plan['projected_orders'] as List)
+              SelectableText(
+                '${item['side']} ${item['quantity']} ${item['asset']} · limit ${item['price']} USDT',
+              ),
+          ],
           for (final note in plan['notes'] as List? ?? [])
             SelectableText('$note'),
           for (final action in plan['strategy_actions'] as List? ?? [])

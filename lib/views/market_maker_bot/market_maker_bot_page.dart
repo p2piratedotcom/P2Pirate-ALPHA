@@ -1121,6 +1121,8 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                         },
                         onAdd: () => _configureCredentials(_venue),
                         onBalances: _balanceRefresh.refresh,
+                        onRebalanceConfigure: (venue) =>
+                            _configureCredentials(venue),
                         onRebalanceBusy: (value) {
                           if (!mounted) return;
                           setState(() {

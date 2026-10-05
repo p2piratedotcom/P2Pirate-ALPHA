@@ -155,3 +155,23 @@ engine. Unknown/open outcomes retain a durable hold: use **Refresh trade
 status**, including after navigation or engine restart, rather than resubmitting.
 No withdrawals are part of rebalance. Existing experimental adapter notices
 remain applicable; live rebalance execution has not been exercised here.
+
+
+## Selected CEX inventory rebalance
+
+CEX REBALANCE is now a separate collapsible card, independent of MY CEXs. Choose
+its venue, one or more maker orders, and funding assets with 0–100% sliders in
+5% steps. Existing hedge reserves are protected. Asset percentages establish
+absolute debit budgets from fresh balances; repeated Analyze preserves them,
+including partial fills and restart. A changed selection or confirmed Reset
+spending limits explicitly authorizes a new budget. There is only one Analyze
+button. Only confirmed sale proceeds fund future buys; the first funded LIMIT
+trade still requires confirmation and later steps require new analysis.
+
+The engine returns complete and achievable targets and a common coverage
+percentage, seeking balanced coverage rather than favoring the first maker.
+Selected unrelated assets can be sold through supported USDT routes. Missing
+routes, permissions, minima, fees and liquidity remain limiting. Partial
+coverage does not change maker quantities or grant live hedge coverage. All
+trading logic and durable budget accounting stay in MM_Engine; GUI controls
+require `rebalance_selection: 1`.
