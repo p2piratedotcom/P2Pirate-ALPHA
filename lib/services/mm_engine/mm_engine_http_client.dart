@@ -42,7 +42,9 @@ Future<Map<String, dynamic>> sendMmEngineRequest(
         ? const Duration(seconds: 60)
         : const Duration(seconds: 20);
     final response = await call.close().timeout(responseTimeout);
-    final payload = jsonDecode(await utf8.decoder.bind(response).join());
+    final payload = jsonDecode(
+      await utf8.decoder.bind(response).join().timeout(responseTimeout),
+    );
     if (payload is! Map<String, dynamic>) {
       throw StateError('Invalid P2Pirate Trading Engine response');
     }
