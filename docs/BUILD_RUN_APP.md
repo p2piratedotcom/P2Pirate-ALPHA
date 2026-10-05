@@ -293,13 +293,13 @@ flutter pub get
 Debug mode
 
 ```bash
-flutter run -d linux
+flutter run -d linux --no-enable-impeller
 ```
 
 Release mode
 
 ```bash
-flutter run -d linux --release
+flutter run -d linux --release --no-enable-impeller
 ```
 
 Build

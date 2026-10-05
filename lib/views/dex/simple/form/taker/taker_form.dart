@@ -26,19 +26,8 @@ class _TakerFormState extends State<TakerForm> {
   void initState() {
     final authBlocState = context.read<AuthBloc>().state;
     final takerBloc = context.read<TakerBloc>();
-    takerBloc.add(TakerSetDefaults());
-    takerBloc.add(TakerSetWalletIsReady(authBlocState.isSignedIn));
+    takerBloc.add(TakerFormOpened(walletReady: authBlocState.isSignedIn));
     routingState.dexState.addListener(_consumeRouteParameters);
-    // If entering the swap page while already authenticated, ensure the
-    // available balance initializes without waiting for further user action.
-    if (authBlocState.isSignedIn) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final currentSellCoin = takerBloc.state.sellCoin;
-        if (currentSellCoin != null) {
-          takerBloc.add(TakerSetSellCoin(currentSellCoin));
-        }
-      });
-    }
     super.initState();
   }
 
@@ -59,12 +48,14 @@ class _TakerFormState extends State<TakerForm> {
         Coin? sellCoin = fromCurrency.isNotEmpty
             ? coinsRepository.getCoin(fromCurrency)
             : null;
-        Coin? buyCoin =
-            toCurrency.isNotEmpty ? coinsRepository.getCoin(toCurrency) : null;
+        Coin? buyCoin = toCurrency.isNotEmpty
+            ? coinsRepository.getCoin(toCurrency)
+            : null;
 
         if (sellCoin != null || buyCoin != null) {
           takerBloc.add(
-              TakerSetSellCoin(sellCoin, autoSelectOrderAbbr: buyCoin?.abbr));
+            TakerSetSellCoin(sellCoin, autoSelectOrderAbbr: buyCoin?.abbr),
+          );
 
           if (fromAmount.isNotEmpty) {
             Rational? sellAmount;

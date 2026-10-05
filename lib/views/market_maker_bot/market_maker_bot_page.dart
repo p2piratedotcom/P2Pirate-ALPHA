@@ -1,3 +1,4 @@
+import 'package:web_dex/bloc/coins_bloc/coins_bloc.dart';
 import 'package:web_dex/services/mm_engine/mm_engine_plugin_migration.dart';
 import 'package:flutter/material.dart';
 import 'package:web_dex/services/mm_engine/cex_plugin_service.dart';
@@ -11,6 +12,7 @@ import 'package:web_dex/services/mm_engine/mm_engine_service.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_strategy_form.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_preview.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_dashboard.dart';
+import 'package:web_dex/views/market_maker_bot/mm_engine_loading_gate.dart';
 
 /// A thin wallet client. Strategy and exchange logic belongs to P2Pirate Trading Engine.
 class MarketMakerBotPage extends StatefulWidget {
@@ -22,8 +24,9 @@ class MarketMakerBotPage extends StatefulWidget {
 
 class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
   bool _busy = true;
-  bool _installed = false;
-  bool _pluginsReady = false;
+  bool _initializing = true;
+  bool? _installed;
+  bool? _pluginsReady;
   Map<String, String> get _venues => MmEngineService.instance.venueLabels;
   String? _error;
   String? _downloadStatus;
@@ -31,7 +34,6 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
   Map<String, dynamic>? _strategies;
   Map<String, dynamic>? _reconciliation;
   Map<String, dynamic>? _credentials;
-  Map<String, dynamic>? _markets;
   List<Map<String, dynamic>> _orders = [];
   final _selectedOrders = <String>{};
   late final MmEngineBalanceRefresh _balanceRefresh;
@@ -91,24 +93,32 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     if (!mounted) return;
     setState(() {
       _busy = true;
+      _initializing = true;
+      _installed = null;
+      _pluginsReady = null;
       _error = null;
     });
     try {
       _installed = await MmEngineInstallService.currentExecutable() != null;
-      if (_installed) {
+      if (_installed == true) {
         await _connect();
       }
     } catch (error) {
       _error = '$error';
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _initializing = false;
+        });
+      }
     }
   }
 
   Future<void> _connect({bool? liveTrading}) async {
     _balanceRefresh.invalidate(clear: true);
     _pluginsReady = await CexPluginService.instance.current() != null;
-    if (!mounted || !_pluginsReady) return;
+    if (!mounted || _pluginsReady != true) return;
     final user = context.read<AuthBloc>().state.currentUser;
     if (user == null) {
       throw StateError(
@@ -132,7 +142,6 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     final strategies = await engine.request('GET', '/v1/strategies');
     final reconciliation = await engine.request('GET', '/v1/reconciliation');
     final credentials = await engine.request('GET', '/v1/credentials/status');
-    final markets = await engine.request('GET', '/v1/markets');
     final orders = await engine.request('GET', '/v1/orders');
     if (!mounted) return;
     setState(() {
@@ -140,7 +149,6 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
           orders['strategy_states'] as Map<String, dynamic>? ?? strategies;
       _reconciliation = reconciliation;
       _credentials = credentials;
-      _markets = markets;
       _orders = (orders['orders'] as List)
           .whereType<Map<String, dynamic>>()
           .toList();
@@ -392,18 +400,25 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
   Future<void> _createStrategy({Map<String, dynamic>? existing}) async {
     if (_busy) return;
     final existingSpec = existing?['spec'] as Map<String, dynamic>?;
-    final markets = makerOrderMarkets(
-      _markets?['markets'],
-      existingSpec: existingSpec,
-    );
-    if (markets.isEmpty) {
-      setState(() => _error = 'No KDF markets are available.');
+    final activeTickers =
+        context
+            .read<CoinsBloc>()
+            .state
+            .walletCoins
+            .values
+            .where((coin) => coin.isActive)
+            .map((coin) => coin.id.id)
+            .toSet()
+            .toList()
+          ..sort();
+    if (existing == null && activeTickers.length < 2) {
+      setState(() => _error = 'Activate at least two coins in Wallet.');
       return;
     }
     setState(() => _busy = true);
     final sdk = RepositoryProvider.of<KomodoDefiSdk>(context);
     final baseBalances = <String, String>{};
-    final bases = markets.map((m) => m.split('-').first).toSet();
+    final bases = activeTickers.toSet();
     await Future.wait(
       bases.map((ticker) async {
         final matches = sdk.assets.available.values.where(
@@ -425,7 +440,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     final spec = await showDialog<Map<String, Object?>>(
       context: context,
       builder: (context) => MmEngineStrategyForm(
-        markets: markets,
+        activeTickers: activeTickers,
         venues: _venues,
         strategyId:
             existing?['id'] as String? ??
@@ -435,6 +450,21 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
       ),
     );
     if (spec == null || !mounted) return;
+    final currentActive = context
+        .read<CoinsBloc>()
+        .state
+        .walletCoins
+        .values
+        .where((coin) => coin.isActive)
+        .map((coin) => coin.id.id)
+        .toSet();
+    if (!currentActive.contains((spec['base'] as Map)['ticker']) ||
+        !currentActive.contains((spec['quote'] as Map)['ticker'])) {
+      setState(
+        () => _error = 'Both selected coins must still be active in Wallet.',
+      );
+      return;
+    }
     final venue = spec['cex'];
     final available = _credentials?['venues'];
     if (available is! Map || available[venue] != true) {
@@ -804,19 +834,21 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                   ),
                   Wrap(
                     children: [
-                      if (_installed && MmEngineService.instance.isRunning)
+                      if (!_initializing &&
+                          _installed == true &&
+                          MmEngineService.instance.isRunning)
                         TextButton.icon(
                           onPressed: _busy ? null : _refresh,
                           icon: const Icon(Icons.refresh),
                           label: const Text('Refresh'),
                         ),
-                      if (_installed)
+                      if (!_initializing && _installed == true)
                         TextButton.icon(
                           onPressed: _busy ? null : _download,
                           icon: const Icon(Icons.system_update_alt),
                           label: const Text('Check updates'),
                         ),
-                      if (_installed)
+                      if (!_initializing && _installed == true)
                         TextButton.icon(
                           onPressed: _busy ? null : _downloadPlugins,
                           icon: const Icon(Icons.extension_outlined),
@@ -828,119 +860,132 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
               ),
               const Divider(height: 1),
               const SizedBox(height: 20),
-              if (_busy) ...[
-                if (_downloadStatus != null) ...[
-                  Text(_downloadStatus!),
-                  const SizedBox(height: 8),
-                ],
-                LinearProgressIndicator(value: _downloadProgress?.fraction),
-                if (_downloadProgress case final progress?) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    '${progress.percent}% · '
-                    '${(progress.receivedBytes / (1024 * 1024)).toStringAsFixed(1)} / '
-                    '${(progress.totalBytes / (1024 * 1024)).toStringAsFixed(1)} MB',
-                  ),
-                ],
-              ],
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  child: SelectableText(
-                    _error!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                ),
-              if (!_installed)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('P2Pirate Trading Engine is not installed'),
-                        const SizedBox(height: 10),
-                        const Text(
-                          'The wallet can download the latest verified Linux release when you choose.',
-                        ),
-                        const SizedBox(height: 12),
-                        ElevatedButton(
-                          onPressed: _busy ? null : _download,
-                          child: const Text('Check and download'),
+              MmEngineLoadingGate(
+                loading: _initializing,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_busy) ...[
+                      if (_downloadStatus != null) ...[
+                        Text(_downloadStatus!),
+                        const SizedBox(height: 8),
+                      ],
+                      LinearProgressIndicator(
+                        value: _downloadProgress?.fraction,
+                      ),
+                      if (_downloadProgress case final progress?) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          '${progress.percent}% · '
+                          '${(progress.receivedBytes / (1024 * 1024)).toStringAsFixed(1)} / '
+                          '${(progress.totalBytes / (1024 * 1024)).toStringAsFixed(1)} MB',
                         ),
                       ],
-                    ),
-                  ),
-                )
-              else if (!_pluginsReady)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('CEX plugins are not installed'),
-                        const SizedBox(height: 10),
-                        const Text(
-                          'Download the supported exchange adapters and public configuration. API keys stay in your system keyring.',
+                    ],
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        child: SelectableText(
+                          _error!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
                         ),
-                        const SizedBox(height: 12),
-                        FilledButton(
-                          onPressed: _busy ? null : _downloadPlugins,
-                          child: const Text('Download CEX plugins'),
+                      ),
+                    if (_installed == false)
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'P2Pirate Trading Engine is not installed',
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'The wallet can download the latest verified Linux release when you choose.',
+                              ),
+                              const SizedBox(height: 12),
+                              ElevatedButton(
+                                onPressed: _busy ? null : _download,
+                                child: const Text('Check and download'),
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
-                    ),
-                  ),
-                )
-              else if (MmEngineService.instance.isRunning) ...[
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      '${live ? 'LIVE trading enabled' : 'Preview mode'} · '
-                      'Active swaps: ${_reconciliation?['active_owned_swaps'] ?? '—'} · '
-                      'Open maker orders: ${_reconciliation?['owned_open_orders'] ?? '—'}',
-                    ),
-                  ),
+                      )
+                    else if (_pluginsReady == false)
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('CEX plugins are not installed'),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'Download the supported exchange adapters and public configuration. API keys stay in your system keyring.',
+                              ),
+                              const SizedBox(height: 12),
+                              FilledButton(
+                                onPressed: _busy ? null : _downloadPlugins,
+                                child: const Text('Download CEX plugins'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else if (MmEngineService.instance.isRunning) ...[
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(
+                            '${live ? 'LIVE trading enabled' : 'Preview mode'} · '
+                            'Active swaps: ${_reconciliation?['active_owned_swaps'] ?? '—'} · '
+                            'Open maker orders: ${_reconciliation?['owned_open_orders'] ?? '—'}',
+                          ),
+                        ),
+                      ),
+                      MmEngineDashboard(
+                        orders: _orders,
+                        strategies: strategies.toList(),
+                        venue: _venue,
+                        venueLabels: _venues,
+                        credentials: credentials,
+                        balances: _balanceRefresh.balances,
+                        busy: _busy,
+                        live: live,
+                        balanceError: _balanceRefresh.error,
+                        balanceUpdatedAt: _balanceRefresh.updatedAt,
+                        balanceRefreshSeconds: _balanceRefresh.secondsRemaining,
+                        cexExpanded: _balanceRefresh.expanded,
+                        onToggleCex: _balanceRefresh.toggleExpanded,
+                        balanceLoading: _balanceLoading,
+                        selectedOrders: _selectedOrders,
+                        onSelection: (ids) => setState(() {
+                          _selectedOrders
+                            ..clear()
+                            ..addAll(ids);
+                        }),
+                        onStartSelected: _startSelectedOrders,
+                        onLive: () => _setLive(!live),
+                        onNew: () => _createStrategy(),
+                        onVenue: (venue) {
+                          if (_balanceLoading || _busy) return;
+                          _balanceRefresh.selectVenue(venue);
+                        },
+                        onAdd: () => _configureCredentials(_venue),
+                        onBalances: _balanceRefresh.refresh,
+                        onModify: _modifyStrategy,
+                        onDetails: _showDetails,
+                        onStrategy: (id, start) =>
+                            _changeStrategy(id, start: start),
+                      ),
+                    ],
+                  ],
                 ),
-                MmEngineDashboard(
-                  orders: _orders,
-                  strategies: strategies.toList(),
-                  venue: _venue,
-                  venueLabels: _venues,
-                  credentials: credentials,
-                  balances: _balanceRefresh.balances,
-                  busy: _busy,
-                  live: live,
-                  balanceError: _balanceRefresh.error,
-                  balanceUpdatedAt: _balanceRefresh.updatedAt,
-                  balanceRefreshSeconds: _balanceRefresh.secondsRemaining,
-                  cexExpanded: _balanceRefresh.expanded,
-                  onToggleCex: _balanceRefresh.toggleExpanded,
-                  balanceLoading: _balanceLoading,
-                  selectedOrders: _selectedOrders,
-                  onSelection: (ids) => setState(() {
-                    _selectedOrders
-                      ..clear()
-                      ..addAll(ids);
-                  }),
-                  onStartSelected: _startSelectedOrders,
-                  onLive: () => _setLive(!live),
-                  onNew: () => _createStrategy(),
-                  onVenue: (venue) {
-                    if (_balanceLoading || _busy) return;
-                    _balanceRefresh.selectVenue(venue);
-                  },
-                  onAdd: () => _configureCredentials(_venue),
-                  onBalances: _balanceRefresh.refresh,
-                  onModify: _modifyStrategy,
-                  onDetails: _showDetails,
-                  onStrategy: (id, start) => _changeStrategy(id, start: start),
-                ),
-              ],
+              ),
             ],
           ),
         ),

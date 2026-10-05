@@ -19,15 +19,39 @@ Stream<T> flattenStream<T>(Stream<Stream<T>> source) async* {
 }
 
 Stream<T> debounceStream<T>(Stream<T> source, Duration duration) {
-  final controller = StreamController<T>.broadcast();
+  late final StreamController<T> controller;
+  StreamSubscription<T>? subscription;
   Timer? timer;
+  T? pending;
+  var hasPending = false;
+  void flush() {
+    if (!hasPending) return;
+    hasPending = false;
+    controller.add(pending as T);
+  }
 
-  source.listen((T event) async {
-    timer?.cancel();
-    timer = Timer(duration, () {
-      controller.sink.add(event);
-    });
-  });
-
+  controller = StreamController<T>(
+    onListen: () {
+      subscription = source.listen(
+        (event) {
+          pending = event;
+          hasPending = true;
+          timer?.cancel();
+          timer = Timer(duration, flush);
+        },
+        onError: controller.addError,
+        onDone: () {
+          timer?.cancel();
+          flush();
+          controller.close();
+        },
+      );
+    },
+    onCancel: () async {
+      timer?.cancel();
+      hasPending = false;
+      await subscription?.cancel();
+    },
+  );
   return controller.stream;
 }

@@ -54,6 +54,7 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
     );
 
     on<TakerSetDefaults>(_onSetDefaults);
+    on<TakerFormOpened>(_onFormOpened);
     on<TakerCoinSelectorClick>(_onCoinSelectorClick);
     on<TakerOrderSelectorClick>(_onOrderSelectorClick);
     on<TakerCoinSelectorOpen>(_onCoinSelectorOpen);
@@ -108,6 +109,8 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
   bool _activatingAssets = false;
   bool _waitingForWallet = true;
   bool _isLoggedIn = false;
+  int _formRevision = 0;
+  int _quoteRevision = 0;
   late TakerValidator _validator;
   late StreamSubscription<KdfUser?> _authorizationSubscription;
   final Logger _log = Logger('TakerBloc');
@@ -116,6 +119,11 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
     TakerStartSwap event,
     Emitter<TakerState> emit,
   ) async {
+    if (state.inProgress ||
+        state.submissionOutcomeUnknown ||
+        state.swapUuid != null) {
+      return;
+    }
     final sellCoin = state.sellCoin;
     final selectedOrder = state.selectedOrder;
     final sellAmount = state.sellAmount;
@@ -199,7 +207,8 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
 
     emit(
       state.copyWith(
-        inProgress: uuid == null ? () => false : null,
+        // The RPC finished even when the confirmation widget was unmounted.
+        inProgress: () => false,
         swapUuid: () => uuid,
         submissionOutcomeUnknown: response.outcomeUnknown,
       ),
@@ -210,13 +219,29 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
     TakerBackButtonClick event,
     Emitter<TakerState> emit,
   ) {
-    emit(state.copyWith(step: () => TakerStep.form, errors: () => []));
+    if (state.inProgress && state.swapUuid == null) return;
+    _formRevision++;
+    _quoteRevision++;
+    emit(
+      state.copyWith(
+        step: () => TakerStep.form,
+        inProgress: () => false,
+        tradePreimage: () => null,
+        errors: () => [],
+      ),
+    );
   }
 
   Future<void> _onFormSubmitClick(
     TakerFormSubmitClick event,
     Emitter<TakerState> emit,
   ) async {
+    if (state.inProgress ||
+        state.submissionOutcomeUnknown ||
+        state.swapUuid != null) {
+      return;
+    }
+    final revision = ++_formRevision;
     emit(state.copyWith(inProgress: () => true, autovalidate: () => true));
 
     bool isValid = false;
@@ -235,7 +260,7 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
       );
     }
 
-    if (emit.isDone) return;
+    if (emit.isDone || revision != _formRevision) return;
 
     emit(
       state.copyWith(
@@ -384,6 +409,19 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
     }
   }
 
+  void _onFormOpened(TakerFormOpened event, Emitter<TakerState> emit) {
+    _waitingForWallet = !event.walletReady;
+    // Never reset an in-flight RPC or discard its uncertain outcome.
+    if (state.inProgress && state.swapUuid == null) return;
+    if (state.swapUuid != null) _onClear(TakerClear(), emit);
+    // A valid pending confirmation survives navigation; don't erase its pair.
+    if (state.step != TakerStep.form) return;
+    add(TakerSetDefaults());
+    if (event.walletReady && state.sellCoin != null) {
+      add(TakerSetSellCoin(state.sellCoin));
+    }
+  }
+
   Future<void> _onSetSellCoin(
     TakerSetSellCoin event,
     Emitter<TakerState> emit,
@@ -517,6 +555,8 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
   }
 
   void _onClear(TakerClear event, Emitter<TakerState> emit) {
+    _formRevision++;
+    _quoteRevision++;
     _maxSellAmountTimer?.cancel();
 
     emit(
@@ -661,27 +701,53 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
     TakerUpdateFees event,
     Emitter<TakerState> emit,
   ) async {
+    // Background fee refresh must not erase a validated confirmation.
+    if (state.step != TakerStep.form || state.inProgress) return;
+    final revision = ++_quoteRevision;
+    final sellCoin = state.sellCoin;
+    final order = state.selectedOrder;
+    final amount = state.sellAmount;
     emit(state.copyWith(tradePreimage: () => null));
 
     if (!_validator.canRequestPreimage) return;
 
     final preimageData = await _getFeesData();
-    add(TakerSetPreimage(preimageData.data));
+    if (emit.isDone ||
+        revision != _quoteRevision ||
+        state.step != TakerStep.form ||
+        state.inProgress ||
+        state.sellCoin != sellCoin ||
+        state.selectedOrder != order ||
+        state.sellAmount != amount) {
+      return;
+    }
+    emit(state.copyWith(tradePreimage: () => preimageData.data));
   }
 
   void _onSetPreimage(TakerSetPreimage event, Emitter<TakerState> emit) {
+    final request = event.tradePreimage?.request;
+    if (request != null &&
+        (state.sellCoin?.abbr != request.base ||
+            state.selectedOrder?.coin != request.rel ||
+            state.selectedOrder?.price != request.price ||
+            state.sellAmount != request.volume)) {
+      return;
+    }
+    if (event.tradePreimage == null && state.step == TakerStep.confirm) return;
     emit(state.copyWith(tradePreimage: () => event.tradePreimage));
   }
 
   Future<DataFromService<TradePreimage, BaseError>> _getFeesData() async {
     try {
-      return await _dexRepo.getTradePreimage(
-        state.sellCoin!.abbr,
-        state.selectedOrder!.coin,
-        state.selectedOrder!.price,
-        'sell',
-        state.sellAmount,
-      );
+      return await _dexRepo
+          .getTradePreimage(
+            state.sellCoin!.abbr,
+            state.selectedOrder!.coin,
+            state.selectedOrder!.price,
+            'sell',
+            state.sellAmount,
+          )
+          .timeout(const Duration(seconds: 30));
     } catch (e, s) {
       log(
         e.toString(),

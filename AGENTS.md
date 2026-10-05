@@ -61,3 +61,13 @@ The KDF API documentation can be found in the root folder at `/KDF_API_DOCUMENTA
 Commit messages should be clear and descriptive. When opening a pull request, summarize the purpose of the change and reference related issues when appropriate. Ensure commit messages and PR title follow the Conventional Commits standard as described in the standards section below.
 
 <!-- The following sections are automatically generated during environment setup -->
+
+## Linux renderer stability constraint
+
+Keep Impeller disabled on Linux until stability has been verified on the user's
+NVIDIA Turing system. Use `flutter run -d linux --no-enable-impeller` during
+development and debugging. Preserve the explicit
+`fl_dart_project_set_enable_impeller(project, FALSE)` in the Linux runner for
+compiled bundles and AppImages. Do not automatically re-enable it after Flutter
+updates. See `docs/LINUX_RENDERER_STABILITY.md`. Diagnose new desktop freezes
+using kernel NVIDIA Xid logs before attributing them to wallet logic.

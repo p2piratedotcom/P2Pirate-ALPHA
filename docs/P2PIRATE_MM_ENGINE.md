@@ -63,3 +63,57 @@ The integration contract lives in MM_Engine's
 [`docs/WALLET_INTEGRATION.md`](https://github.com/p2piratedotcom/MM_Engine/blob/main/docs/WALLET_INTEGRATION.md).
 Internal engine improvements can ship in new compatible releases without a
 wallet update; protocol or control changes require a wallet change.
+
+## KDF session health during trading
+
+An authenticated wallet is preserved when a KDF version RPC is delayed or
+unavailable. Health probes retry without stopping KDF or restarting it in
+unauthenticated mode. A valid shutdown signal or a successful wallet-names
+response reporting no active wallet can still end the session. RPC availability
+is checked separately from authentication: preserving the session does not
+make failed RPC requests succeed or bypass the engine's coverage safeguards.
+
+Startup recovery runs only without an authenticated wallet, under the same
+write lock as login and wallet changes. It waits for shutdown to finish and
+aborts recovery if shutdown fails. A null version response is unhealthy.
+These changes prevent a short RPC timeout from cancelling funded activity and
+prevent a delayed shutdown from stopping a replacement process.
+
+### Active wallet pair selection
+
+New Maker Order has separate Base wallet coin and Quote wallet coin selectors,
+both sourced from the Wallet's active CoinsBloc entries, not the engine's list
+of already configured markets. The same coin cannot occupy both sides. Full KDF
+IDs remain intact; unsupported or ambiguous network-to-CEX mappings require an
+explicit Spot asset and must pass engine preview. The form refreshes available
+balances when opened and checks Wallet activation again before preview; the
+engine also validates activation. Existing saved routes remain locked on edit.
+If USDT occupies the wallet base side, the submitted engine route reverses the
+pair and side (and reciprocal fixed price), preserving the intended sold/bought
+coins while retaining the engine's USDT quote convention.
+
+The reconciliation update lives in the separate engine repository. Installing a
+new GUI alone does not update an already-running engine process. Local candidate
+builds are staged separately; do not restart a live wallet with swaps in flight
+merely to load these changes.
+
+
+### Initial Trading Engine loading
+
+Installation checks are asynchronous and start with an unknown status, not
+"not installed". Keep the initial availability/connect sequence behind a
+circular loading indicator. Show installation prompts only after the checks
+confirm a missing executable or plugin catalog. An inspection/connection error
+is shown as an error, not inferred to be a missing installation. Real download
+progress remains visible after initial checks. Re-entering the page must not
+flash either missing-installation message for already installed components.
+
+
+### Cancellation recovery visibility
+
+The dashboard shows RECOVERING and the next readback delay when KDF did not
+confirm a cancellation. Pause recovery revokes automatic strategy restart;
+Modify stays unavailable until reconciliation has completed. The engine
+verifies UUID identity, history, matches and swaps before resuming an automatic
+strategy, and normal coverage/freshness/cooldown checks still apply. A manual
+pause is never treated as permission to resume.
