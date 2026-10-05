@@ -30,6 +30,8 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
   List<Map<String, dynamic>> _history = [];
   String? _error, _message;
   bool _busy = false;
+  bool _loadedStatus = false;
+  DateTime? _nextStatusAt;
   Timer? _timer;
 
   bool get _pending => _history.any(
@@ -53,6 +55,17 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
     super.initState();
     _timer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (mounted && _plan != null) setState(() {});
+      if (mounted &&
+          !_busy &&
+          !widget.busy &&
+          widget.configured &&
+          MmEngineService.instance.rebalanceSupported &&
+          (!_loadedStatus ||
+              (_pending &&
+                  (_nextStatusAt == null ||
+                      !DateTime.now().isBefore(_nextStatusAt!))))) {
+        unawaited(_status());
+      }
     });
     // Recover a previous submission after navigation/restart. This never submits.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -98,6 +111,8 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
   );
 
   void _readStatus(Map<String, dynamic> result) {
+    _loadedStatus = true;
+    _nextStatusAt = DateTime.now().add(const Duration(seconds: 15));
     _history = (result['orders'] as List? ?? [])
         .whereType<Map<String, dynamic>>()
         .toList();
@@ -215,7 +230,10 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
     await _run(() async {
       // Consume the UI proposal before the write, including on HTTP timeout.
       // Its server-side identity and durable journal prevent double submission.
-      setState(() => _plan = null);
+      setState(() {
+        _plan = null;
+        _loadedStatus = false;
+      });
       try {
         final result = await _request('execute', {
           'id': id,

@@ -552,7 +552,7 @@ class MmEngineDashboard extends StatelessWidget {
                       ),
                     ),
                     TextButton.icon(
-                      onPressed: onToggleCex,
+                      onPressed: busy ? null : onToggleCex,
                       icon: Icon(
                         cexExpanded ? Icons.expand_less : Icons.expand_more,
                       ),
