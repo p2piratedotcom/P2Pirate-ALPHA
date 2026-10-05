@@ -85,7 +85,7 @@ git ls-tree HEAD sdk
 git -C sdk rev-parse HEAD
 dart pub get -C sdk --enforce-lockfile
 flutter pub get --enforce-lockfile
-flutter run -d linux
+flutter run -d linux --no-enable-impeller
 ```
 
 The two SDK SHA outputs should match. The [desktop installation guide](INSTALL.md)

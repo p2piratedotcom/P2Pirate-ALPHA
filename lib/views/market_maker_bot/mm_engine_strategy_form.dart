@@ -2,7 +2,7 @@ import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 
 /// Editing retains the saved route even when no markets are currently offered.
-/// New orders can only use the markets reported by the engine.
+/// Legacy market-list compatibility; production forms use active wallet tickers.
 List<String> makerOrderMarkets(
   Object? availableMarkets, {
   Map<String, dynamic>? existingSpec,
@@ -26,7 +26,8 @@ List<String> makerOrderMarkets(
 class MmEngineStrategyForm extends StatefulWidget {
   const MmEngineStrategyForm({
     super.key,
-    required this.markets,
+    this.markets = const [],
+    this.activeTickers,
     required this.strategyId,
     this.venues = const {'MEXC': 'MEXC', 'GATE': 'Gate'},
     this.initialSpec,
@@ -34,6 +35,7 @@ class MmEngineStrategyForm extends StatefulWidget {
   });
 
   final List<String> markets;
+  final List<String>? activeTickers;
   final Map<String, String> venues;
   final String strategyId;
   final Map<String, dynamic>? initialSpec;
@@ -54,7 +56,20 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
   final _fixedPrice = TextEditingController();
   final _fixedSold = TextEditingController();
   final _updateSeconds = TextEditingController(text: '60');
-  String? _market;
+  String? _baseTicker;
+  String? _quoteTicker;
+
+  List<String> get _tickers =>
+      widget.activeTickers ??
+      widget.markets
+          .expand((m) {
+            final separator = m.indexOf('-');
+            return separator < 0
+                ? <String>[]
+                : [m.substring(0, separator), m.substring(separator + 1)];
+          })
+          .toSet()
+          .toList();
   String _venue = 'MEXC';
   String _side = 'SELL_ARRR';
   bool _replenish = true;
@@ -67,13 +82,18 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
     _venue = widget.venues.containsKey('MEXC')
         ? 'MEXC'
         : widget.venues.keys.first;
-    _market = widget.markets.isEmpty ? null : widget.markets.first;
+    final tickers = _tickers;
+    _baseTicker = tickers.contains('ARRR') ? 'ARRR' : tickers.firstOrNull;
+    _quoteTicker = tickers.contains('USDT-BEP20') && _baseTicker != 'USDT-BEP20'
+        ? 'USDT-BEP20'
+        : tickers.where((t) => t != _baseTicker).firstOrNull;
     _updateRoute();
     final spec = widget.initialSpec;
     if (spec != null) {
       final base = spec['base'] as Map;
       final quote = spec['quote'] as Map;
-      _market = '${base['ticker']}-${quote['ticker']}';
+      _baseTicker = '${base['ticker']}';
+      _quoteTicker = '${quote['ticker']}';
       _baseAsset.text = '${base['asset']}';
       _quoteAsset.text = '${quote['asset']}';
       _venue = '${spec['cex']}';
@@ -99,12 +119,51 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
 
   bool get _venueAvailable => widget.venues.containsKey(_venue);
 
+  String _cexHint(String? ticker) {
+    if (ticker == 'USDT-BEP20') return 'USDT';
+    // Network tickers require an explicit exchange mapping, never a guessed suffix.
+    return ticker != null && !ticker.contains('-') && !ticker.contains('_')
+        ? ticker
+        : '';
+  }
+
   void _updateRoute() {
-    _baseAsset.text = _market?.split('-').first ?? '';
-    final quote = _market?.split('-').skip(1).join('-') ?? '';
-    _quoteAsset.text = quote == 'USDT-BEP20'
-        ? 'USDT'
-        : (quote.contains('-') ? '' : quote);
+    _baseAsset.text = _cexHint(_baseTicker);
+    _quoteAsset.text = _cexHint(_quoteTicker);
+    // Amounts and manual prices belong to the previous pair's units.
+    for (final controller in [
+      _fixedPrice,
+      _fixedSold,
+      _budget,
+      _maxSold,
+      _dailyCap,
+    ]) {
+      controller.clear();
+    }
+  }
+
+  Widget _coinSelector(
+    String label,
+    String? ticker,
+    String? other,
+    ValueChanged<String?> onChanged,
+  ) {
+    final values = {
+      ..._tickers.where((t) => t != other),
+      if (widget.initialSpec != null && ticker != null) ticker,
+    };
+    return DropdownButtonFormField<String>(
+      key: ValueKey('$label:$ticker:$other'),
+      initialValue: ticker,
+      isExpanded: true,
+      decoration: _decoration(label),
+      items: values
+          .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+          .toList(),
+      validator: (value) =>
+          value == null ? 'Select an active wallet coin' : null,
+      onChanged: widget.initialSpec != null ? null : onChanged,
+    );
   }
 
   @override
@@ -152,6 +211,10 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
   }
 
   static const _help = <String, String>{
+    'Base wallet coin':
+        'Select the base coin from the active Wallet coins. The exchange asset mapping is checked in preview.',
+    'Quote wallet coin':
+        'Select a different active Wallet coin. Network tickers stay intact; an exchange hedge route is required.',
     'KDF market':
         'Wallet coin pair. Both coins must be active. Routing is locked when modifying an existing order.',
     'Base CEX asset':
@@ -213,11 +276,14 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
   );
 
   void _submit() {
-    if (!_form.currentState!.validate() || _market == null) return;
-    final tickers = _market!.split('-');
-    final baseTicker = tickers.first;
-    final quoteTicker = tickers.skip(1).join('-');
-    if (quoteTicker.isEmpty) return;
+    if (!_form.currentState!.validate() ||
+        _baseTicker == null ||
+        _quoteTicker == null ||
+        _baseTicker == _quoteTicker) {
+      return;
+    }
+    final baseTicker = _baseTicker!;
+    final quoteTicker = _quoteTicker!;
     final baseAsset = _baseAsset.text.trim().toUpperCase();
     final quoteAsset = _quoteAsset.text.trim().toUpperCase();
     final premiumPercent = Decimal.parse(_premium.text.trim());
@@ -229,7 +295,7 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
           {
             'ticker': baseTicker,
             'asset': baseAsset,
-            'symbol': '${baseAsset}USDT',
+            'symbol': baseAsset == 'USDT' ? null : '${baseAsset}USDT',
           },
       'quote':
           widget.initialSpec?['quote'] ??
@@ -260,6 +326,20 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
       'auto_fraction': widget.initialSpec?['auto_fraction'] ?? '1',
       'cex': _venue,
     };
+    // Engine Spot routes use USDT as numeraire. Preserve the selected sell/buy
+    // semantics when the user puts USDT on the base side of the wallet pair.
+    if (widget.initialSpec == null && baseAsset == 'USDT') {
+      final base = spec['base'];
+      spec['base'] = spec['quote'];
+      spec['quote'] = base;
+      spec['side'] = _side == 'SELL_ARRR' ? 'BUY_ARRR' : 'SELL_ARRR';
+      if (!_autoPrice) {
+        spec['fixed_price'] =
+            (Decimal.one / Decimal.parse(_fixedPrice.text.trim()))
+                .toDecimal(scaleOnInfinitePrecision: 18)
+                .toString();
+      }
+    }
     Navigator.of(context).pop(spec);
   }
 
@@ -276,28 +356,23 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              DropdownButtonFormField<String>(
-                initialValue: _market,
-                decoration: _decoration('KDF market'),
-                items:
-                    {
-                          ...widget.markets,
-                          if (widget.initialSpec != null && _market != null)
-                            _market!,
-                        }
-                        .map(
-                          (market) => DropdownMenuItem(
-                            value: market,
-                            child: Text(market),
-                          ),
-                        )
-                        .toList(),
-                onChanged: widget.initialSpec != null
-                    ? null
-                    : (value) => setState(() {
-                        _market = value;
-                        _updateRoute();
-                      }),
+              _coinSelector(
+                'Base wallet coin',
+                _baseTicker,
+                _quoteTicker,
+                (value) => setState(() {
+                  _baseTicker = value;
+                  _updateRoute();
+                }),
+              ),
+              _coinSelector(
+                'Quote wallet coin',
+                _quoteTicker,
+                _baseTicker,
+                (value) => setState(() {
+                  _quoteTicker = value;
+                  _updateRoute();
+                }),
               ),
               Row(
                 children: [
@@ -391,7 +466,7 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     child: Text(
-                      'Available base coin: ${widget.availableBalances[_market?.split('-').first] ?? 'unavailable'} ${_market?.split('-').first ?? ''}',
+                      'Available base coin: ${widget.availableBalances[_baseTicker] ?? 'unavailable'} ${_baseTicker ?? ''}',
                     ),
                   ),
                 ),

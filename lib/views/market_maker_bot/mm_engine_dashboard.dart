@@ -190,7 +190,11 @@ class MmEngineDashboard extends StatelessWidget {
                   final row = rows[i];
                   final id = row['strategy_id'];
                   final uuid = row['order_uuid']?.toString();
-                  final enabled = row['enabled'] == 1 || uuid != null;
+                  final recovering =
+                      row['recovery'] is Map &&
+                      (row['recovery'] as Map)['held'] != true;
+                  final enabled =
+                      row['enabled'] == 1 || uuid != null || recovering;
                   final values = [
                     row['creation_number'] ?? i + 1,
                     row['kdf_base'],
@@ -302,7 +306,13 @@ class MmEngineDashboard extends StatelessWidget {
                                 enabled ? Icons.pause : Icons.play_arrow,
                                 size: 16,
                               ),
-                              label: Text(enabled ? 'Pause' : 'Start'),
+                              label: Text(
+                                recovering && uuid == null
+                                    ? 'Pause recovery'
+                                    : enabled
+                                    ? 'Pause'
+                                    : 'Start',
+                              ),
                             ),
                             if (row['modifiable'] == true && id is String)
                               OutlinedButton.icon(
@@ -366,16 +376,22 @@ class MmEngineDashboard extends StatelessWidget {
       final sold = spec[sellBase ? 'base' : 'quote'] as Map?;
       final bought = spec[sellBase ? 'quote' : 'base'] as Map?;
       final active = order['order_uuid'] != null;
+      final recovery = strategy?['recovery'] as Map?;
+      final detail = '${strategy?['detail'] ?? ''}';
+      final recoveryDetail = recovery == null || recovery['held'] == true
+          ? detail
+          : '$detail · Next check in ${recovery['next_retry_seconds'] ?? 10}s';
       return {
         ...order,
         'strategy_id': strategy?['id'] ?? order['strategy_id'],
+        'recovery': recovery,
         'selectable': startable.contains(
           strategy?['id'] ?? order['strategy_id'],
         ),
         'creation_number': strategy?['creation_number'],
         'status': strategy?['state'] ?? order['status'],
-        'detail': '${strategy?['detail'] ?? ''}'.isNotEmpty
-            ? strategy!['detail']
+        'detail': recoveryDetail.isNotEmpty
+            ? recoveryDetail
             : strategy?['state'] == 'PAUSED'
             ? 'Not publishing: this order is paused.'
             : '',
@@ -401,6 +417,7 @@ class MmEngineDashboard extends StatelessWidget {
             ![
               'WRITING',
               'REVIEW_REQUIRED',
+              'RECOVERING',
               'DELETED',
             ].contains(strategy['state']),
       };

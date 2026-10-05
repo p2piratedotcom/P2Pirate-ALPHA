@@ -50,6 +50,12 @@ class TakerSelectBuyCoin extends TakerEvent {
 
 class TakerSetDefaults extends TakerEvent {}
 
+/// Reconcile presentation state when returning from another wallet section.
+class TakerFormOpened extends TakerEvent {
+  TakerFormOpened({required this.walletReady});
+  final bool walletReady;
+}
+
 class TakerAddError extends TakerEvent {
   TakerAddError(this.error);
 

@@ -17,6 +17,116 @@ void main() {
       'ARRR-USDT-BEP20',
     ]);
   });
+  testWidgets(
+    'both maker coin selectors use active tickers and preserve networks',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: MmEngineStrategyForm(
+              activeTickers: ['ARRR', 'DASH', 'USDT-BEP20', 'BTC-segwit'],
+              strategyId: 'active-pair',
+              availableBalances: {'USDT-BEP20': '40'},
+            ),
+          ),
+        ),
+      );
+      DropdownButtonFormField<String> selector(String label) => tester
+          .widgetList<DropdownButtonFormField<String>>(
+            find.byType(DropdownButtonFormField<String>),
+          )
+          .firstWhere((w) => w.decoration.labelText == label);
+      expect(
+        tester
+            .widget<DropdownButton<String>>(
+              find.descendant(
+                of: find.byWidget(selector('Quote wallet coin')),
+                matching: find.byType(DropdownButton<String>),
+              ),
+            )
+            .items!
+            .map((i) => i.value),
+        containsAll(['DASH', 'USDT-BEP20', 'BTC-segwit']),
+      );
+      expect(
+        tester
+            .widget<DropdownButton<String>>(
+              find.descendant(
+                of: find.byWidget(selector('Quote wallet coin')),
+                matching: find.byType(DropdownButton<String>),
+              ),
+            )
+            .items!
+            .map((i) => i.value),
+        isNot(contains('ARRR')),
+      );
+      selector('Quote wallet coin').onChanged!('DASH');
+      await tester.pump();
+      selector('Base wallet coin').onChanged!('USDT-BEP20');
+      await tester.pump();
+      expect(selector('Base wallet coin').initialValue, 'USDT-BEP20');
+      expect(selector('Quote wallet coin').initialValue, 'DASH');
+      expect(find.text('Available base coin: 40 USDT-BEP20'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'USDT on wallet base preserves sold coin and reverses engine route',
+    (tester) async {
+      Map<String, Object?>? saved;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () async {
+                  saved = await showDialog<Map<String, Object?>>(
+                    context: context,
+                    builder: (_) => const MmEngineStrategyForm(
+                      activeTickers: ['ARRR', 'DASH', 'USDT-BEP20'],
+                      strategyId: 'usd-base',
+                    ),
+                  );
+                },
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      DropdownButtonFormField<String> selector(String label) => tester
+          .widgetList<DropdownButtonFormField<String>>(
+            find.byType(DropdownButtonFormField<String>),
+          )
+          .firstWhere((w) => w.decoration.labelText == label);
+      selector('Quote wallet coin').onChanged!('DASH');
+      await tester.pump();
+      selector('Base wallet coin').onChanged!('USDT-BEP20');
+      await tester.pump();
+      final budget = find.ancestor(
+        of: find.byWidgetPredicate(
+          (w) =>
+              w is InputDecorator &&
+              w.decoration.labelText == 'Total sold budget',
+        ),
+        matching: find.byType(TextFormField),
+      );
+      await tester.ensureVisible(budget);
+      await tester.enterText(budget, '10');
+      await tester.ensureVisible(find.text('Preview'));
+      await tester.tap(find.text('Preview'));
+      await tester.pumpAndSettle();
+      expect((saved?['base'] as Map)['ticker'], 'DASH');
+      expect((saved?['quote'] as Map)['ticker'], 'USDT-BEP20');
+      expect((saved?['quote'] as Map)['symbol'], isNull);
+      expect(saved?['side'], 'BUY_ARRR');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   test('connected peer count counts IDs, not addresses', () {
     expect(
       connectedPeerCount({
