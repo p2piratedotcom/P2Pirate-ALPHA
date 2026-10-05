@@ -120,3 +120,17 @@ Modify stays unavailable until reconciliation has completed. The engine
 verifies UUID identity, history, matches and swaps before resuming an automatic
 strategy, and normal coverage/freshness/cooldown checks still apply. A manual
 pause is never treated as permission to resume.
+
+## Live status freshness (October 2026)
+
+The Trading Engine page refreshes its local read-only order/strategy snapshot
+every five seconds while mounted. Refresh requests do not read API credentials
+or request CEX balances. A timestamp and warning identify cached or unavailable
+state. Replies from an older session or preceding an action are discarded.
+Starting or modifying an order requires a current confirmed display; Pause and
+Stop remain available during refresh failures. Periodic reads stop when the
+page is disposed, while the engine continues its normal independent lifecycle.
+
+Pending automatic publication recovery is shown as RECOVERING. REVIEW_REQUIRED
+remains appropriate for held/manual decisions. Uncertain writes are never
+resent by the GUI. Persistent feed or KDF failures still require safety controls.

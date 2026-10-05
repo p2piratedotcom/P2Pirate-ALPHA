@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:web_dex/bloc/coins_bloc/coins_bloc.dart';
 import 'package:web_dex/services/mm_engine/mm_engine_plugin_migration.dart';
 import 'package:flutter/material.dart';
@@ -37,6 +38,16 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
   List<Map<String, dynamic>> _orders = [];
   final _selectedOrders = <String>{};
   late final MmEngineBalanceRefresh _balanceRefresh;
+  Timer? _orderRefreshTimer;
+  Future<void>? _refreshing;
+  int _refreshGeneration = 0;
+  DateTime? _statusUpdated;
+  String? _statusError;
+
+  bool get _statusStale =>
+      _statusUpdated == null ||
+      DateTime.now().difference(_statusUpdated!) > const Duration(seconds: 30);
+
   String get _venue => _balanceRefresh.venue;
   bool get _balanceLoading => _balanceRefresh.loading;
 
@@ -75,6 +86,23 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
           MmEngineService.instance.isRunning &&
           (_credentials?['venues'] as Map?)?[venue] == true,
     )..addListener(_onBalanceChanged);
+    _orderRefreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted) return;
+      // Lifecycle changes must redraw even when no further read is possible.
+      // In particular, a child exit must never leave a frozen live dashboard.
+      setState(() {
+        if (!_busy && !_initializing && !MmEngineService.instance.isRunning) {
+          _statusUpdated = null;
+          _statusError =
+              'Trading engine stopped. Reconnect to reconcile its orders.';
+          _selectedOrders.clear();
+        }
+      });
+      if (_busy || _initializing || !MmEngineService.instance.isRunning) {
+        return;
+      }
+      unawaited(_refresh(automatic: true));
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
@@ -84,6 +112,8 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
 
   @override
   void dispose() {
+    _orderRefreshTimer?.cancel();
+    _refreshGeneration++;
     _balanceRefresh.removeListener(_onBalanceChanged);
     _balanceRefresh.dispose();
     super.dispose();
@@ -116,6 +146,8 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
   }
 
   Future<void> _connect({bool? liveTrading}) async {
+    _refreshGeneration++;
+    _statusUpdated = null;
     _balanceRefresh.invalidate(clear: true);
     _pluginsReady = await CexPluginService.instance.current() != null;
     if (!mounted || _pluginsReady != true) return;
@@ -137,29 +169,76 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     await _refresh();
   }
 
-  Future<void> _refresh() async {
-    final engine = MmEngineService.instance;
-    final strategies = await engine.request('GET', '/v1/strategies');
-    final reconciliation = await engine.request('GET', '/v1/reconciliation');
-    final credentials = await engine.request('GET', '/v1/credentials/status');
-    final orders = await engine.request('GET', '/v1/orders');
+  Future<void> _refresh({bool automatic = false}) async {
+    final active = _refreshing;
+    if (active != null) {
+      if (automatic) return;
+      await active;
+      if (!mounted) return;
+    }
     if (!mounted) return;
-    setState(() {
-      _strategies =
-          orders['strategy_states'] as Map<String, dynamic>? ?? strategies;
-      _reconciliation = reconciliation;
-      _credentials = credentials;
-      _orders = (orders['orders'] as List)
-          .whereType<Map<String, dynamic>>()
-          .toList();
-      final saved =
-          (_strategies?['strategies'] as List?)
-              ?.whereType<Map<String, dynamic>>()
-              .toList() ??
-          <Map<String, dynamic>>[];
-      _selectedOrders.retainAll(startableMakerOrderIds(saved, _orders));
-      _error = null;
-    });
+    final generation = _refreshGeneration;
+    final future = _readDashboard(automatic: automatic, generation: generation);
+    _refreshing = future;
+    try {
+      await future;
+    } finally {
+      if (identical(_refreshing, future)) _refreshing = null;
+    }
+  }
+
+  Future<void> _readDashboard({
+    required bool automatic,
+    required int generation,
+  }) async {
+    final engine = MmEngineService.instance;
+    try {
+      // Orders include their matching strategy states in a single snapshot.
+      // Periodic reads never touch credentials or fetch remote CEX balances.
+      final replies = await Future.wait([
+        engine.request('GET', '/v1/orders'),
+        engine.request('GET', '/v1/reconciliation'),
+        if (!automatic || _credentials == null)
+          engine.request('GET', '/v1/credentials/status'),
+      ]);
+      if (!mounted || generation != _refreshGeneration) return;
+      final orders = replies[0];
+      final states = orders['strategy_states'];
+      if (states is! Map<String, dynamic> || orders['orders'] is! List) {
+        throw const FormatException('Incomplete trading engine state');
+      }
+      final observed = orders['observed_at_ms'];
+      final updated = observed is int
+          ? DateTime.fromMillisecondsSinceEpoch(observed)
+          : DateTime.now();
+      setState(() {
+        _strategies = states;
+        _reconciliation = replies[1];
+        if (replies.length > 2) _credentials = replies[2];
+        _orders = (orders['orders'] as List)
+            .whereType<Map<String, dynamic>>()
+            .toList();
+        _statusUpdated = updated;
+        _statusError = orders['refresh_pending'] == true
+            ? 'Engine is updating orders; showing the last confirmed state.'
+            : null;
+        final saved =
+            (states['strategies'] as List?)
+                ?.whereType<Map<String, dynamic>>()
+                .toList() ??
+            <Map<String, dynamic>>[];
+        _selectedOrders.retainAll(startableMakerOrderIds(saved, _orders));
+        if (!automatic) _error = null;
+      });
+    } catch (error) {
+      if (!mounted || generation != _refreshGeneration) return;
+      setState(() {
+        // Keep the last snapshot visible, explicitly marked as unconfirmed.
+        _statusError =
+            'Order status refresh failed. Showing the last confirmed state.';
+      });
+      // Read failures stay in the status strip and are retried automatically.
+    }
   }
 
   Future<void> _runBusy(Future<void> Function() action) async {
@@ -167,13 +246,26 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     setState(() {
       _busy = true;
       _error = null;
+      _refreshGeneration++;
     });
     try {
+      // Discard any reply started before the action, then serialize reads.
+      await _refreshing;
+      if (!mounted) return;
       await action();
     } catch (error) {
       if (mounted) setState(() => _error = '$error');
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _requireConfirmedStatus() async {
+    await _refresh(automatic: true);
+    if (!mounted || _statusStale || _statusError != null) {
+      throw StateError(
+        'Cannot confirm current order status. Retry after refresh.',
+      );
     }
   }
 
@@ -234,6 +326,13 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
   }
 
   Future<void> _startSelectedOrders() async {
+    if (_statusStale || _statusError != null) {
+      setState(
+        () => _error =
+            'Refresh the order status before starting or modifying orders.',
+      );
+      return;
+    }
     if (_busy || !MmEngineService.instance.liveEnabled) return;
     final rows =
         ((_strategies?['strategies'] as List?) ?? [])
@@ -291,9 +390,13 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     );
     if (confirmed != true || !mounted) return;
     await _runBusy(() async {
+      await _requireConfirmedStatus();
+      final currentRows = ((_strategies?['strategies'] as List?) ?? [])
+          .whereType<Map<String, dynamic>>()
+          .toList();
       final result = await startSelectedMakerOrders(
         ids: selected.map((row) => row['id'] as String).toList(),
-        eligible: eligible,
+        eligible: startableMakerOrderIds(currentRows, _orders),
         live: MmEngineService.instance.liveEnabled,
         request: MmEngineService.instance.request,
       );
@@ -508,7 +611,22 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
           ],
         ),
       );
-      if (accepted != true) return;
+      if (accepted != true || !mounted) return;
+      if (existing != null) {
+        await _requireConfirmedStatus();
+        final id = existing['id'];
+        final current = ((_strategies?['strategies'] as List?) ?? [])
+            .whereType<Map<String, dynamic>>()
+            .where((row) => row['id'] == id);
+        if (current.isEmpty ||
+            current.first['enabled'] != 0 ||
+            current.first['state'] != 'PAUSED' ||
+            _orders.any((order) => order['strategy_id'] == id)) {
+          throw StateError(
+            'Order state changed. Pause and withdraw it before modifying.',
+          );
+        }
+      }
       await MmEngineService.instance.request(
         'POST',
         existing == null ? '/v1/strategies/create' : '/v1/strategies/update',
@@ -524,6 +642,13 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
   }
 
   Future<void> _modifyStrategy(String id) async {
+    if (_statusStale || _statusError != null) {
+      setState(
+        () => _error =
+            'Refresh the order status before starting or modifying orders.',
+      );
+      return;
+    }
     final rows = (_strategies?['strategies'] as List?) ?? [];
     final matches = rows.whereType<Map<String, dynamic>>().where(
       (row) => row['id'] == id,
@@ -594,6 +719,12 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
   }
 
   Future<void> _changeStrategy(String id, {required bool start}) async {
+    if (start && (_statusStale || _statusError != null)) {
+      setState(
+        () => _error = 'Refresh the order status before starting orders.',
+      );
+      return;
+    }
     if (start && !MmEngineService.instance.liveEnabled) {
       setState(() => _error = 'Enable live mode before starting a strategy.');
       return;
@@ -622,6 +753,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     );
     if (confirmed != true || !mounted) return;
     await _runBusy(() async {
+      if (start) await _requireConfirmedStatus();
       await MmEngineService.instance.request(
         'POST',
         start ? '/v1/strategies/start' : '/v1/strategies/pause',
@@ -838,7 +970,9 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                           _installed == true &&
                           MmEngineService.instance.isRunning)
                         TextButton.icon(
-                          onPressed: _busy ? null : _refresh,
+                          onPressed: _busy
+                              ? null
+                              : () => _runBusy(() => _refresh()),
                           icon: const Icon(Icons.refresh),
                           label: const Text('Refresh'),
                         ),
@@ -947,6 +1081,16 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                           ),
                         ),
                       ),
+                      if (_statusUpdated != null || _statusError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: SelectableText(
+                            '${_statusStale ? "Status may be out of date" : "Order status updated"} · '
+                            '${_statusUpdated == null ? "Waiting for first confirmed state" : "${DateTime.now().difference(_statusUpdated!).inSeconds.clamp(0, 86400)}s ago"}'
+                            '${_statusError == null ? "" : " · $_statusError"}',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
                       MmEngineDashboard(
                         orders: _orders,
                         strategies: strategies.toList(),
@@ -982,7 +1126,31 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                         onStrategy: (id, start) =>
                             _changeStrategy(id, start: start),
                       ),
-                    ],
+                    ] else
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SelectableText(
+                                'Trading engine is not running.',
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'Reconnect to read the current order state and reconcile pending operations.',
+                              ),
+                              const SizedBox(height: 12),
+                              ElevatedButton(
+                                onPressed: _busy
+                                    ? null
+                                    : () => _runBusy(() => _connect()),
+                                child: const Text('Reconnect engine'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
