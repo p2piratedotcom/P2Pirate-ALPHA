@@ -68,8 +68,11 @@ wallet update; protocol or control changes require a wallet change.
 
 An authenticated wallet is preserved when a KDF version RPC is delayed or
 unavailable. Health probes retry without stopping KDF or restarting it in
-unauthenticated mode. A valid shutdown signal or a successful wallet-names
-response reporting no active wallet can still end the session. RPC availability
+unauthenticated mode. A confirmed child/native termination, valid shutdown signal or successful
+wallet-names response reporting no locally recognized active wallet can still
+end the session. An executable adapter that never owned a child does not
+interpret an unavailable RPC as an exit. Uncertain shutdown retains process
+ownership; delayed exit cleanup cannot clear a replacement child. RPC availability
 is checked separately from authentication: preserving the session does not
 make failed RPC requests succeed or bypass the engine's coverage safeguards.
 
