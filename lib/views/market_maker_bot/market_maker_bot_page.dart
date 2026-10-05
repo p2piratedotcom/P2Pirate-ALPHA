@@ -245,11 +245,21 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     try {
       // Discard any reply started before the action, then serialize reads.
       await _refreshing;
+      if (!mounted) return;
       await action();
     } catch (error) {
       if (mounted) setState(() => _error = '$error');
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _requireConfirmedStatus() async {
+    await _refresh(automatic: true);
+    if (!mounted || _statusStale || _statusError != null) {
+      throw StateError(
+        'Cannot confirm current order status. Retry after refresh.',
+      );
     }
   }
 
@@ -374,9 +384,13 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     );
     if (confirmed != true || !mounted) return;
     await _runBusy(() async {
+      await _requireConfirmedStatus();
+      final currentRows = ((_strategies?['strategies'] as List?) ?? [])
+          .whereType<Map<String, dynamic>>()
+          .toList();
       final result = await startSelectedMakerOrders(
         ids: selected.map((row) => row['id'] as String).toList(),
-        eligible: eligible,
+        eligible: startableMakerOrderIds(currentRows, _orders),
         live: MmEngineService.instance.liveEnabled,
         request: MmEngineService.instance.request,
       );
@@ -591,7 +605,22 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
           ],
         ),
       );
-      if (accepted != true) return;
+      if (accepted != true || !mounted) return;
+      if (existing != null) {
+        await _requireConfirmedStatus();
+        final id = existing['id'];
+        final current = ((_strategies?['strategies'] as List?) ?? [])
+            .whereType<Map<String, dynamic>>()
+            .where((row) => row['id'] == id);
+        if (current.isEmpty ||
+            current.first['enabled'] != 0 ||
+            current.first['state'] != 'PAUSED' ||
+            _orders.any((order) => order['strategy_id'] == id)) {
+          throw StateError(
+            'Order state changed. Pause and withdraw it before modifying.',
+          );
+        }
+      }
       await MmEngineService.instance.request(
         'POST',
         existing == null ? '/v1/strategies/create' : '/v1/strategies/update',
@@ -718,6 +747,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     );
     if (confirmed != true || !mounted) return;
     await _runBusy(() async {
+      if (start) await _requireConfirmedStatus();
       await MmEngineService.instance.request(
         'POST',
         start ? '/v1/strategies/start' : '/v1/strategies/pause',
