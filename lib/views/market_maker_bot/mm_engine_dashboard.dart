@@ -2,6 +2,7 @@ import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_trading_controls.dart';
+import 'package:web_dex/views/market_maker_bot/mm_engine_rebalance_panel.dart';
 
 class MmEngineDashboard extends StatelessWidget {
   const MmEngineDashboard({
@@ -31,6 +32,8 @@ class MmEngineDashboard extends StatelessWidget {
     this.onToggleCex,
     this.balanceRefreshSeconds,
     this.balanceUpdatedAt,
+    this.onRebalanceBusy,
+    this.onRebalanceChanged,
   });
   final List<Map<String, dynamic>> orders, strategies, balances;
   final String venue;
@@ -45,6 +48,8 @@ class MmEngineDashboard extends StatelessWidget {
   final VoidCallback? onToggleCex;
   final int? balanceRefreshSeconds;
   final DateTime? balanceUpdatedAt;
+  final ValueChanged<bool>? onRebalanceBusy;
+  final VoidCallback? onRebalanceChanged;
   final VoidCallback onLive, onNew, onAdd, onBalances;
   final ValueChanged<String> onVenue;
   final void Function(String, bool) onStrategy;
@@ -547,7 +552,7 @@ class MmEngineDashboard extends StatelessWidget {
                       ),
                     ),
                     TextButton.icon(
-                      onPressed: onToggleCex,
+                      onPressed: busy ? null : onToggleCex,
                       icon: Icon(
                         cexExpanded ? Icons.expand_less : Icons.expand_more,
                       ),
@@ -649,13 +654,14 @@ class MmEngineDashboard extends StatelessWidget {
                           : 'No positive Spot balances.',
                     ),
                   const SizedBox(height: 24),
-                  Text(
-                    '$venue REBALANCE CHECK',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Balances are read only. Preview checks funds required for each hedge; no funds are transferred here.',
+                  MmEngineRebalancePanel(
+                    key: ValueKey(venue),
+                    venue: venue,
+                    busy: busy || balanceLoading,
+                    live: live,
+                    configured: credentials[venue] == true,
+                    onBusy: onRebalanceBusy ?? (_) {},
+                    onChanged: onRebalanceChanged ?? () {},
                   ),
                 ],
               ],

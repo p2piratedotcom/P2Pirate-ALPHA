@@ -134,3 +134,24 @@ page is disposed, while the engine continues its normal independent lifecycle.
 Pending automatic publication recovery is shown as RECOVERING. REVIEW_REQUIRED
 remains appropriate for held/manual decisions. Uncertain writes are never
 resent by the GUI. Persistent feed or KDF failures still require safety controls.
+# CEX Spot rebalance
+
+MY CEXs now exposes **Analyze**, **Execute rebalance**, and **Refresh trade
+status**. Analysis and trade policy reside in the separate engine and use its
+common Spot plugin protocol. A compatible engine advertises `rebalance: true`;
+the wallet offers an update notice for older engines.
+
+Analysis shows coverage targets, deficits and LIMIT BUY/SELL proposals for open
+and enabled makers on the selected CEX, with a 20% reserve. When makers are all
+paused, it analyzes their configured targets. Pause makers, wait for completed
+swaps/hedges and reconciliation, then analyze again before execution. A helper
+button pauses all maker configurations after confirmation, without disabling
+live mode or automatically restarting them.
+
+Each execution confirmation authorizes only the first displayed LIMIT trade.
+After its verified terminal outcome, analyze again for the next step. Prices,
+quantities, balances, permissions and safety conditions are checked again by the
+engine. Unknown/open outcomes retain a durable hold: use **Refresh trade
+status**, including after navigation or engine restart, rather than resubmitting.
+No withdrawals are part of rebalance. Existing experimental adapter notices
+remain applicable; live rebalance execution has not been exercised here.

@@ -38,6 +38,7 @@ Future<Map<String, dynamic>> sendMmEngineRequest(
     final responseTimeout =
         path == '/v1/strategies/preview' ||
             path == '/v1/strategies/create' ||
+            path.startsWith('/v1/rebalance/') ||
             path.startsWith('/v1/exchanges/balances')
         ? const Duration(seconds: 60)
         : const Duration(seconds: 20);
