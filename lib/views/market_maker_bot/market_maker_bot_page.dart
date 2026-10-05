@@ -87,14 +87,20 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
           (_credentials?['venues'] as Map?)?[venue] == true,
     )..addListener(_onBalanceChanged);
     _orderRefreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (!mounted ||
-          _busy ||
-          _initializing ||
-          !MmEngineService.instance.isRunning) {
+      if (!mounted) return;
+      // Lifecycle changes must redraw even when no further read is possible.
+      // In particular, a child exit must never leave a frozen live dashboard.
+      setState(() {
+        if (!_busy && !_initializing && !MmEngineService.instance.isRunning) {
+          _statusUpdated = null;
+          _statusError =
+              'Trading engine stopped. Reconnect to reconcile its orders.';
+          _selectedOrders.clear();
+        }
+      });
+      if (_busy || _initializing || !MmEngineService.instance.isRunning) {
         return;
       }
-      // Redraw the age indicator even while an earlier read is pending.
-      setState(() {});
       unawaited(_refresh(automatic: true));
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
@@ -1120,7 +1126,31 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                         onStrategy: (id, start) =>
                             _changeStrategy(id, start: start),
                       ),
-                    ],
+                    ] else
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SelectableText(
+                                'Trading engine is not running.',
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'Reconnect to read the current order state and reconcile pending operations.',
+                              ),
+                              const SizedBox(height: 12),
+                              ElevatedButton(
+                                onPressed: _busy
+                                    ? null
+                                    : () => _runBusy(() => _connect()),
+                                child: const Text('Reconnect engine'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
