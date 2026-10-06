@@ -8,6 +8,7 @@ import 'package:web_dex/bloc/coins_bloc/coins_bloc.dart';
 import 'package:web_dex/generated/codegen_loader.g.dart';
 import 'package:web_dex/model/wallet.dart';
 import 'package:web_dex/services/mm_engine/mm_engine_service.dart';
+import 'package:web_dex/shared/utils/mm_engine_english.dart';
 
 class LogOutPopup extends StatelessWidget {
   const LogOutPopup({
@@ -83,7 +84,7 @@ class LogOutPopup extends StatelessWidget {
       if (!context.mounted) return;
       ScaffoldMessenger.maybeOf(
         context,
-      )?.showSnackBar(SnackBar(content: Text('$error')));
+      )?.showSnackBar(SnackBar(content: Text(mmEngineEnglish(error))));
       return;
     }
     if (!context.mounted) return;

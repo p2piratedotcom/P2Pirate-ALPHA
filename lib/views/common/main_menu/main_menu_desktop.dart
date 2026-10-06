@@ -16,6 +16,7 @@ import 'package:web_dex/router/state/routing_state.dart';
 import 'package:web_dex/services/mm_engine/mm_engine_service.dart';
 import 'package:web_dex/shared/widgets/pirate_wallet_logo.dart';
 import 'package:web_dex/views/common/main_menu/main_menu_desktop_item.dart';
+import 'package:web_dex/shared/utils/mm_engine_english.dart';
 
 class MainMenuDesktop extends StatefulWidget {
   @override
@@ -83,7 +84,7 @@ class _MainMenuDesktopState extends State<MainMenuDesktop> {
                               onTap: () => routingState.selectedMenu =
                                   MainMenuValue.marketMakerBot,
                               child: Text(
-                                message,
+                                mmEngineEnglish(message),
                                 style: TextStyle(
                                   color: Theme.of(context).colorScheme.error,
                                   fontSize: 12,

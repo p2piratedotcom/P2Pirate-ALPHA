@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:web_dex/shared/utils/mm_engine_english.dart';
 
 /// Human-readable summary; the engine remains the owner of sizing and pricing.
 class MmEnginePreview extends StatelessWidget {
@@ -35,7 +36,7 @@ class MmEnginePreview extends StatelessWidget {
                 Text(
                   '${leg['cex']}: ${leg['side']} ${leg['quantity']} ${leg['asset']}',
                 ),
-            if (item['notice'] is String) Text(item['notice'] as String),
+            if (item['notice'] is String) Text(mmEngineEnglish(item['notice'])),
             const SizedBox(height: 16),
           ],
         const Text(

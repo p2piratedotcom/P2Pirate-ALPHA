@@ -9,6 +9,7 @@ import 'package:web_dex/bloc/settings/settings_repository.dart';
 import 'package:web_dex/bloc/settings/settings_state.dart';
 import 'package:web_dex/services/mm_engine/mm_engine_service.dart';
 import 'package:web_dex/views/settings/widgets/common/settings_section.dart';
+import 'package:web_dex/shared/utils/mm_engine_english.dart';
 
 /// The switch controls visibility only. P2Pirate Trading Engine is a separate download and
 /// its live trading permissions are never enabled by a settings toggle.
@@ -84,7 +85,7 @@ class _SettingsManageTradingBotState extends State<SettingsManageTradingBot> {
       if (!mounted) return;
       ScaffoldMessenger.maybeOf(
         context,
-      )?.showSnackBar(SnackBar(content: Text('$error')));
+      )?.showSnackBar(SnackBar(content: Text(mmEngineEnglish(error))));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_balance_refresh.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_rebalance_panel.dart';
+import 'package:web_dex/shared/utils/mm_engine_english.dart';
 
 /// Independent venue, balance display and collapse state from MY CEXs.
 class MmEngineRebalanceSection extends StatefulWidget {
@@ -156,7 +157,7 @@ class _MmEngineRebalanceSectionState extends State<MmEngineRebalanceSection> {
                   if (_balances.loading) const LinearProgressIndicator(),
                   if (_balances.error != null)
                     SelectableText(
-                      _balances.error!,
+                      mmEngineEnglish(_balances.error),
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.error,
                       ),

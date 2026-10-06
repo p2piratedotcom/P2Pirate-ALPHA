@@ -15,6 +15,7 @@ import 'package:web_dex/services/tor/pirate_tor_service.dart';
 import 'package:web_dex/shared/utils/platform_tuner.dart';
 import 'package:web_dex/shared/utils/utils.dart';
 import 'package:web_dex/shared/utils/window/window.dart';
+import 'package:web_dex/shared/utils/mm_engine_english.dart';
 
 /// A widget that handles window close events and SDK disposal across all platforms.
 ///
@@ -147,7 +148,7 @@ class _WindowCloseHandlerState extends State<WindowCloseHandler>
             context: context,
             builder: (context) => AlertDialog(
               title: const Text('Trading engine needs attention'),
-              content: Text('$error'),
+              content: Text(mmEngineEnglish(error)),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),

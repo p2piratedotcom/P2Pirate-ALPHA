@@ -5,6 +5,7 @@ import 'mm_engine_order_note.dart';
 import 'package:flutter/services.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_trading_controls.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_rebalance_section.dart';
+import 'package:web_dex/shared/utils/mm_engine_english.dart';
 
 class MmEngineDashboard extends StatelessWidget {
   const MmEngineDashboard({
@@ -673,7 +674,7 @@ class MmEngineDashboard extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Text(
-                        balanceError!,
+                        mmEngineEnglish(balanceError),
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.error,
                         ),

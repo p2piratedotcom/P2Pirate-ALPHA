@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:decimal/decimal.dart';
+import 'package:web_dex/shared/utils/mm_engine_english.dart';
 
 /// Render the local reference, actual account comparison, and achievable goal.
 class MmEngineRebalancePreview extends StatelessWidget {
@@ -151,7 +152,7 @@ class MmEngineRebalancePreview extends StatelessWidget {
           ),
           for (final note in plan!['hedge_capacity'] as List? ?? [])
             SelectableText(
-              '#${note['number']} · current hedge liquidity/minimum limits support ${note['maximum_percent']}% of the reference. ${note['reason'] ?? ''}',
+              '#${note['number']} · current hedge liquidity/minimum limits support ${note['maximum_percent']}% of the reference. ${mmEngineEnglish(note['reason'])}',
             ),
         ],
       ],
