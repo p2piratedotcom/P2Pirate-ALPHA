@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:decimal/decimal.dart';
@@ -178,8 +179,9 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
   Future<void> _status() => _run(() async {
     final result = await _request('status');
     if (!mounted) return;
+    final before = jsonEncode(_history);
     setState(() => _readStatus(result));
-    widget.onChanged();
+    if (before != jsonEncode(_history)) widget.onChanged();
   });
 
   Future<void> _analyze() => _run(() async {

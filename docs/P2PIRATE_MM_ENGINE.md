@@ -175,3 +175,16 @@ routes, permissions, minima, fees and liquidity remain limiting. Partial
 coverage does not change maker quantities or grant live hedge coverage. All
 trading logic and durable budget accounting stay in MM_Engine; GUI controls
 require `rebalance_selection: 1`.
+
+
+### One shared balance display per CEX
+
+Both CEX cards now subscribe to one page-owned source: one scheduler and one
+in-flight request per venue, a shared snapshot/timestamp/error/countdown, and
+last received rows retained on refresh failure. Independent venue selection and
+collapse controls remain; a hidden card does not schedule requests unless the
+other visible card needs that venue. Rebalance status with unchanged history no
+longer triggers account refreshes. Trade completion/credential/engine changes
+invalidate shared data safely; trading validation still reads its own fresh
+account data and never trusts this display cache. The engine display endpoint
+also deduplicates concurrent reads with a two-second burst cache.

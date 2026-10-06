@@ -1,6 +1,6 @@
+import 'mm_engine_balance_source.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:web_dex/services/mm_engine/mm_engine_service.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_balance_refresh.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_rebalance_panel.dart';
 
@@ -9,6 +9,7 @@ class MmEngineRebalanceSection extends StatefulWidget {
   const MmEngineRebalanceSection({
     super.key,
     required this.venues,
+    required this.balanceSource,
     required this.credentials,
     required this.strategies,
     required this.busy,
@@ -18,6 +19,7 @@ class MmEngineRebalanceSection extends StatefulWidget {
     required this.onConfigure,
   });
   final Map<String, String> venues;
+  final MmEngineBalanceSource balanceSource;
   final Map credentials;
   final List<Map<String, dynamic>> strategies;
   final bool busy, live;
@@ -35,40 +37,20 @@ class _MmEngineRebalanceSectionState extends State<MmEngineRebalanceSection> {
   void initState() {
     super.initState();
     _balances = MmEngineBalanceRefresh(
-      canRefresh: (venue) =>
-          !widget.busy &&
-          MmEngineService.instance.isRunning &&
-          widget.credentials[venue] == true,
-      load: (venue) async {
-        final reply = await MmEngineService.instance.request(
-          'GET',
-          '/v1/exchanges/balances?venue=${Uri.encodeComponent(venue)}',
-        );
-        return (reply['balances'] as List)
-            .whereType<Map<String, dynamic>>()
-            .toList();
-      },
+      shared: widget.balanceSource,
+      initialVenue: widget.venues.containsKey('MEXC') || widget.venues.isEmpty
+          ? 'MEXC'
+          : widget.venues.keys.first,
     )..addListener(_changed);
-    if (!widget.venues.containsKey(_balances.venue) &&
-        widget.venues.isNotEmpty) {
-      _balances.selectVenue(widget.venues.keys.first);
-    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(_balances.refresh());
+      if (mounted) {
+        unawaited(widget.balanceSource.refresh(_balances.venue, force: false));
+      }
     });
   }
 
   void _changed() {
     if (mounted) setState(() {});
-  }
-
-  @override
-  void didUpdateWidget(covariant MmEngineRebalanceSection oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.credentials[_balances.venue] !=
-        widget.credentials[_balances.venue]) {
-      _balances.invalidate(clear: true);
-    }
   }
 
   @override
@@ -182,7 +164,6 @@ class _MmEngineRebalanceSectionState extends State<MmEngineRebalanceSection> {
                     balanceLoading: _balances.loading,
                     onBusy: widget.onBusy,
                     onChanged: () {
-                      _balances.invalidate();
                       widget.onChanged();
                     },
                   ),

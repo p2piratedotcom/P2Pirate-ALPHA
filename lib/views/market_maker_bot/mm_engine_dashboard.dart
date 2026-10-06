@@ -1,3 +1,4 @@
+import 'mm_engine_balance_source.dart';
 import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -35,9 +36,11 @@ class MmEngineDashboard extends StatelessWidget {
     this.onRebalanceBusy,
     this.onRebalanceChanged,
     this.onRebalanceConfigure,
+    this.balanceSource,
   });
   final List<Map<String, dynamic>> orders, strategies, balances;
   final String venue;
+  final MmEngineBalanceSource? balanceSource;
   final Map<String, String> venueLabels;
   final Set<String> selectedOrders;
   final ValueChanged<Set<String>>? onSelection;
@@ -661,16 +664,18 @@ class MmEngineDashboard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 28),
-        MmEngineRebalanceSection(
-          venues: venueLabels,
-          credentials: credentials,
-          strategies: strategies,
-          busy: busy,
-          live: live,
-          onBusy: onRebalanceBusy ?? (_) {},
-          onChanged: onRebalanceChanged ?? () {},
-          onConfigure: onRebalanceConfigure,
-        ),
+        if (balanceSource != null)
+          MmEngineRebalanceSection(
+            balanceSource: balanceSource!,
+            venues: venueLabels,
+            credentials: credentials,
+            strategies: strategies,
+            busy: busy,
+            live: live,
+            onBusy: onRebalanceBusy ?? (_) {},
+            onChanged: onRebalanceChanged ?? () {},
+            onConfigure: onRebalanceConfigure,
+          ),
       ],
     );
   }
