@@ -18,6 +18,7 @@ import 'package:web_dex/views/market_maker_bot/mm_engine_loading_gate.dart';
 import 'package:collection/collection.dart';
 import 'mm_engine_page_memory.dart';
 import 'mm_engine_status_strip.dart';
+import 'package:web_dex/shared/utils/mm_engine_english.dart';
 
 /// A thin wallet client. Strategy and exchange logic belongs to P2Pirate Trading Engine.
 class MarketMakerBotPage extends StatefulWidget {
@@ -869,7 +870,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
       'Remaining daily budget': matches.isEmpty
           ? 'unavailable'
           : matches.first['daily_remaining_sold'],
-      'Reason': row['detail'] ?? '',
+      'Reason': mmEngineEnglish(row['detail']),
       for (final entry in spec.entries) '${entry.key}': entry.value,
     };
     await showDialog<void>(
@@ -1204,7 +1205,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         child: SelectableText(
-                          _error!,
+                          mmEngineEnglish(_error),
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.error,
                           ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:web_dex/shared/utils/mm_engine_english.dart';
 
 /// Readable display text; full diagnostic precision remains selectable.
 class MmEngineOrderNote extends StatefulWidget {
@@ -10,21 +11,27 @@ class MmEngineOrderNote extends StatefulWidget {
 
 class _MmEngineOrderNoteState extends State<MmEngineOrderNote> {
   bool _expanded = false;
+  String? _originalText;
+  String _englishText = '';
   @override
   Widget build(BuildContext context) {
-    final summary = widget.text.replaceAllMapped(RegExp(r'\d+\.\d{9,}'), (m) {
+    if (_originalText != widget.text) {
+      _originalText = widget.text;
+      _englishText = mmEngineEnglish(widget.text);
+    }
+    final summary = _englishText.replaceAllMapped(RegExp(r'\d+\.\d{9,}'), (m) {
       final parts = m[0]!.split('.');
       return '${parts[0]}.${parts[1].substring(0, 8)}…';
     });
     final long =
-        widget.text.length > 180 ||
-        widget.text.contains('\n') ||
-        summary != widget.text;
+        _englishText.length > 180 ||
+        _englishText.contains('\n') ||
+        summary != _englishText;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SelectableText(
-          _expanded ? widget.text : summary,
+          _expanded ? _englishText : summary,
           maxLines: !_expanded && long ? 3 : null,
           style: Theme.of(context).textTheme.bodyMedium,
         ),

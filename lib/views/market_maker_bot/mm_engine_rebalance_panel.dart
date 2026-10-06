@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:decimal/decimal.dart';
 import 'package:web_dex/services/mm_engine/mm_engine_service.dart';
+import 'package:web_dex/shared/utils/mm_engine_english.dart';
 
 /// Presentation only: targets, proposal ownership and trading live in the engine.
 class MmEngineRebalancePanel extends StatefulWidget {
@@ -578,14 +579,14 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
           Padding(
             padding: const EdgeInsets.only(top: 12),
             child: SelectableText(
-              _error!,
+              mmEngineEnglish(_error),
               style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ),
         if (_message != null)
           Padding(
             padding: const EdgeInsets.only(top: 12),
-            child: SelectableText(_message!),
+            child: SelectableText(mmEngineEnglish(_message)),
           ),
         if (_ideal == null && plan != null)
           for (final entry in (plan['funding'] as Map? ?? {}).entries)
@@ -632,12 +633,13 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
               ),
           ],
           for (final note in plan['notes'] as List? ?? [])
-            SelectableText('$note'),
+            SelectableText(mmEngineEnglish(note)),
           for (final action in plan['strategy_actions'] as List? ?? [])
             SelectableText(
-              '${action['route']}: ${action['reason']} · ${action['action']}',
+              '${action['route']}: ${mmEngineEnglish(action['reason'])} · ${mmEngineEnglish(action['action'])}',
             ),
-          for (final reason in blockers) SelectableText('$reason'),
+          for (final reason in blockers)
+            SelectableText(mmEngineEnglish(reason)),
           if (plan['pause_required'] == true)
             TextButton.icon(
               onPressed: disabled ? null : _pause,
