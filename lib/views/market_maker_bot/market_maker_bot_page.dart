@@ -274,11 +274,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     // the caller's existing busy/reconnect serialization.
     _refreshGeneration++;
     _balanceRefresh.invalidate(clear: true);
-    _memory.strategies = null;
-    _memory.reconciliation = null;
-    _memory.credentials = null;
-    _memory.orders = const [];
-    _memory.observedAt = null;
+    _memory.adoptSession(engine.sessionRevision);
     _strategies = null;
     _reconciliation = null;
     _credentials = null;
@@ -287,7 +283,6 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     _statusError = null;
     _paintedStale = true;
     _selectedOrders.clear();
-    _memory.sessionRevision = engine.sessionRevision;
   }
 
   Future<void> _refresh({bool automatic = false}) async {
@@ -709,6 +704,10 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
         mounted &&
         walletId != null &&
         _authBloc.state.currentUser?.walletId.compoundId == walletId;
+    final draftRevision = MmEngineService.instance.sessionRevision;
+    bool sameSession() =>
+        sameWallet() &&
+        MmEngineService.instance.sessionRevision == draftRevision;
     final draftKey = existing?['id'] as String? ?? 'new';
     final draft = _memory.makerDrafts[draftKey];
     final strategyId =
@@ -725,7 +724,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
         initialSpec: existingSpec,
         draft: draft,
         onDraftChanged: (value) {
-          if (sameWallet()) _memory.makerDrafts[draftKey] = value;
+          if (sameSession()) _memory.makerDrafts[draftKey] = value;
         },
         loadBalance: (ticker) async {
           final assets = sdk.assets.available.values.where(
@@ -738,8 +737,10 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
           return sameWallet() ? balance.spendable.toString() : null;
         },
         onPreview: (spec) async {
-          if (!sameWallet()) {
-            throw StateError('Wallet changed. Reopen the maker form.');
+          if (!sameSession()) {
+            throw StateError(
+              'Wallet or engine session changed. Reopen the maker form.',
+            );
           }
           final currentActive = this.context
               .read<CoinsBloc>()
@@ -770,8 +771,10 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                 'specs': [spec],
               },
             );
-            if (!mounted || !sameWallet()) {
-              throw StateError('Wallet changed. Reopen the maker form.');
+            if (!mounted || !sameSession()) {
+              throw StateError(
+                'Wallet or engine session changed. Reopen the maker form.',
+              );
             }
             final accepted = await showDialog<bool>(
               context: this.context,
@@ -800,8 +803,10 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
               ),
             );
             if (accepted != true) return false;
-            if (!mounted || !sameWallet()) {
-              throw StateError('Wallet changed. Reopen the maker form.');
+            if (!mounted || !sameSession()) {
+              throw StateError(
+                'Wallet or engine session changed. Reopen the maker form.',
+              );
             }
             if (existing != null) {
               await _requireConfirmedStatus();
@@ -830,7 +835,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                     }
                   : {'spec': spec, 'confirmation': 'AGGIORNA IN PAUSA'},
             );
-            if (sameWallet()) await _refresh();
+            if (sameSession()) await _refresh();
             _memory.makerDrafts.remove(draftKey);
             return true;
           } finally {

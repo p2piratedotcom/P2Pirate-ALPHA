@@ -12,6 +12,25 @@ import 'package:web_dex/views/market_maker_bot/mm_engine_strategy_form.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_page_memory.dart';
 
 void main() {
+  test(
+    'same-wallet adoption clears predecessor drafts before forSession reuse',
+    () {
+      final memory = MmEnginePageMemory.forSession('wallet-adoption', 20);
+      memory.makerDrafts['new'] = {'budget': '12.345'};
+      memory.orders = [
+        {'order_uuid': 'previous-process'},
+      ];
+      memory.adoptSession(21);
+      final adopted = MmEnginePageMemory.forSession('wallet-adoption', 21);
+      expect(identical(adopted, memory), isTrue);
+      expect(adopted.makerDrafts, isEmpty);
+      expect(adopted.orders, isEmpty);
+      adopted.makerDrafts['new'] = {'budget': '7'};
+      adopted.adoptSession(21);
+      expect(adopted.makerDrafts['new']!['budget'], '7');
+      MmEnginePageMemory.clear();
+    },
+  );
   testWidgets(
     'inactive draft keeps its original coin and cannot preview a substituted budget',
     (tester) async {

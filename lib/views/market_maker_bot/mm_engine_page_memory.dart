@@ -31,6 +31,17 @@ class MmEnginePageMemory {
   DateTime? observedAt;
   double scrollOffset = 0;
 
+  void adoptSession(int revision) {
+    if (sessionRevision == revision) return;
+    makerDrafts.clear();
+    strategies = null;
+    reconciliation = null;
+    credentials = null;
+    orders = const [];
+    observedAt = null;
+    sessionRevision = revision;
+  }
+
   /// Raw form input only; no preview, credentials or execution authorization.
   final makerDrafts = <String, Map<String, Object?>>{};
 }
