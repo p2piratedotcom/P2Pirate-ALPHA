@@ -29,6 +29,7 @@ class AllowWeakPasswordsSwitcher extends StatelessWidget {
       builder: (context, state) => Row(
         children: [
           UiSwitcher(
+            semanticLabel: LocaleKeys.allowWeakPassword.tr(),
             key: const Key('allow-weak-passwords-switcher'),
             value: state.weakPasswordsAllowed,
             onChanged: (value) => _onSwitcherChanged(context, value),
@@ -41,8 +42,8 @@ class AllowWeakPasswordsSwitcher extends StatelessWidget {
   }
 
   void _onSwitcherChanged(BuildContext context, bool value) {
-    context
-        .read<SettingsBloc>()
-        .add(WeakPasswordsAllowedChanged(weakPasswordsAllowed: value));
+    context.read<SettingsBloc>().add(
+      WeakPasswordsAllowedChanged(weakPasswordsAllowed: value),
+    );
   }
 }

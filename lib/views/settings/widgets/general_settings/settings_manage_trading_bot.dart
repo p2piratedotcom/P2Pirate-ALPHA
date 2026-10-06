@@ -34,6 +34,7 @@ class _SettingsManageTradingBotState extends State<SettingsManageTradingBot> {
           builder: (context, state) => Row(
             children: [
               UiSwitcher(
+                semanticLabel: 'Show Trading Engine in the wallet',
                 key: const Key('enable-trading-bot-switcher'),
                 value: state.mmBotSettings.isMMBotEnabled,
                 onChanged: (value) {

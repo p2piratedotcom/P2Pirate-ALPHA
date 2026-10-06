@@ -222,7 +222,11 @@ class _IncludeBlockedToggle extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          UiSwitcher(value: value, onChanged: onChanged, width: 38, height: 21),
+          UiSwitcher(
+            value: value,
+            onChanged: onChanged,
+            semanticLabel: LocaleKeys.includeBlockedAssets.tr(),
+          ),
           const SizedBox(width: 8),
           Text(
             LocaleKeys.includeBlockedAssets.tr(),
@@ -346,12 +350,11 @@ class _ShowingSwitcher extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               UiSwitcher(
+                semanticLabel: LocaleKeys.showPrivateKeys.tr(),
                 value: showPrivateKeys,
                 onChanged: (isChecked) => context
                     .read<SecuritySettingsBloc>()
                     .add(ShowPrivateKeysWordsEvent(isChecked)),
-                width: 38,
-                height: 21,
               ),
               const SizedBox(width: 8),
               Text(

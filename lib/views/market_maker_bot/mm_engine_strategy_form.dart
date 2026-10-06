@@ -1,5 +1,6 @@
 import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
+import 'package:web_dex/shared/utils/mm_engine_english.dart';
 
 /// Editing retains the saved route even when no markets are currently offered.
 /// Legacy market-list compatibility; production forms use active wallet tickers.
@@ -32,6 +33,10 @@ class MmEngineStrategyForm extends StatefulWidget {
     this.venues = const {'MEXC': 'MEXC', 'GATE': 'Gate'},
     this.initialSpec,
     this.availableBalances = const {},
+    this.loadBalance,
+    this.onPreview,
+    this.draft,
+    this.onDraftChanged,
   });
 
   final List<String> markets;
@@ -40,6 +45,12 @@ class MmEngineStrategyForm extends StatefulWidget {
   final String strategyId;
   final Map<String, dynamic>? initialSpec;
   final Map<String, String> availableBalances;
+  final Future<String?> Function(String ticker)? loadBalance;
+
+  /// False returns to this draft; true means the paused configuration was saved.
+  final Future<bool> Function(Map<String, Object?> spec)? onPreview;
+  final Map<String, Object?>? draft;
+  final ValueChanged<Map<String, Object?>>? onDraftChanged;
 
   @override
   State<MmEngineStrategyForm> createState() => _MmEngineStrategyFormState();
@@ -75,10 +86,45 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
   bool _replenish = true;
   bool _autoPrice = true;
   bool _autoQuantity = true;
+  bool _submitting = false;
+  String? _error;
+  final _balances = <String, String>{};
+  int _balanceGeneration = 0;
+  bool _balanceLoading = false;
+  bool _saved = false;
+
+  Future<void> _refreshBalance() async {
+    final ticker = _baseTicker;
+    final loader = widget.loadBalance;
+    if (ticker == null || loader == null) return;
+    final generation = ++_balanceGeneration;
+    setState(() => _balanceLoading = true);
+    try {
+      final amount = await loader(ticker);
+      if (!mounted || generation != _balanceGeneration || ticker != _baseTicker)
+        return;
+      setState(() {
+        if (amount != null)
+          _balances[ticker] = amount;
+        else
+          _balances.remove(ticker);
+      });
+    } catch (_) {
+      if (mounted && generation == _balanceGeneration)
+        setState(() => _balances.remove(ticker));
+    } finally {
+      if (mounted && generation == _balanceGeneration)
+        setState(() => _balanceLoading = false);
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+    _balances.addAll(widget.availableBalances);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _refreshBalance();
+    });
     _venue = widget.venues.containsKey('MEXC')
         ? 'MEXC'
         : widget.venues.keys.first;
@@ -113,6 +159,39 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
         (_updateSeconds, 'update_seconds'),
       ]) {
         pair.$1.text = spec[pair.$2]?.toString() ?? '';
+      }
+    }
+    final draft = widget.draft;
+    if (draft != null) {
+      if (widget.initialSpec == null) {
+        final base = draft['baseTicker'] as String?;
+        final quote = draft['quoteTicker'] as String?;
+        if (base != null && quote != null && base != quote) {
+          _baseTicker = base;
+          _quoteTicker = quote;
+        }
+        if (!_tickers.contains(base) || !_tickers.contains(quote)) {
+          _error =
+              'A coin from the draft is no longer active. Check the selected pair before preview.';
+        }
+        _venue = draft['venue'] as String? ?? _venue;
+        _side = draft['side'] as String? ?? _side;
+      }
+      _autoPrice = draft['autoPrice'] as bool? ?? _autoPrice;
+      _autoQuantity = draft['autoQuantity'] as bool? ?? _autoQuantity;
+      _replenish = draft['replenish'] as bool? ?? _replenish;
+      for (final pair in [
+        (_baseAsset, 'baseAsset'),
+        (_quoteAsset, 'quoteAsset'),
+        (_premium, 'premium'),
+        (_budget, 'budget'),
+        (_maxSold, 'maxSold'),
+        (_dailyCap, 'dailyCap'),
+        (_fixedPrice, 'fixedPrice'),
+        (_fixedSold, 'fixedSold'),
+        (_updateSeconds, 'updateSeconds'),
+      ]) {
+        if (draft[pair.$2] is String) pair.$1.text = draft[pair.$2] as String;
       }
     }
   }
@@ -150,7 +229,9 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
   ) {
     final values = {
       ..._tickers.where((t) => t != other),
-      if (widget.initialSpec != null && ticker != null) ticker,
+      if ((widget.initialSpec != null || widget.draft != null) &&
+          ticker != null)
+        ticker,
     };
     return DropdownButtonFormField<String>(
       key: ValueKey('$label:$ticker:$other'),
@@ -158,16 +239,49 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
       isExpanded: true,
       decoration: _decoration(label),
       items: values
-          .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+          .map(
+            (t) => DropdownMenuItem(
+              value: t,
+              enabled: _tickers.contains(t),
+              child: Text(_tickers.contains(t) ? t : '$t (inactive)'),
+            ),
+          )
           .toList(),
       validator: (value) =>
-          value == null ? 'Select an active wallet coin' : null,
+          value == null ||
+              (widget.initialSpec == null && !_tickers.contains(value))
+          ? 'Select an active wallet coin'
+          : null,
       onChanged: widget.initialSpec != null ? null : onChanged,
     );
   }
 
+  void _captureDraft() {
+    if (!_saved)
+      widget.onDraftChanged?.call({
+        'strategyId': widget.strategyId,
+        'baseTicker': _baseTicker,
+        'quoteTicker': _quoteTicker,
+        'baseAsset': _baseAsset.text,
+        'quoteAsset': _quoteAsset.text,
+        'venue': _venue,
+        'side': _side,
+        'premium': _premium.text,
+        'budget': _budget.text,
+        'maxSold': _maxSold.text,
+        'dailyCap': _dailyCap.text,
+        'fixedPrice': _fixedPrice.text,
+        'fixedSold': _fixedSold.text,
+        'updateSeconds': _updateSeconds.text,
+        'autoPrice': _autoPrice,
+        'autoQuantity': _autoQuantity,
+        'replenish': _replenish,
+      });
+  }
+
   @override
   void dispose() {
+    _captureDraft();
     for (final controller in [
       _baseAsset,
       _quoteAsset,
@@ -275,7 +389,8 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
     validator: (value) => _positive(value, required: required),
   );
 
-  void _submit() {
+  Future<void> _submit() async {
+    if (_submitting) return;
     if (!_form.currentState!.validate() ||
         _baseTicker == null ||
         _quoteTicker == null ||
@@ -340,180 +455,228 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
                 .toString();
       }
     }
-    Navigator.of(context).pop(spec);
+    if (widget.onPreview == null) {
+      _saved = true;
+      Navigator.of(context).pop(spec);
+      return;
+    }
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    try {
+      final saved = await widget.onPreview!(spec);
+      if (saved && mounted) {
+        _saved = true;
+        Navigator.of(context).pop(spec);
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = mmEngineEnglish(error.toString()));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text(
-      widget.initialSpec == null ? 'New Maker Order' : 'Modify Maker Order',
-    ),
-    content: SizedBox(
-      width: 520,
-      child: Form(
-        key: _form,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _coinSelector(
-                'Base wallet coin',
-                _baseTicker,
-                _quoteTicker,
-                (value) => setState(() {
-                  _baseTicker = value;
-                  _updateRoute();
-                }),
-              ),
-              _coinSelector(
-                'Quote wallet coin',
-                _quoteTicker,
-                _baseTicker,
-                (value) => setState(() {
-                  _quoteTicker = value;
-                  _updateRoute();
-                }),
-              ),
-              Row(
+  Widget build(BuildContext context) => PopScope(
+    canPop: !_submitting,
+    onPopInvokedWithResult: (didPop, _) {
+      if (didPop) _captureDraft();
+    },
+    child: AlertDialog(
+      title: Text(
+        widget.initialSpec == null ? 'New Maker Order' : 'Modify Maker Order',
+      ),
+      content: SizedBox(
+        width: 520,
+        child: AbsorbPointer(
+          absorbing: _submitting,
+          child: Form(
+            key: _form,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _baseAsset,
-                      decoration: _decoration('Base CEX asset'),
-                      readOnly: widget.initialSpec != null,
-                      validator: _asset,
-                    ),
+                  _coinSelector('Base wallet coin', _baseTicker, _quoteTicker, (
+                    value,
+                  ) {
+                    setState(() {
+                      _baseTicker = value;
+                      _updateRoute();
+                    });
+                    _refreshBalance();
+                  }),
+                  _coinSelector(
+                    'Quote wallet coin',
+                    _quoteTicker,
+                    _baseTicker,
+                    (value) => setState(() {
+                      _quoteTicker = value;
+                      _updateRoute();
+                    }),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _quoteAsset,
-                      decoration: _decoration('Quote CEX asset'),
-                      readOnly: widget.initialSpec != null,
-                      validator: _asset,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _baseAsset,
+                          decoration: _decoration('Base CEX asset'),
+                          readOnly: widget.initialSpec != null,
+                          validator: _asset,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _quoteAsset,
+                          decoration: _decoration('Quote CEX asset'),
+                          readOnly: widget.initialSpec != null,
+                          validator: _asset,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: _venue,
-                decoration: _decoration('Hedge exchange'),
-                items: [
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    initialValue: _venue,
+                    decoration: _decoration('Hedge exchange'),
+                    items: [
+                      if (!_venueAvailable)
+                        DropdownMenuItem(
+                          value: _venue,
+                          enabled: false,
+                          child: Text('$_venue (plugin unavailable)'),
+                        ),
+                      for (final entry in widget.venues.entries)
+                        DropdownMenuItem(
+                          value: entry.key,
+                          child: Text(
+                            entry.value.toLowerCase().endsWith('spot')
+                                ? entry.value
+                                : '${entry.value} Spot',
+                          ),
+                        ),
+                    ],
+                    onChanged: widget.initialSpec != null
+                        ? null
+                        : (value) => setState(() => _venue = value ?? _venue),
+                  ),
                   if (!_venueAvailable)
-                    DropdownMenuItem(
-                      value: _venue,
-                      enabled: false,
-                      child: Text('$_venue (plugin unavailable)'),
+                    const Text(
+                      'The saved CEX plugin is unavailable. Restore it before previewing or modifying this order; its route is preserved.',
                     ),
-                  for (final entry in widget.venues.entries)
-                    DropdownMenuItem(
-                      value: entry.key,
-                      child: Text(
-                        entry.value.toLowerCase().endsWith('spot')
-                            ? entry.value
-                            : '${entry.value} Spot',
+                  DropdownButtonFormField<String>(
+                    initialValue: _side,
+                    decoration: _decoration('KDF maker side'),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'SELL_ARRR',
+                        child: Text('Sell base'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'BUY_ARRR',
+                        child: Text('Buy base'),
+                      ),
+                    ],
+                    onChanged: widget.initialSpec != null
+                        ? null
+                        : (value) =>
+                              setState(() => _side = value ?? 'SELL_ARRR'),
+                  ),
+                  TextFormField(
+                    controller: _premium,
+                    decoration: _decoration('Premium (%)'),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                      signed: true,
+                    ),
+                    validator: _premiumPercent,
+                  ),
+                  SwitchListTile(
+                    title: _helpTitle('Automatic price'),
+                    value: _autoPrice,
+                    onChanged: (value) => setState(() => _autoPrice = value),
+                  ),
+                  if (!_autoPrice) _numberField('Fixed KDF price', _fixedPrice),
+                  SwitchListTile(
+                    title: _helpTitle('Automatic quantity'),
+                    value: _autoQuantity,
+                    onChanged: (value) => setState(() => _autoQuantity = value),
+                  ),
+                  Tooltip(
+                    message:
+                        'Spendable base coin in the wallet, refreshed when this form opens. Hedge capacity is checked separately in preview.',
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Text(
+                          'Available base coin: ${_balanceLoading ? 'loading…' : _balances[_baseTicker] ?? 'unavailable'} ${_baseTicker ?? ''}',
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (!_autoQuantity)
+                    _numberField('Fixed sold amount', _fixedSold),
+                  _numberField(
+                    'Maximum sold per order (optional)',
+                    _maxSold,
+                    required: false,
+                  ),
+                  _numberField('Total sold budget', _budget),
+                  _numberField(
+                    'Daily sold cap (optional)',
+                    _dailyCap,
+                    required: false,
+                  ),
+                  _numberField('Update interval (seconds)', _updateSeconds),
+                  SwitchListTile(
+                    title: _helpTitle('Replenish within budget'),
+                    value: _replenish,
+                    onChanged: (value) => setState(() => _replenish = value),
+                  ),
+                  const Text(
+                    'The engine will preview exchange depth, balances and hedge '
+                    'coverage before saving. The strategy remains paused.',
+                  ),
+                  if (_submitting)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 16),
+                      child: LinearProgressIndicator(),
+                    ),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: SelectableText(
+                        _error!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
                       ),
                     ),
                 ],
-                onChanged: widget.initialSpec != null
-                    ? null
-                    : (value) => setState(() => _venue = value ?? _venue),
               ),
-              if (!_venueAvailable)
-                const Text(
-                  'The saved CEX plugin is unavailable. Restore it before previewing or modifying this order; its route is preserved.',
-                ),
-              DropdownButtonFormField<String>(
-                initialValue: _side,
-                decoration: _decoration('KDF maker side'),
-                items: const [
-                  DropdownMenuItem(
-                    value: 'SELL_ARRR',
-                    child: Text('Sell base'),
-                  ),
-                  DropdownMenuItem(value: 'BUY_ARRR', child: Text('Buy base')),
-                ],
-                onChanged: widget.initialSpec != null
-                    ? null
-                    : (value) => setState(() => _side = value ?? 'SELL_ARRR'),
-              ),
-              TextFormField(
-                controller: _premium,
-                decoration: _decoration('Premium (%)'),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                  signed: true,
-                ),
-                validator: _premiumPercent,
-              ),
-              SwitchListTile(
-                title: _helpTitle('Automatic price'),
-                value: _autoPrice,
-                onChanged: (value) => setState(() => _autoPrice = value),
-              ),
-              if (!_autoPrice) _numberField('Fixed KDF price', _fixedPrice),
-              SwitchListTile(
-                title: _helpTitle('Automatic quantity'),
-                value: _autoQuantity,
-                onChanged: (value) => setState(() => _autoQuantity = value),
-              ),
-              Tooltip(
-                message:
-                    'Spendable base coin in the wallet, refreshed when this form opens. Hedge capacity is checked separately in preview.',
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Text(
-                      'Available base coin: ${widget.availableBalances[_baseTicker] ?? 'unavailable'} ${_baseTicker ?? ''}',
-                    ),
-                  ),
-                ),
-              ),
-              if (!_autoQuantity) _numberField('Fixed sold amount', _fixedSold),
-              _numberField(
-                'Maximum sold per order (optional)',
-                _maxSold,
-                required: false,
-              ),
-              _numberField('Total sold budget', _budget),
-              _numberField(
-                'Daily sold cap (optional)',
-                _dailyCap,
-                required: false,
-              ),
-              _numberField('Update interval (seconds)', _updateSeconds),
-              SwitchListTile(
-                title: _helpTitle('Replenish within budget'),
-                value: _replenish,
-                onChanged: (value) => setState(() => _replenish = value),
-              ),
-              const Text(
-                'The engine will preview exchange depth, balances and hedge '
-                'coverage before saving. The strategy remains paused.',
-              ),
-            ],
+            ),
           ),
         ),
       ),
+      actions: [
+        Tooltip(
+          message: 'Close without saving or publishing.',
+          child: TextButton(
+            onPressed: _submitting ? null : () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+        ),
+        Tooltip(
+          message:
+              'Read market depth and balances, validate hedge capacity and show the proposed order. This does not publish it.',
+          child: ElevatedButton(
+            onPressed: _venueAvailable && !_submitting ? _submit : null,
+            child: const Text('Preview'),
+          ),
+        ),
+      ],
     ),
-    actions: [
-      Tooltip(
-        message: 'Close without saving or publishing.',
-        child: TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-      ),
-      Tooltip(
-        message:
-            'Read market depth and balances, validate hedge capacity and show the proposed order. This does not publish it.',
-        child: ElevatedButton(
-          onPressed: _venueAvailable ? _submit : null,
-          child: const Text('Preview'),
-        ),
-      ),
-    ],
   );
 }

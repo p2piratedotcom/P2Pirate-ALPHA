@@ -29,6 +29,7 @@ class _HideBalancesSwitcher extends StatelessWidget {
       builder: (context, state) => Row(
         children: [
           UiSwitcher(
+            semanticLabel: 'Mask balances and fiat values',
             key: const Key('hide-balances-switcher'),
             value: state.hideBalances,
             onChanged: (value) => _onSwitcherChanged(context, value),

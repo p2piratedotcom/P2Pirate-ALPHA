@@ -161,6 +161,7 @@ class CustomFeeToggle extends StatelessWidget {
         return Row(
           children: [
             UiSwitcher(
+              semanticLabel: LocaleKeys.customFeeToggleTitle.tr(),
               value: state.isCustomFee,
               onChanged: (value) {
                 context.read<WithdrawFormBloc>().add(
@@ -520,6 +521,7 @@ class IbcTransferField extends StatelessWidget {
             Row(
               children: [
                 UiSwitcher(
+                  semanticLabel: LocaleKeys.ibcTransferFieldTitle.tr(),
                   value: state.isIbcTransfer,
                   onChanged: (value) {
                     context.read<WithdrawFormBloc>().add(

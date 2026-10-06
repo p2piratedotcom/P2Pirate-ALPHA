@@ -1,3 +1,4 @@
+import 'mm_engine_amount.dart';
 import 'mm_engine_rebalance_preview.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -383,7 +384,7 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'SELECT MAKER ORDERS TO REBALANCE ON ${widget.venue}',
+          '1 · Choose makers on ${widget.venue}',
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 12),
@@ -403,8 +404,11 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
                     }
                   }),
           ),
+        const Text(
+          'Selection only: these checkboxes do not start or pause maker orders.',
+        ),
         for (final row in _makers)
-          SwitchListTile(
+          CheckboxListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(
               "#${row['creation_number']} · ${(row['spec'] as Map)['base']['ticker']} / ${(row['spec'] as Map)['quote']['ticker']}",
@@ -414,7 +418,7 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
             onChanged: inputDisabled
                 ? null
                 : (value) => _selectionChanged(() {
-                    if (value) {
+                    if (value == true) {
                       _scope.add('${row['id']}');
                     } else {
                       _scope.remove('${row['id']}');
@@ -423,14 +427,14 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
           ),
         const SizedBox(height: 24),
         Text(
-          'SELECT ${widget.venue} COINS AND HOW MUCH TO USE',
+          '2 · Set spending limits',
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 8),
         const Text(
-          'Percentages limit total debits, including fees. Existing hedge reserves are protected. '
-          'Budgets stay fixed across partial fills and repeated Analyze; changing the selection starts a new budget. '
-          'These are funding sources. Required hedge assets can be bought even with a zero CEX balance and without selecting them here.',
+          'Choose funding assets and the maximum balance percentage to spend, including fees. '
+          'Hedge reserves are protected. Required hedge coins can be bought even when their CEX balance is zero. '
+          'Limits persist across fills and repeated Analyze. Changing selection or Reset spending limits starts a new budget.',
         ),
         const SizedBox(height: 12),
         for (final row in widget.balances.where(
@@ -446,40 +450,73 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
               final remaining = _allocation?['remaining'] as Map?;
               final caps = _allocation?['caps'] as Map?;
               final selectedAmount = _allocationId == null
-                  ? '$percent% · ${_amount(asset, row['available'])} $asset'
-                  : '$percent% · limit ${caps?[asset] ?? "0"} $asset · left ${remaining?[asset] ?? "0"}';
+                  ? 'Limit ${mmEngineDisplayAmount(_amount(asset, row['available']))} $asset'
+                  : 'Limit ${mmEngineDisplayAmount(caps?[asset] ?? "0")} $asset · remaining ${mmEngineDisplayAmount(remaining?[asset] ?? "0")}';
               final description =
-                  '$selectedAmount\nAvailable Spot balance: ${row['available']} $asset';
+                  '$selectedAmount\nAvailable Spot balance: ${mmEngineDisplayAmount(row['available'])} $asset';
               final selector = Row(
                 children: [
-                  Switch(
-                    value: enabled,
-                    onChanged: inputDisabled
-                        ? null
-                        : (value) => _selectionChanged(() {
-                            if (value) {
-                              _enabledAssets.add(asset);
-                            } else {
-                              _enabledAssets.remove(asset);
-                            }
-                          }),
+                  Tooltip(
+                    message: 'Use $asset as a funding source',
+                    child: Semantics(
+                      label: 'Use $asset as a funding source',
+                      child: Checkbox(
+                        value: enabled,
+                        onChanged: inputDisabled
+                            ? null
+                            : (value) => _selectionChanged(() {
+                                if (value == true) {
+                                  _enabledAssets.add(asset);
+                                } else {
+                                  _enabledAssets.remove(asset);
+                                }
+                              }),
+                      ),
+                    ),
                   ),
                   SizedBox(width: 70, child: Text(asset)),
                   Expanded(
                     child: Tooltip(
                       message:
                           'Maximum percentage of the fresh available balance to use. Fees count against this limit.',
-                      child: Slider(
-                        value: percent.toDouble(),
-                        min: 0,
-                        max: 100,
-                        divisions: 20,
-                        label: '$percent%',
+                      child: Semantics(
+                        label: '$asset spending percentage',
+                        child: Slider(
+                          value: percent.toDouble(),
+                          min: 0,
+                          max: 100,
+                          divisions: 20,
+                          label: '$percent%',
+                          onChanged: inputDisabled || !enabled
+                              ? null
+                              : (value) => _selectionChanged(
+                                  () => _percentages[asset] = value.round(),
+                                ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 88,
+                    child: Semantics(
+                      label: '$asset percentage to use',
+                      child: DropdownButton<int>(
+                        value: percent,
+                        items: [
+                          for (var value = 0; value <= 100; value += 5)
+                            DropdownMenuItem(
+                              value: value,
+                              child: Text('$value%'),
+                            ),
+                        ],
                         onChanged: inputDisabled || !enabled
                             ? null
-                            : (value) => _selectionChanged(
-                                () => _percentages[asset] = value.round(),
-                              ),
+                            : (value) {
+                                if (value != null)
+                                  _selectionChanged(
+                                    () => _percentages[asset] = value,
+                                  );
+                              },
                       ),
                     ),
                   ),
@@ -490,14 +527,25 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
                 child: constraints.maxWidth < 720
                     ? Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [selector, SelectableText(description)],
+                        children: [
+                          selector,
+                          Tooltip(
+                            message:
+                                'Exact Spot balance: ${row['available']} $asset. Limit: ${caps?[asset] ?? _amount(asset, row['available'])}. Remaining: ${remaining?[asset] ?? _amount(asset, row['available'])}.',
+                            child: SelectableText(description),
+                          ),
+                        ],
                       )
                     : Row(
                         children: [
                           Expanded(child: selector),
                           SizedBox(
                             width: 290,
-                            child: SelectableText(description),
+                            child: Tooltip(
+                              message:
+                                  'Exact Spot balance: ${row['available']} $asset. Limit: ${caps?[asset] ?? _amount(asset, row['available'])}. Remaining: ${remaining?[asset] ?? _amount(asset, row['available'])}.',
+                              child: SelectableText(description),
+                            ),
                           ),
                         ],
                       ),
@@ -518,6 +566,15 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
             '${(_allocation!['remaining'] as Map).entries.map((e) => "${e.key} ${e.value}").join(', ')}',
           ),
         const SizedBox(height: 24),
+        Text(
+          '3 · Review funding plan',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '${widget.venue} · ${_scope.length} maker orders selected · ${_enabledAssets.where((asset) => (_percentages[asset] ?? 0) > 0).join(', ')} funding sources',
+        ),
+        const SizedBox(height: 12),
         Wrap(
           spacing: 12,
           runSpacing: 8,
@@ -557,10 +614,8 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
         ),
         const SizedBox(height: 8),
         const SelectableText(
-          'First calculate the ideal hedge reference from maker settings and saved maker prices, without querying the CEX. '
-          'Then compare it with fresh CEX balances and calculate a fully or partly funded goal. '
-          'Only the first confirmed LIMIT trade is sent; later steps require a verified fill and another Analyze. '
-          'Partial coverage does not change maker quantities or bypass live hedge checks.',
+          'Analyze compares the local ideal hedge target with fresh CEX funds. Execute submits one confirmed LIMIT trade. '
+          'After its fill, Analyze again for the next step. Partial funding does not start or resize makers.',
         ),
         if (!supported)
           const Text(
@@ -649,23 +704,27 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
         ],
         if (_history.isNotEmpty) ...[
           const SizedBox(height: 16),
-          Text(
-            'REBALANCE TRADES',
-            style: Theme.of(context).textTheme.titleSmall,
+          ExpansionTile(
+            key: ValueKey('rebalance-history-$_pending'),
+            tilePadding: EdgeInsets.zero,
+            initiallyExpanded: _pending,
+            title: Text('Trade status and history (${_history.length})'),
+            children: [
+              for (final row in _history)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: SelectableText(
+                    '${row['order']['side']} ${row['order']['quantity']} ${row['order']['asset']} · '
+                    '${row['state']} · ${row['id']}',
+                  ),
+                ),
+              if (_pending)
+                const SelectableText(
+                  'A trade is open or its result is uncertain. Maker publication remains blocked. '
+                  'Refresh trade status after completion or after cancelling the order directly on the exchange.',
+                ),
+            ],
           ),
-          for (final row in _history)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: SelectableText(
-                '${row['order']['side']} ${row['order']['quantity']} ${row['order']['asset']} · '
-                '${row['state']} · ${row['id']}',
-              ),
-            ),
-          if (_pending)
-            const SelectableText(
-              'A trade is open or its result is uncertain. Maker publication remains blocked. '
-              'Refresh trade status after completion or after cancelling the order directly on the exchange.',
-            ),
         ],
       ],
     );

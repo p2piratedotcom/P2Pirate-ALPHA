@@ -9,7 +9,8 @@ import 'package:web_dex/mm2/mm2.dart';
 import 'package:web_dex/views/settings/widgets/common/settings_section.dart';
 
 class SettingsMarketPrices extends StatefulWidget {
-  const SettingsMarketPrices({super.key});
+  const SettingsMarketPrices({super.key, this.testSource});
+  final Future<int> Function(String url)? testSource;
 
   @override
   State<SettingsMarketPrices> createState() => _SettingsMarketPricesState();
@@ -20,6 +21,16 @@ class _SettingsMarketPricesState extends State<SettingsMarketPrices> {
   late final TextEditingController _urlController;
   bool _testing = false;
   String? _testResult;
+  int _testGeneration = 0;
+
+  void _inputChanged() {
+    _testGeneration++;
+    if (mounted)
+      setState(() {
+        _testing = false;
+        _testResult = null;
+      });
+  }
 
   @override
   void initState() {
@@ -27,10 +38,13 @@ class _SettingsMarketPricesState extends State<SettingsMarketPrices> {
     _urlController = TextEditingController(
       text: context.read<SettingsBloc>().state.customPriceApiUrl,
     );
+    _urlController.addListener(_inputChanged);
   }
 
   @override
   void dispose() {
+    _testGeneration++;
+    _urlController.removeListener(_inputChanged);
     _urlController.dispose();
     super.dispose();
   }
@@ -60,25 +74,35 @@ class _SettingsMarketPricesState extends State<SettingsMarketPrices> {
     if (!_formKey.currentState!.validate()) return;
     final url = _urlController.text.trim();
     if (url.isEmpty) return;
+    final generation = ++_testGeneration;
     setState(() {
       _testing = true;
       _testResult = null;
     });
     try {
-      final prices = await KomodoPriceProvider(
-        mainTickersUrl: url,
-      ).getKomodoPrices();
-      if (!mounted) return;
+      final count = widget.testSource != null
+          ? await widget.testSource!(url)
+          : (await KomodoPriceProvider(
+              mainTickersUrl: url,
+            ).getKomodoPrices()).length;
+      if (!mounted ||
+          generation != _testGeneration ||
+          _urlController.text.trim() != url)
+        return;
       setState(() {
-        _testResult = prices.isEmpty
-            ? 'No tickers returned by this API'
-            : '${prices.length} tickers available';
+        _testResult = count == 0
+            ? 'Tested current URL: no tickers returned'
+            : 'Tested current URL: $count tickers available';
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted ||
+          generation != _testGeneration ||
+          _urlController.text.trim() != url)
+        return;
       setState(() => _testResult = 'API unavailable or response is invalid');
     } finally {
-      if (mounted) setState(() => _testing = false);
+      if (mounted && generation == _testGeneration)
+        setState(() => _testing = false);
     }
   }
 
@@ -93,6 +117,7 @@ class _SettingsMarketPricesState extends State<SettingsMarketPrices> {
             Row(
               children: [
                 UiSwitcher(
+                  semanticLabel: 'Show USD values in Wallet',
                   key: const Key('show-wallet-usd-values'),
                   value: state.showWalletUsdValues,
                   onChanged: (enabled) => context.read<SettingsBloc>().add(

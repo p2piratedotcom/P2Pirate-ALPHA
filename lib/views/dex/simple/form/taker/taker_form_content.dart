@@ -97,7 +97,7 @@ class TakerOrderMatchingControl extends StatelessWidget {
               message: 'KDF selects the best eligible offer.',
               child: DexTextButton(
                 key: const Key('best-match-tab'),
-                text: 'Best Match',
+                text: 'Best available offer',
                 isActive: !state.matchSelectedOrderOnly,
                 onTap: !canChange || !state.matchSelectedOrderOnly
                     ? null
@@ -111,7 +111,7 @@ class TakerOrderMatchingControl extends StatelessWidget {
               message: 'Only the selected maker order can match.',
               child: DexTextButton(
                 key: const Key('uuid-match-tab'),
-                text: 'UUID only',
+                text: 'Selected offer only',
                 isActive: state.matchSelectedOrderOnly,
                 onTap: !canChange || state.matchSelectedOrderOnly
                     ? null
@@ -329,7 +329,7 @@ class TradeButton extends StatelessWidget {
                   child: UiPrimaryButton(
                     key: const Key('take-order-button'),
                     text: isTradingEnabled
-                        ? LocaleKeys.swapNow.tr()
+                        ? 'Review swap'
                         : LocaleKeys.tradingDisabled.tr(),
                     prefix: inProgress ? const TradeButtonSpinner() : null,
                     onPressed: disabled || !isTradingEnabled
@@ -340,7 +340,7 @@ class TradeButton extends StatelessWidget {
                     height: isMobile ? 52 : 40,
                     child: _DexTradeButtonContent(
                       text: isTradingEnabled
-                          ? LocaleKeys.swapNow.tr()
+                          ? 'Review swap'
                           : LocaleKeys.tradingDisabled.tr(),
                       prefix: inProgress ? const TradeButtonSpinner() : null,
                     ),

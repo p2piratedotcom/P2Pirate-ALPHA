@@ -4,6 +4,43 @@ import 'package:web_dex/services/mm_engine/mm_engine_http_client.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_trading_controls.dart';
 
 void main() {
+  test(
+    'modification approval cannot cross an awaited session refresh',
+    () async {
+      var currentSession = true;
+      final writes = <String>[];
+      await expectLater(
+        saveMmEnginePausedMaker(
+          spec: const {'strategy_id': 'paused-fixture'},
+          modifying: true,
+          isCurrentSession: () => currentSession,
+          verifyModification: () async {
+            await Future<void>.delayed(Duration.zero);
+            currentSession = false;
+          },
+          request: (method, path, {required body}) async {
+            writes.add(path);
+            return {};
+          },
+        ),
+        throwsStateError,
+      );
+      expect(writes, isEmpty);
+      currentSession = true;
+      await saveMmEnginePausedMaker(
+        spec: const {'strategy_id': 'paused-fixture'},
+        modifying: true,
+        isCurrentSession: () => currentSession,
+        verifyModification: () async {},
+        request: (method, path, {required body}) async {
+          expect(body['confirmation'], 'AGGIORNA IN PAUSA');
+          writes.add(path);
+          return {};
+        },
+      );
+      expect(writes, ['/v1/strategies/update']);
+    },
+  );
   test('display title and live notice describe separate order activation', () {
     expect(appTitle, 'P2Pirate | Desktop');
     expect(mmEngineStartLiveNotice, contains('keeps all orders paused'));

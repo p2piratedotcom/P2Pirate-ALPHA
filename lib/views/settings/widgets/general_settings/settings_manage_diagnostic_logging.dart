@@ -30,14 +30,13 @@ class DiagnosticLoggingSwitcher extends StatelessWidget {
         mainAxisSize: MainAxisSize.max,
         children: [
           UiSwitcher(
+            semanticLabel: 'Enable diagnostic logging',
             key: const Key('diagnostic-logging-switcher'),
             value: state.diagnosticLoggingEnabled,
             onChanged: (value) => _onSwitcherChanged(context, value),
           ),
           const SizedBox(width: 15),
-          Flexible(
-            child: Text('enableDiagnosticLogging'.tr()),
-          ),
+          Flexible(child: Text('enableDiagnosticLogging'.tr())),
         ],
       ),
     );
@@ -45,7 +44,7 @@ class DiagnosticLoggingSwitcher extends StatelessWidget {
 
   void _onSwitcherChanged(BuildContext context, bool value) {
     context.read<SettingsBloc>().add(
-          DiagnosticLoggingChanged(diagnosticLoggingEnabled: value),
-        );
+      DiagnosticLoggingChanged(diagnosticLoggingEnabled: value),
+    );
   }
 }

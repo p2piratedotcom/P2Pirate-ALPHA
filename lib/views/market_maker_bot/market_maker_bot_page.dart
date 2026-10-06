@@ -1,3 +1,4 @@
+import 'mm_engine_order_details.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_balance_source.dart';
 import 'dart:async';
 import 'package:web_dex/bloc/coins_bloc/coins_bloc.dart';
@@ -273,11 +274,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     // the caller's existing busy/reconnect serialization.
     _refreshGeneration++;
     _balanceRefresh.invalidate(clear: true);
-    _memory.strategies = null;
-    _memory.reconciliation = null;
-    _memory.credentials = null;
-    _memory.orders = const [];
-    _memory.observedAt = null;
+    _memory.adoptSession(engine.sessionRevision);
     _strategies = null;
     _reconciliation = null;
     _credentials = null;
@@ -286,7 +283,6 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     _statusError = null;
     _paintedStale = true;
     _selectedOrders.clear();
-    _memory.sessionRevision = engine.sessionRevision;
   }
 
   Future<void> _refresh({bool automatic = false}) async {
@@ -702,127 +698,146 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
       setState(() => _error = 'Activate at least two coins in Wallet.');
       return;
     }
-    setState(() => _busy = true);
     final sdk = RepositoryProvider.of<KomodoDefiSdk>(context);
-    final baseBalances = <String, String>{};
-    final bases = activeTickers.toSet();
-    await Future.wait(
-      bases.map((ticker) async {
-        final matches = sdk.assets.available.values.where(
-          (asset) => asset.id.id == ticker,
-        );
-        if (matches.isEmpty) return;
-        try {
-          final balance = await sdk.balances
-              .getBalance(matches.first.id)
-              .timeout(const Duration(seconds: 8));
-          baseBalances[ticker] = balance.spendable.toString();
-        } catch (_) {
-          /* Unavailable is displayed explicitly, never as zero. */
-        }
-      }),
-    );
-    if (!mounted) return;
-    setState(() => _busy = false);
-    final spec = await showDialog<Map<String, Object?>>(
+    final walletId = _authBloc.state.currentUser?.walletId.compoundId;
+    bool sameWallet() =>
+        mounted &&
+        walletId != null &&
+        _authBloc.state.currentUser?.walletId.compoundId == walletId;
+    final draftRevision = MmEngineService.instance.sessionRevision;
+    bool sameSession() =>
+        sameWallet() &&
+        MmEngineService.instance.sessionRevision == draftRevision;
+    final draftKey = existing?['id'] as String? ?? 'new';
+    final draft = _memory.makerDrafts[draftKey];
+    final strategyId =
+        existing?['id'] as String? ??
+        draft?['strategyId'] as String? ??
+        'order-${DateTime.now().microsecondsSinceEpoch}';
+    await showDialog<Map<String, Object?>>(
       context: context,
+      barrierDismissible: false,
       builder: (context) => MmEngineStrategyForm(
         activeTickers: activeTickers,
         venues: _venues,
-        strategyId:
-            existing?['id'] as String? ??
-            'order-${DateTime.now().microsecondsSinceEpoch}',
+        strategyId: strategyId,
         initialSpec: existingSpec,
-        availableBalances: baseBalances,
+        draft: draft,
+        onDraftChanged: (value) {
+          if (sameSession()) _memory.makerDrafts[draftKey] = value;
+        },
+        loadBalance: (ticker) async {
+          final assets = sdk.assets.available.values.where(
+            (asset) => asset.id.id == ticker,
+          );
+          if (assets.isEmpty || !sameWallet()) return null;
+          final balance = await sdk.balances
+              .getBalance(assets.first.id)
+              .timeout(const Duration(seconds: 8));
+          return sameWallet() ? balance.spendable.toString() : null;
+        },
+        onPreview: (spec) async {
+          if (!sameSession()) {
+            throw StateError(
+              'Wallet or engine session changed. Reopen the maker form.',
+            );
+          }
+          final currentActive = this.context
+              .read<CoinsBloc>()
+              .state
+              .walletCoins
+              .values
+              .where((coin) => coin.isActive)
+              .map((coin) => coin.id.id)
+              .toSet();
+          if (!currentActive.contains((spec['base'] as Map)['ticker']) ||
+              !currentActive.contains((spec['quote'] as Map)['ticker'])) {
+            throw StateError(
+              'Both selected coins must still be active in Wallet.',
+            );
+          }
+          final available = _credentials?['venues'];
+          if (available is! Map || available[spec['cex']] != true) {
+            throw StateError(
+              'Configure ${spec['cex']} API credentials before preview. Your draft is kept.',
+            );
+          }
+          setState(() => _busy = true);
+          try {
+            final preview = await MmEngineService.instance.request(
+              'POST',
+              '/v1/strategies/preview',
+              body: {
+                'specs': [spec],
+              },
+            );
+            if (!mounted || !sameSession()) {
+              throw StateError(
+                'Wallet or engine session changed. Reopen the maker form.',
+              );
+            }
+            final accepted = await showDialog<bool>(
+              context: this.context,
+              builder: (context) => AlertDialog(
+                title: Text(
+                  existing == null
+                      ? 'Save maker order paused?'
+                      : 'Save modified order paused?',
+                ),
+                content: SizedBox(
+                  width: 540,
+                  child: SingleChildScrollView(
+                    child: MmEnginePreview(preview: preview),
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Back to edit'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('Save paused'),
+                  ),
+                ],
+              ),
+            );
+            if (accepted != true) return false;
+            if (!mounted || !sameSession()) {
+              throw StateError(
+                'Wallet or engine session changed. Reopen the maker form.',
+              );
+            }
+            await saveMmEnginePausedMaker(
+              spec: spec,
+              modifying: existing != null,
+              isCurrentSession: sameSession,
+              request: MmEngineService.instance.request,
+              verifyModification: () async {
+                await _requireConfirmedStatus();
+                final id = existing!['id'];
+                final current = ((_strategies?['strategies'] as List?) ?? [])
+                    .whereType<Map<String, dynamic>>()
+                    .where((row) => row['id'] == id);
+                if (current.isEmpty ||
+                    current.first['enabled'] != 0 ||
+                    current.first['state'] != 'PAUSED' ||
+                    _orders.any((order) => order['strategy_id'] == id)) {
+                  throw StateError(
+                    'Order state changed. Pause and withdraw it before modifying.',
+                  );
+                }
+              },
+            );
+            if (sameSession()) await _refresh();
+            _memory.makerDrafts.remove(draftKey);
+            return true;
+          } finally {
+            if (mounted) setState(() => _busy = false);
+          }
+        },
       ),
     );
-    if (spec == null || !mounted) return;
-    final currentActive = context
-        .read<CoinsBloc>()
-        .state
-        .walletCoins
-        .values
-        .where((coin) => coin.isActive)
-        .map((coin) => coin.id.id)
-        .toSet();
-    if (!currentActive.contains((spec['base'] as Map)['ticker']) ||
-        !currentActive.contains((spec['quote'] as Map)['ticker'])) {
-      setState(
-        () => _error = 'Both selected coins must still be active in Wallet.',
-      );
-      return;
-    }
-    final venue = spec['cex'];
-    final available = _credentials?['venues'];
-    if (available is! Map || available[venue] != true) {
-      setState(
-        () => _error = 'Configure $venue API credentials before preview.',
-      );
-      return;
-    }
-    await _runBusy(() async {
-      final preview = await MmEngineService.instance.request(
-        'POST',
-        '/v1/strategies/preview',
-        body: {
-          'specs': [spec],
-        },
-      );
-      if (!mounted) return;
-      final accepted = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(
-            existing == null
-                ? 'Save maker order paused?'
-                : 'Save modified order paused?',
-          ),
-          content: SizedBox(
-            width: 540,
-            child: SingleChildScrollView(
-              child: MmEnginePreview(preview: preview),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Save paused'),
-            ),
-          ],
-        ),
-      );
-      if (accepted != true || !mounted) return;
-      if (existing != null) {
-        await _requireConfirmedStatus();
-        final id = existing['id'];
-        final current = ((_strategies?['strategies'] as List?) ?? [])
-            .whereType<Map<String, dynamic>>()
-            .where((row) => row['id'] == id);
-        if (current.isEmpty ||
-            current.first['enabled'] != 0 ||
-            current.first['state'] != 'PAUSED' ||
-            _orders.any((order) => order['strategy_id'] == id)) {
-          throw StateError(
-            'Order state changed. Pause and withdraw it before modifying.',
-          );
-        }
-      }
-      await MmEngineService.instance.request(
-        'POST',
-        existing == null ? '/v1/strategies/create' : '/v1/strategies/update',
-        body: existing == null
-            ? {
-                'specs': [spec],
-                'confirmation': 'SALVA IN PAUSA',
-              }
-            : {'spec': spec, 'confirmation': 'AGGIORNA IN PAUSA'},
-      );
-      await _refresh();
-    });
   }
 
   Future<void> _modifyStrategy(String id) async {
@@ -857,22 +872,6 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     final spec = matches.isEmpty
         ? const <String, dynamic>{}
         : (matches.first['spec'] as Map);
-    final entries = <String, Object?>{
-      'Order UUID': row['order_uuid'] ?? 'Not published',
-      'Status': row['status'],
-      'Amount': row['kdf_volume'],
-      'Price': row['kdf_price'],
-      'Sell': row['kdf_base'],
-      'Buy': row['kdf_rel'],
-      'Remaining sold budget': matches.isEmpty
-          ? 'unavailable'
-          : matches.first['remaining_sold'],
-      'Remaining daily budget': matches.isEmpty
-          ? 'unavailable'
-          : matches.first['daily_remaining_sold'],
-      'Reason': mmEngineEnglish(row['detail']),
-      for (final entry in spec.entries) '${entry.key}': entry.value,
-    };
     await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
@@ -880,15 +879,11 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
         content: SizedBox(
           width: 620,
           child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final entry in entries.entries)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 5),
-                    child: SelectableText('${entry.key}: ${entry.value}'),
-                  ),
-              ],
+            child: MmEngineOrderDetails(
+              row: row,
+              spec: spec,
+              strategy: matches.isEmpty ? null : matches.first,
+              updated: _statusUpdated,
             ),
           ),
         ),

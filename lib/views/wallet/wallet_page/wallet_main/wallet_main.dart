@@ -1,3 +1,4 @@
+import 'package:web_dex/shared/utils/successful_read_cache.dart';
 import 'dart:async';
 
 import 'package:app_theme/app_theme.dart';
@@ -68,7 +69,8 @@ class _WalletMainState extends State<WalletMain> with TickerProviderStateMixin {
   late final ScrollController _scrollController;
   late WalletPageMemory _memory;
   late final AuthBloc _authBloc;
-  Future<List<Coin>>? _walletCoins;
+  final _walletCoins = SuccessfulReadCache<List<Coin>>();
+  String? _chartReadError;
   int _chartGeneration = 0;
   late final Stopwatch _walletListStopwatch;
   bool _walletHalfLogged = false;
@@ -159,7 +161,8 @@ class _WalletMainState extends State<WalletMain> with TickerProviderStateMixin {
           previous.currentUser != current.currentUser,
       listener: (context, state) {
         _chartGeneration++;
-        _walletCoins = null;
+        _walletCoins.clear();
+        _chartReadError = null;
         final accountChanged =
             _memory.walletId != state.currentUser?.walletId.compoundId;
         _memory = WalletPageMemory.forWallet(
@@ -274,7 +277,7 @@ class _WalletMainState extends State<WalletMain> with TickerProviderStateMixin {
     // balance updated.
     // TODO: update to event-based approach based on soon-to-be-implemented
     // balance events from the SDK
-    final walletCoins = await (_walletCoins ??= sdk.getWalletCoins());
+    final walletCoins = await _walletCoins.get(sdk.getWalletCoins);
     if (!mounted || _authBloc.state.currentUser?.wallet.id != walletId) return;
 
     // Subscribe fires an immediate load event, so no need to also call load
@@ -293,32 +296,44 @@ class _WalletMainState extends State<WalletMain> with TickerProviderStateMixin {
     final tab = _activeTabIndex;
     if (user == null || (tab != 1 && tab != 2)) return;
     final sdk = RepositoryProvider.of<KomodoDefiSdk>(context);
-    final coins = await (_walletCoins ??= sdk.getWalletCoins());
-    if (!mounted ||
-        generation != _chartGeneration ||
-        _authBloc.state.currentUser?.walletId != user.walletId) {
-      return;
-    }
-    if (tab == 1) {
-      final bloc = context.read<PortfolioGrowthBloc>();
-      bloc.add(
-        PortfolioGrowthLoadRequested(
-          coins: coins,
-          fiatCoinId: 'USDT',
-          selectedPeriod: bloc.state.selectedPeriod,
-          walletId: user.wallet.id,
-        ),
-      );
-    } else {
-      final bloc = context.read<ProfitLossBloc>();
-      bloc.add(
-        ProfitLossPortfolioChartLoadRequested(
-          coins: coins,
-          fiatCoinId: 'USDT',
-          selectedPeriod: bloc.state.selectedPeriod,
-          walletId: user.wallet.id,
-        ),
-      );
+    if (_chartReadError != null) setState(() => _chartReadError = null);
+    try {
+      final coins = await _walletCoins.get(sdk.getWalletCoins);
+      if (!mounted ||
+          generation != _chartGeneration ||
+          _authBloc.state.currentUser?.walletId != user.walletId) {
+        return;
+      }
+      if (tab == 1) {
+        final bloc = context.read<PortfolioGrowthBloc>();
+        bloc.add(
+          PortfolioGrowthLoadRequested(
+            coins: coins,
+            fiatCoinId: 'USDT',
+            selectedPeriod: bloc.state.selectedPeriod,
+            walletId: user.wallet.id,
+          ),
+        );
+      } else {
+        final bloc = context.read<ProfitLossBloc>();
+        bloc.add(
+          ProfitLossPortfolioChartLoadRequested(
+            coins: coins,
+            fiatCoinId: 'USDT',
+            selectedPeriod: bloc.state.selectedPeriod,
+            walletId: user.wallet.id,
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted &&
+          generation == _chartGeneration &&
+          _authBloc.state.currentUser?.walletId == user.walletId) {
+        setState(
+          () => _chartReadError =
+              'Could not load wallet assets for this chart. Retry when the wallet is ready.',
+        );
+      }
     }
   }
 
@@ -365,6 +380,27 @@ class _WalletMainState extends State<WalletMain> with TickerProviderStateMixin {
   }
 
   List<Widget> _buildTabSlivers(AuthorizeMode mode) {
+    if ((_activeTabIndex == 1 || _activeTabIndex == 2) &&
+        _chartReadError != null) {
+      return [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                Text(_chartReadError!),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _loadVisibleChart,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ];
+    }
     switch (_activeTabIndex) {
       case 0:
         return [

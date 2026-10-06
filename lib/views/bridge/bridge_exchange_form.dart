@@ -151,7 +151,7 @@ class _ExchangeButton extends StatelessWidget {
                       bridgeState.sellCoin == null ||
                               targetCoin == null ||
                               bridgeState.bestOrder == null
-                          ? 'Select source and target protocols.'
+                          ? 'Select source and target networks.'
                           : bridgeState.bestOrder!.price <= Rational.zero
                           ? 'Waiting for a valid bridge price.'
                           : 'Enter an amount greater than zero.',
