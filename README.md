@@ -1,5 +1,13 @@
 # P2Pirate ALPHA
 
+## Start here with an AI or as a new contributor
+
+Read [AGENTS.md](AGENTS.md) first, then the [AI/contributor project guide](docs/AI_PROJECT_GUIDE.md).
+They explain repository scope, architecture, safe setup, limits and cross-repository
+contracts. Relevant behavior/contract changes must review these guides in the same
+PR; use the guide-maintenance section of the PR template.
+
+
 P2Pirate is a community fork of
 [ShorelineCrypto/cheetahdex-wallet-web](https://github.com/ShorelineCrypto/cheetahdex-wallet-web),
 a Flutter non-custodial wallet and decentralized exchange. This repository
