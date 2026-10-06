@@ -1,3 +1,4 @@
+import 'mm_engine_rebalance_preview.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -33,6 +34,7 @@ class MmEngineRebalancePanel extends StatefulWidget {
 
 class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
   Map<String, dynamic>? _plan;
+  Map<String, dynamic>? _ideal;
   final _scope = <String>{};
   final _percentages = <String, int>{};
   final _enabledAssets = <String>{};
@@ -129,6 +131,7 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
       _allocationId = null;
       _allocation = null;
       _plan = null;
+      _ideal = null;
       _message =
           'Selection changed. Analyze starts a new spending budget from fresh balances.';
     });
@@ -189,10 +192,21 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
     final ids = _scope.toList()..sort();
     setState(() {
       _plan = null;
+      _ideal = null;
       _message = null;
     });
+    Map<String, dynamic>? ideal;
+    if (MmEngineService.instance.rebalanceIdealSupported) {
+      ideal = await _request('ideal', {
+        'strategy_ids': ids,
+        if (_allocationId != null) 'allocation_id': _allocationId,
+      });
+      if (!mounted) return;
+      setState(() => _ideal = ideal);
+    }
     final result = await _request('analyze', {
       'strategy_ids': ids,
+      if (ideal != null) 'ideal_id': ideal['ideal_id'],
       'asset_percentages': {
         for (final asset in _enabledAssets) asset: _percentages[asset] ?? 0,
       },
@@ -201,6 +215,7 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
     if (mounted) {
       setState(() {
         _plan = result;
+        _ideal = (result['ideal'] as Map?)?.cast<String, dynamic>() ?? _ideal;
         _allocation = result['allocation'] as Map;
         _allocationId = _allocation!['id'] as String;
       });
@@ -296,7 +311,8 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
           '${first['side']} ${first['quantity']} ${first['asset']} on ${widget.venue}\n'
           'Symbol: ${first['symbol']}\nLimit price: ${first['price']} USDT\n'
           'Notional: ${first['notional']} USDT, before fees.\n\n'
-          'This submits only this first LIMIT order. It can remain open or partially filled. '
+          'This submits exactly the displayed quantity and LIMIT price. Small market changes are accepted only if this approved trade remains funded, useful and executable within the depth/impact limits. '
+          'It can remain open or partially filled. '
           'After its confirmed completion, analyze again for the next step. '
           'The engine rechecks balances, prices, permissions and maker/hedge safety. '
           'If its outcome is uncertain, use Refresh trade status; do not resubmit.',
@@ -357,7 +373,7 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
     final disabled = _busy || widget.busy || !widget.configured || !supported;
     final inputDisabled = disabled || widget.balanceLoading || _pending;
     final plan = _plan;
-    final funding = plan?['funding'] as Map? ?? {};
+
     final orders = (plan?['orders'] as List? ?? []).whereType<Map>();
     final blockers = plan?['execution_blockers'] as List? ?? [];
     return Column(
@@ -410,7 +426,8 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
         const SizedBox(height: 8),
         const Text(
           'Percentages limit total debits, including fees. Existing hedge reserves are protected. '
-          'Budgets stay fixed across partial fills and repeated Analyze; changing the selection starts a new budget.',
+          'Budgets stay fixed across partial fills and repeated Analyze; changing the selection starts a new budget. '
+          'These are funding sources. Required hedge assets can be bought even with a zero CEX balance and without selecting them here.',
         ),
         const SizedBox(height: 12),
         for (final row in widget.balances.where(
@@ -534,7 +551,8 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
         ),
         const SizedBox(height: 8),
         const SelectableText(
-          'Analyze the selected maker hedge targets, with a 20% reserve. Selected coins can fund conversions via USDT. '
+          'First calculate the ideal hedge reference from maker settings and saved maker prices, without querying the CEX. '
+          'Then compare it with fresh CEX balances and calculate a fully or partly funded goal. '
           'Only the first confirmed LIMIT trade is sent; later steps require a verified fill and another Analyze. '
           'Partial coverage does not change maker quantities or bypass live hedge checks.',
         ),
@@ -564,28 +582,27 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
             padding: const EdgeInsets.only(top: 12),
             child: SelectableText(_message!),
           ),
+        if (_ideal == null && plan != null)
+          for (final entry in (plan['funding'] as Map? ?? {}).entries)
+            SelectableText(
+              '${entry.key}: available ${entry.value['available']} · required ${entry.value['required']} · missing ${entry.value['missing']}',
+            ),
+        if (_ideal != null) ...[
+          const SizedBox(height: 16),
+          MmEngineRebalancePreview(ideal: _ideal!, plan: plan),
+        ],
         if (plan != null) ...[
           const SizedBox(height: 12),
           SelectableText(
             'Maker orders included: ${(plan['maker_orders'] as List? ?? []).map((row) => "#${row['number']} ${row['sell']}/${row['buy']}").join(', ')} · '
             '${_expired ? 'Proposal expired — Analyze again' : 'Proposal valid until ${DateTime.fromMillisecondsSinceEpoch(((plan['expires'] as num) * 1000).toInt()).toLocal().toIso8601String().split('.').first.replaceAll('T', ' ')}'}',
           ),
-          if (plan['coverage_percent'] != null)
-            SelectableText(
-              'Maximum common coverage: ${plan['coverage_percent']}% · includes 20% reserve',
-            ),
-          for (final entry in funding.entries)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: SelectableText(
-                '${entry.key}: available ${entry.value['available']} · '
-                'target ${entry.value['required']} · full target ${entry.value['full_required'] ?? entry.value['required']} · missing ${entry.value['missing']}',
-              ),
-            ),
           const SizedBox(height: 12),
           if (orders.isEmpty)
-            const SelectableText(
-              'No executable buy/sell proposed. Check coverage and the notes below.',
+            SelectableText(
+              plan['current_coverage_percent'] == '100.00'
+                  ? 'Current holdings already fund the complete ideal reference. No rebalance trade is needed.'
+                  : 'No executable buy/sell proposed. Check the goal and block reasons below.',
             ),
           for (final item in orders)
             Padding(
@@ -595,7 +612,8 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
                 '${item['symbol']} · limit ${item['price']} USDT · ${item['notional']} USDT before fees',
               ),
             ),
-          if ((plan['projected_orders'] as List? ?? []).isNotEmpty) ...[
+          if (_ideal == null &&
+              (plan['projected_orders'] as List? ?? []).isNotEmpty) ...[
             const SizedBox(height: 12),
             const Text(
               'Projected sequence — later buys depend on confirmed sale proceeds:',

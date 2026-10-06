@@ -176,6 +176,30 @@ coverage does not change maker quantities or grant live hedge coverage. All
 trading logic and durable budget accounting stay in MM_Engine; GUI controls
 require `rebalance_selection: 1`.
 
+### Ideal, actual balances and funded goal
+
+With `rebalance_ideal: true`, Analyze first displays the selected makers' local
+native hedge reference, without querying CEX or KDF. Fixed/max quantities and
+finite nominal auto budgets bound this reference; saved maker prices give
+indicative values and current OPEN liabilities remain covered. The reference
+is retained across the same spending allocation and confirmed partial steps.
+
+Next it displays actual free CEX balances against the complete ideal at fresh
+CEX prices, then current and attainable financial coverage (FULL/PARTIAL).
+Liquidity/minimum/volume constraints remain separate from financial coverage.
+The local reference stays visible if the account or market read fails.
+
+Coin sliders authorize funding sources, not buy destinations: a needed asset
+can be bought from zero balance. A maker selling DASH for USDT requires USDT
+to BUY DASH when the wallet swap happens; it does not require existing DASH.
+The reverse maker needs DASH inventory to SELL on its hedge side.
+
+Execute confirms the exact LIMIT quantity and price. Small market movements
+do not require equality with a newly optimized suggestion, but the approved
+trade must remain useful, funded and executable within the unchanged 1%
+impact/depth safety bounds. A 0.5% preview margin leaves room for revalidation.
+Rejected requests give a specific reason and never silently replace the trade.
+
 
 ### One shared balance display per CEX
 
