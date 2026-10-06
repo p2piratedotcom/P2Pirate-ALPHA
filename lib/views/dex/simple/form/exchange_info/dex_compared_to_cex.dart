@@ -13,6 +13,13 @@ import 'package:web_dex/shared/ui/custom_tooltip.dart';
 import 'package:web_dex/shared/utils/formatters.dart';
 import 'package:web_dex/views/dex/dex_helpers.dart';
 
+String dexReferenceComparisonLabel(double? difference) {
+  if (difference == null || !difference.isFinite)
+    return 'Reference unavailable';
+  if (difference == 0) return 'Equal to reference';
+  return '${formatAmt(difference.abs())}% ${difference < 0 ? 'below' : 'above'} reference';
+}
+
 class DexComparedToCex extends StatelessWidget {
   const DexComparedToCex({
     required this.base,
@@ -80,9 +87,7 @@ class _View extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: Text(
-            diff == null
-                ? 'Reference unavailable'
-                : '${formatAmt(diff!.abs())}% ${diff! < 0 ? 'below' : 'above'} reference',
+            dexReferenceComparisonLabel(diff),
             style: style,
             textAlign: TextAlign.end,
           ),
