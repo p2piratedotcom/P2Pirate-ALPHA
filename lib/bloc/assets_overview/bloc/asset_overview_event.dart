@@ -11,6 +11,13 @@ class AssetOverviewClearRequested extends AssetOverviewEvent {
   const AssetOverviewClearRequested();
 }
 
+class AssetOverviewSessionChanged extends AssetOverviewEvent {
+  const AssetOverviewSessionChanged(this.walletId);
+  final String? walletId;
+  @override
+  List<Object> get props => [walletId ?? ''];
+}
+
 class AssetOverviewLoadRequested extends AssetOverviewEvent {
   const AssetOverviewLoadRequested({
     required this.coin,

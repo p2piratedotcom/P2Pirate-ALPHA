@@ -12,6 +12,7 @@ import 'package:web_dex/model/my_orders/my_order.dart';
 import 'package:web_dex/model/swap.dart';
 import 'package:web_dex/model/trading_entities_filter.dart';
 import 'package:web_dex/views/market_maker_bot/tab_type_enum.dart';
+import 'package:web_dex/router/state/session_navigation_memory.dart';
 
 part 'dex_tab_bar_event.dart';
 part 'dex_tab_bar_state.dart';
@@ -21,7 +22,11 @@ class DexTabBarBloc extends Bloc<DexTabBarEvent, DexTabBarState> {
     this._kdfSdk,
     this._tradingEntitiesBloc,
     this._tradingBotRepository,
-  ) : super(const DexTabBarState.initial()) {
+  ) : super(
+        const DexTabBarState.initial().copyWith(
+          tabIndex: SessionNavigationMemory.swapTab,
+        ),
+      ) {
     on<TabChanged>(_onTabChanged);
     on<FilterChanged>(_onFilterChanged);
     on<ListenToOrdersRequested>(_onStartListening);
@@ -39,6 +44,7 @@ class DexTabBarBloc extends Bloc<DexTabBarEvent, DexTabBarState> {
   StreamSubscription<List<MyOrder>>? _myOrdersSubscription;
   StreamSubscription<List<Swap>>? _swapsSubscription;
   StreamSubscription<List<TradePair>>? _tradeBotOrdersSubscription;
+  String? _authorizedWallet;
 
   @override
   Future<void> close() async {
@@ -55,10 +61,19 @@ class DexTabBarBloc extends Bloc<DexTabBarEvent, DexTabBarState> {
     ListenToOrdersRequested event,
     Emitter<DexTabBarState> emit,
   ) {
-    _authorizationSubscription =
-        _kdfSdk.auth.watchCurrentUser().listen((event) {
+    _authorizationSubscription = _kdfSdk.auth.watchCurrentUser().listen((
+      event,
+    ) {
       if (event != null) {
-        add(const TabChanged(0));
+        final id = event.walletId.compoundId;
+        SessionNavigationMemory.bindWallet(id);
+        if (_authorizedWallet != id) {
+          _authorizedWallet = id;
+          add(TabChanged(SessionNavigationMemory.swapTab));
+        }
+      } else {
+        _authorizedWallet = null;
+        SessionNavigationMemory.bindWallet(null);
       }
     });
 
@@ -77,8 +92,8 @@ class DexTabBarBloc extends Bloc<DexTabBarEvent, DexTabBarState> {
     _tradeBotOrdersSubscription = Stream.periodic(const Duration(seconds: 3))
         .asyncMap((_) => _tradingBotRepository.getTradePairs())
         .listen((orders) {
-      add(TradeBotOrdersUpdated(orders));
-    });
+          add(TradeBotOrdersUpdated(orders));
+        });
   }
 
   Future<void> _onStopListening(
@@ -97,18 +112,16 @@ class DexTabBarBloc extends Bloc<DexTabBarEvent, DexTabBarState> {
 
   FutureOr<void> _onTabChanged(TabChanged event, Emitter<DexTabBarState> emit) {
     // Validate tabIndex to prevent out-of-bounds access
-    final int validatedIndex = event.tabIndex.clamp(0, DexListType.values.length - 1).toInt();
+    final int validatedIndex = event.tabIndex
+        .clamp(0, DexListType.values.length - 1)
+        .toInt();
+    SessionNavigationMemory.swapTab = validatedIndex;
     emit(state.copyWith(tabIndex: validatedIndex));
   }
 
   void _onFilterChanged(FilterChanged event, Emitter<DexTabBarState> emit) {
     emit(
-      state.copyWith(
-        filters: {
-          ...state.filters,
-          event.tabType: event.filter!,
-        },
-      ),
+      state.copyWith(filters: {...state.filters, event.tabType: event.filter!}),
     );
   }
 
@@ -118,8 +131,9 @@ class DexTabBarBloc extends Bloc<DexTabBarEvent, DexTabBarState> {
   }
 
   void _onSwapsUpdated(SwapsUpdated event, Emitter<DexTabBarState> emit) {
-    final inProgressCount =
-        event.swaps.where((swap) => !swap.isCompleted).length;
+    final inProgressCount = event.swaps
+        .where((swap) => !swap.isCompleted)
+        .length;
     final completedCount = event.swaps.where((swap) => swap.isCompleted).length;
     emit(
       state.copyWith(
@@ -133,10 +147,6 @@ class DexTabBarBloc extends Bloc<DexTabBarEvent, DexTabBarState> {
     TradeBotOrdersUpdated event,
     Emitter<DexTabBarState> emit,
   ) {
-    emit(
-      state.copyWith(
-        tradeBotOrdersCount: event.tradeBotOrders.length,
-      ),
-    );
+    emit(state.copyWith(tradeBotOrdersCount: event.tradeBotOrders.length));
   }
 }

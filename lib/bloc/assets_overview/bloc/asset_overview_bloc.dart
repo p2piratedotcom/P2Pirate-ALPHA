@@ -29,6 +29,14 @@ class AssetOverviewBloc extends Bloc<AssetOverviewEvent, AssetOverviewState> {
     on<PortfolioAssetsOverviewSubscriptionRequested>(_onSubscribePortfolio);
     on<AssetOverviewUnsubscriptionRequested>(_onUnsubscribe);
     on<PortfolioAssetsOverviewUnsubscriptionRequested>(_onUnsubscribePortfolio);
+    on<AssetOverviewSessionChanged>((event, emit) {
+      _sessionBound = true;
+      _walletId = event.walletId;
+      _generation++;
+      _updateTimer?.cancel();
+      _updateTimer = null;
+      emit(const AssetOverviewInitial());
+    });
   }
 
   final ProfitLossRepository _profitLossRepository;
@@ -36,11 +44,19 @@ class AssetOverviewBloc extends Bloc<AssetOverviewEvent, AssetOverviewState> {
   final KomodoDefiSdk _sdk;
   final _log = Logger('AssetOverviewBloc');
   Timer? _updateTimer;
+  int _generation = 0;
+  bool _sessionBound = false;
+  String? _walletId;
+  bool _accept(String id) =>
+      !_sessionBound || (_walletId != null && _walletId == id);
 
   Future<void> _onLoad(
     AssetOverviewLoadRequested event,
     Emitter<AssetOverviewState> emit,
   ) async {
+    if (!_accept(event.walletId)) return;
+    final generation = _generation;
+    bool current() => !emit.isDone && generation == _generation;
     emit(const AssetOverviewLoadInProgress());
 
     try {
@@ -49,9 +65,10 @@ class AssetOverviewBloc extends Bloc<AssetOverviewEvent, AssetOverviewState> {
         'USDT',
         event.walletId,
       );
-
+      if (!current()) return;
       final totalInvestment = await _investmentRepository
           .calculateTotalInvestment(event.walletId, [event.coin]);
+      if (!current()) return;
 
       final profitAmount = profitLosses.lastOrNull?.profitLoss ?? 0.0;
       // The percent which the user has gained or lost on their investment
@@ -69,6 +86,7 @@ class AssetOverviewBloc extends Bloc<AssetOverviewEvent, AssetOverviewState> {
         ),
       );
     } catch (e, s) {
+      if (!current()) return;
       _log.shout('Failed to load asset overview', e, s);
       if (state is! AssetOverviewLoadSuccess) {
         emit(AssetOverviewLoadFailure(error: e.toString()));
@@ -80,6 +98,7 @@ class AssetOverviewBloc extends Bloc<AssetOverviewEvent, AssetOverviewState> {
     AssetOverviewClearRequested event,
     Emitter<AssetOverviewState> emit,
   ) async {
+    _generation++;
     emit(const AssetOverviewInitial());
     _updateTimer?.cancel();
     _updateTimer = null;
@@ -89,6 +108,9 @@ class AssetOverviewBloc extends Bloc<AssetOverviewEvent, AssetOverviewState> {
     PortfolioAssetsOverviewLoadRequested event,
     Emitter<AssetOverviewState> emit,
   ) async {
+    if (!_accept(event.walletId)) return;
+    final generation = _generation;
+    bool current() => !emit.isDone && generation == _generation;
     try {
       if (event.coins.isEmpty) {
         _log.warning('No coins to load portfolio overview for');
@@ -96,6 +118,7 @@ class AssetOverviewBloc extends Bloc<AssetOverviewEvent, AssetOverviewState> {
       }
 
       final supportedCoins = await event.coins.filterSupportedCoins();
+      if (!current()) return;
       if (supportedCoins.isEmpty) {
         _log.warning('No supported coins to load portfolio overview for');
         return;
@@ -105,8 +128,9 @@ class AssetOverviewBloc extends Bloc<AssetOverviewEvent, AssetOverviewState> {
         supportedCoins,
         delay: kActivationPollingInterval,
       );
-
+      if (!current()) return;
       final activeCoins = await supportedCoins.removeInactiveCoins(_sdk);
+      if (!current()) return;
       if (activeCoins.isEmpty) {
         _log.warning('No active coins to load portfolio overview for');
         return;
@@ -129,9 +153,11 @@ class AssetOverviewBloc extends Bloc<AssetOverviewEvent, AssetOverviewState> {
       });
 
       final profitLosses = await Future.wait(profitLossesFutures);
+      if (!current()) return;
 
       final totalInvestment = await _investmentRepository
           .calculateTotalInvestment(event.walletId, activeCoins);
+      if (!current()) return;
 
       final profitAmount = profitLosses.fold(0.0, (sum, item) {
         return sum + (item.lastOrNull?.profitLoss ?? 0.0);
@@ -156,6 +182,7 @@ class AssetOverviewBloc extends Bloc<AssetOverviewEvent, AssetOverviewState> {
         ),
       );
     } catch (e, s) {
+      if (!current()) return;
       _log.shout('Failed to load portfolio assets overview', e, s);
       if (state is! PortfolioAssetsOverviewLoadSuccess) {
         emit(AssetOverviewLoadFailure(error: e.toString()));
@@ -178,6 +205,7 @@ class AssetOverviewBloc extends Bloc<AssetOverviewEvent, AssetOverviewState> {
     AssetOverviewSubscriptionRequested event,
     Emitter<AssetOverviewState> emit,
   ) async {
+    if (!_accept(event.walletId)) return;
     add(AssetOverviewLoadRequested(coin: event.coin, walletId: event.walletId));
 
     _updateTimer?.cancel();
@@ -192,6 +220,7 @@ class AssetOverviewBloc extends Bloc<AssetOverviewEvent, AssetOverviewState> {
     PortfolioAssetsOverviewSubscriptionRequested event,
     Emitter<AssetOverviewState> emit,
   ) async {
+    if (!_accept(event.walletId)) return;
     add(
       PortfolioAssetsOverviewLoadRequested(
         coins: event.coins,

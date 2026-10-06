@@ -29,8 +29,12 @@ class DexComparedToCex extends StatelessWidget {
     final double? baseUsd = base?.usdPrice?.price?.toDouble();
     final double? relUsd = rel?.usdPrice?.price?.toDouble();
 
-    double diff = 0;
-    if (baseUsd != null && relUsd != null && rate != null) {
+    double? diff;
+    if (baseUsd != null &&
+        baseUsd > 0 &&
+        relUsd != null &&
+        relUsd > 0 &&
+        rate != null) {
       diff = compareToCex(baseUsd, relUsd, rate!);
     }
 
@@ -41,15 +45,15 @@ class DexComparedToCex extends StatelessWidget {
 class _View extends StatelessWidget {
   const _View(this.diff);
 
-  final double diff;
+  final double? diff;
 
   @override
   Widget build(BuildContext context) {
     const header = TextStyle(fontSize: 14, fontWeight: FontWeight.w500);
     Color? color = header.color;
-    if (diff > 0) {
+    if (diff != null && diff! > 0) {
       color = theme.custom.increaseColor;
-    } else if (diff < 0) {
+    } else if (diff != null && diff! < 0) {
       color = theme.custom.decreaseColor;
     }
 
@@ -74,7 +78,7 @@ class _View extends StatelessWidget {
           ),
         ),
         const Spacer(),
-        Text('${formatAmt(diff)}%', style: style),
+        Text(diff == null ? '—' : '${formatAmt(diff!)}%', style: style),
       ],
     );
   }

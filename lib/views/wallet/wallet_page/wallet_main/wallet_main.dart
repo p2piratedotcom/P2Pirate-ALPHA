@@ -48,6 +48,7 @@ import 'package:web_dex/views/wallet/wallet_page/wallet_main/wallet_manage_secti
 import 'package:web_dex/views/wallet/wallet_page/wallet_main/wallet_overview.dart';
 import 'package:web_dex/views/wallets_manager/wallets_manager_events_factory.dart';
 import 'package:web_dex/views/wallets_manager/wallets_manager_wrapper.dart';
+import 'wallet_page_memory.dart';
 
 class WalletMain extends StatefulWidget {
   const WalletMain({super.key = const Key('wallet-page')});
@@ -64,19 +65,34 @@ class _WalletMainState extends State<WalletMain> with TickerProviderStateMixin {
   int _activeTabIndex = 0;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
-  final ScrollController _scrollController = ScrollController();
+  late final ScrollController _scrollController;
+  late WalletPageMemory _memory;
+  late final AuthBloc _authBloc;
+  Future<List<Coin>>? _walletCoins;
+  int _chartGeneration = 0;
   late final Stopwatch _walletListStopwatch;
   bool _walletHalfLogged = false;
 
   void _initTabController(bool authenticated) {
-    _tabController = TabController(length: authenticated ? 3 : 2, vsync: this)
-      ..addListener(() {
-        if (_activeTabIndex != _tabController.index) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            setState(() => _activeTabIndex = _tabController.index);
-          });
-        }
-      });
+    final length = authenticated ? 3 : 2;
+    _activeTabIndex = _memory.tabIndex.clamp(0, length - 1).toInt();
+    _tabController =
+        TabController(
+          length: length,
+          initialIndex: _activeTabIndex,
+          vsync: this,
+        )..addListener(() {
+          if (_activeTabIndex != _tabController.index) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              setState(() {
+                _activeTabIndex = _tabController.index;
+                _memory.tabIndex = _activeTabIndex;
+              });
+              _loadVisibleChart();
+            });
+          }
+        });
   }
 
   void _updateTabController(bool authenticated) {
@@ -90,7 +106,15 @@ class _WalletMainState extends State<WalletMain> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-
+    _authBloc = context.read<AuthBloc>();
+    _memory = WalletPageMemory.forWallet(
+      _authBloc.state.currentUser?.walletId.compoundId,
+    );
+    _searchController.text = _memory.search;
+    _searchPhraseNotifier.value = _memory.search.toLowerCase();
+    _scrollController = ScrollController(
+      initialScrollOffset: _memory.scrollOffset,
+    );
     _walletListStopwatch = Stopwatch()..start();
     _scrollController.addListener(_onScroll);
 
@@ -100,10 +124,22 @@ class _WalletMainState extends State<WalletMain> with TickerProviderStateMixin {
     }
 
     _initTabController(authBloc.state.currentUser != null);
+    if (authBloc.state.currentUser == null) _clearWalletData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadVisibleChart();
+    });
   }
 
   @override
   void dispose() {
+    _chartGeneration++;
+    if (_authBloc.state.currentUser?.walletId.compoundId == _memory.walletId) {
+      _memory.search = _searchController.text;
+      _memory.tabIndex = _activeTabIndex;
+      if (_scrollController.hasClients) {
+        _memory.scrollOffset = _scrollController.offset;
+      }
+    }
     _walletSubscription?.cancel();
     _popupDispatcher?.close();
     _popupDispatcher = null;
@@ -122,9 +158,24 @@ class _WalletMainState extends State<WalletMain> with TickerProviderStateMixin {
       listenWhen: (previous, current) =>
           previous.currentUser != current.currentUser,
       listener: (context, state) {
+        _chartGeneration++;
+        _walletCoins = null;
+        final accountChanged =
+            _memory.walletId != state.currentUser?.walletId.compoundId;
+        _memory = WalletPageMemory.forWallet(
+          state.currentUser?.walletId.compoundId,
+        );
+        _searchController.text = _memory.search;
+        _searchPhraseNotifier.value = _memory.search.toLowerCase();
+        if (accountChanged) {
+          _tabController.dispose();
+          _initTabController(state.currentUser != null);
+          if (_scrollController.hasClients) _scrollController.jumpTo(0);
+        }
         if (state.currentUser?.wallet != null) {
           _loadWalletData(state.currentUser!.wallet.id).ignore();
           _updateTabController(true);
+          _loadVisibleChart();
         } else {
           _clearWalletData();
           _updateTabController(false);
@@ -213,8 +264,6 @@ class _WalletMainState extends State<WalletMain> with TickerProviderStateMixin {
   }
 
   Future<void> _loadWalletData(String walletId) async {
-    final portfolioGrowthBloc = context.read<PortfolioGrowthBloc>();
-    final profitLossBloc = context.read<ProfitLossBloc>();
     final assetOverviewBloc = context.read<AssetOverviewBloc>();
     final sdk = RepositoryProvider.of<KomodoDefiSdk>(context);
 
@@ -225,25 +274,8 @@ class _WalletMainState extends State<WalletMain> with TickerProviderStateMixin {
     // balance updated.
     // TODO: update to event-based approach based on soon-to-be-implemented
     // balance events from the SDK
-    final walletCoins = await sdk.getWalletCoins();
-
-    portfolioGrowthBloc.add(
-      PortfolioGrowthLoadRequested(
-        coins: walletCoins,
-        fiatCoinId: 'USDT',
-        selectedPeriod: portfolioGrowthBloc.state.selectedPeriod,
-        walletId: walletId,
-      ),
-    );
-
-    profitLossBloc.add(
-      ProfitLossPortfolioChartLoadRequested(
-        coins: walletCoins,
-        selectedPeriod: profitLossBloc.state.selectedPeriod,
-        fiatCoinId: 'USDT',
-        walletId: walletId,
-      ),
-    );
+    final walletCoins = await (_walletCoins ??= sdk.getWalletCoins());
+    if (!mounted || _authBloc.state.currentUser?.wallet.id != walletId) return;
 
     // Subscribe fires an immediate load event, so no need to also call load
     assetOverviewBloc.add(
@@ -253,6 +285,41 @@ class _WalletMainState extends State<WalletMain> with TickerProviderStateMixin {
         updateFrequency: const Duration(minutes: 1),
       ),
     );
+  }
+
+  Future<void> _loadVisibleChart() async {
+    final generation = ++_chartGeneration;
+    final user = _authBloc.state.currentUser;
+    final tab = _activeTabIndex;
+    if (user == null || (tab != 1 && tab != 2)) return;
+    final sdk = RepositoryProvider.of<KomodoDefiSdk>(context);
+    final coins = await (_walletCoins ??= sdk.getWalletCoins());
+    if (!mounted ||
+        generation != _chartGeneration ||
+        _authBloc.state.currentUser?.walletId != user.walletId) {
+      return;
+    }
+    if (tab == 1) {
+      final bloc = context.read<PortfolioGrowthBloc>();
+      bloc.add(
+        PortfolioGrowthLoadRequested(
+          coins: coins,
+          fiatCoinId: 'USDT',
+          selectedPeriod: bloc.state.selectedPeriod,
+          walletId: user.wallet.id,
+        ),
+      );
+    } else {
+      final bloc = context.read<ProfitLossBloc>();
+      bloc.add(
+        ProfitLossPortfolioChartLoadRequested(
+          coins: coins,
+          fiatCoinId: 'USDT',
+          selectedPeriod: bloc.state.selectedPeriod,
+          walletId: user.wallet.id,
+        ),
+      );
+    }
   }
 
   void _clearWalletData() {

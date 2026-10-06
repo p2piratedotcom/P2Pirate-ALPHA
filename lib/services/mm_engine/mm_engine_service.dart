@@ -40,6 +40,8 @@ class MmEngineService {
   bool rebalanceSupported = false;
   bool rebalanceSelectionSupported = false;
   bool rebalanceIdealSupported = false;
+  int _sessionRevision = 0;
+  int get sessionRevision => _sessionRevision;
 
   bool get isRunning => _process != null && _baseUrl != null;
   bool get liveEnabled => _liveEnabled;
@@ -133,6 +135,7 @@ class MmEngineService {
     final token = _randomToken();
     final process = await Process.start(executable.path, ['wallet-service']);
     _process = process;
+    _sessionRevision++;
     final ready = Completer<int>();
     _stopReport = Completer<Map<String, dynamic>>();
     process.stdout
@@ -429,6 +432,7 @@ class MmEngineService {
   }
 
   void _clearProcess() {
+    _sessionRevision++;
     rebalanceSupported = false;
     rebalanceSelectionSupported = false;
     rebalanceIdealSupported = false;

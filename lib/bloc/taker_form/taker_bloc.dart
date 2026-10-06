@@ -416,9 +416,16 @@ class TakerBloc extends Bloc<TakerEvent, TakerState> {
     if (state.swapUuid != null) _onClear(TakerClear(), emit);
     // A valid pending confirmation survives navigation; don't erase its pair.
     if (state.step != TakerStep.form) return;
-    add(TakerSetDefaults());
-    if (event.walletReady && state.sellCoin != null) {
-      add(TakerSetSellCoin(state.sellCoin));
+    // Retain user inputs, not an old derived fee/confirmation snapshot.
+    _quoteRevision++;
+    emit(state.copyWith(tradePreimage: () => null));
+    if (state.sellCoin == null) {
+      add(TakerSetDefaults());
+    } else if (event.walletReady) {
+      // Refresh read-only limits without clearing the ordinary form draft.
+      // Submit still validates and prepares a fresh confirmation as before.
+      add(TakerUpdateMaxSellAmount());
+      add(TakerGetMinSellAmount());
     }
   }
 

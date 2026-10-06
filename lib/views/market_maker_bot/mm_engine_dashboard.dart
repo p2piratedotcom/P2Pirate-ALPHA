@@ -1,6 +1,7 @@
 import 'mm_engine_balance_source.dart';
 import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
+import 'mm_engine_order_note.dart';
 import 'package:flutter/services.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_trading_controls.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_rebalance_section.dart';
@@ -37,6 +38,9 @@ class MmEngineDashboard extends StatelessWidget {
     this.onRebalanceChanged,
     this.onRebalanceConfigure,
     this.balanceSource,
+    this.statusConfirmed = true,
+    this.ordersLoading = false,
+    this.credentialsLoading = false,
   });
   final List<Map<String, dynamic>> orders, strategies, balances;
   final String venue;
@@ -47,6 +51,8 @@ class MmEngineDashboard extends StatelessWidget {
   final VoidCallback? onStartSelected;
   final Map credentials;
   final bool busy, live, balanceLoading;
+  final bool statusConfirmed;
+  final bool ordersLoading, credentialsLoading;
   final String? balanceError;
   final bool cexExpanded;
   final VoidCallback? onToggleCex;
@@ -309,7 +315,9 @@ class MmEngineDashboard extends StatelessWidget {
                                   busy ||
                                       id is! String ||
                                       (!enabled &&
-                                          (!live || row['selectable'] != true))
+                                          (!live ||
+                                              !statusConfirmed ||
+                                              row['selectable'] != true))
                                   ? null
                                   : () => onStrategy(id, !enabled),
                               icon: Icon(
@@ -336,11 +344,9 @@ class MmEngineDashboard extends StatelessWidget {
                         ),
                         if ('${row['detail'] ?? ''}'.isNotEmpty) ...[
                           const SizedBox(height: 8),
-                          Text(
-                            '${row['detail']}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
+                          MmEngineOrderNote(
+                            key: ValueKey('note-$id'),
+                            text: '${row['detail']}',
                           ),
                         ],
                         const SizedBox(height: 14),
@@ -504,7 +510,7 @@ class MmEngineDashboard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
               ),
-              onPressed: busy ? null : onNew,
+              onPressed: busy || !statusConfirmed ? null : onNew,
               icon: const Icon(Icons.add),
               label: const Text('New Maker Order'),
             ),
@@ -537,7 +543,11 @@ class MmEngineDashboard extends StatelessWidget {
                           ? 'Activate only the selected paused orders'
                           : 'Start live trading first; then activate the selected orders',
                       child: ElevatedButton.icon(
-                        onPressed: busy || !live || selectionCount == 0
+                        onPressed:
+                            busy ||
+                                !live ||
+                                !statusConfirmed ||
+                                selectionCount == 0
                             ? null
                             : onStartSelected,
                         icon: const Icon(Icons.play_arrow),
@@ -549,10 +559,12 @@ class MmEngineDashboard extends StatelessWidget {
                 const SizedBox(height: 10),
                 _makerTable(context, display),
                 if (display.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 12),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
                     child: Text(
-                      'No maker orders yet. Create a new order to preview and save it paused.',
+                      ordersLoading
+                          ? 'Loading confirmed maker orders…'
+                          : 'No maker orders yet. Create a new order to preview and save it paused.',
                     ),
                   ),
               ],
@@ -631,12 +643,23 @@ class MmEngineDashboard extends StatelessWidget {
                     ],
                   ),
                   if (credentials[venue] == true) ...[
-                    Text(
-                      balanceLoading
-                          ? 'Refreshing balances…'
-                          : 'Next refresh in ${balanceRefreshSeconds ?? 60}s',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
+                    if (balanceSource == null)
+                      Text(
+                        balanceLoading
+                            ? 'Refreshing balances…'
+                            : 'Next refresh in ${balanceRefreshSeconds ?? 60}s',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      )
+                    else
+                      ListenableBuilder(
+                        listenable: balanceSource!.clock,
+                        builder: (context, child) => Text(
+                          balanceLoading
+                              ? 'Refreshing balances…'
+                              : 'Next refresh in ${balanceSource!.secondsRemaining(venue)}s',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
                     if (balanceUpdatedAt != null)
                       Text(
                         'Last update: ${balanceUpdatedAt!.toLocal().toIso8601String().split('.').first.replaceAll('T', ' ')}'
@@ -656,7 +679,9 @@ class MmEngineDashboard extends StatelessWidget {
                         ),
                       ),
                     ),
-                  if (credentials[venue] != true)
+                  if (credentialsLoading)
+                    const Text('Checking saved CEX configuration…'),
+                  if (!credentialsLoading && credentials[venue] != true)
                     TextButton(
                       onPressed: busy || balanceLoading ? null : onAdd,
                       child: Text('Configure $venue API credentials'),
@@ -693,6 +718,7 @@ class MmEngineDashboard extends StatelessWidget {
             balanceSource: balanceSource!,
             venues: venueLabels,
             credentials: credentials,
+            credentialsLoading: credentialsLoading,
             strategies: strategies,
             busy: busy,
             live: live,

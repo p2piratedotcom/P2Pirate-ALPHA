@@ -1,6 +1,7 @@
 import 'package:app_theme/app_theme.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:rational/rational.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:komodo_ui_kit/komodo_ui_kit.dart';
 import 'package:web_dex/app_config/app_config.dart';
@@ -27,7 +28,7 @@ import 'package:web_dex/views/bridge/view/error_list/bridge_form_error_list.dart
 import 'package:web_dex/views/wallets_manager/wallets_manager_events_factory.dart';
 
 class BridgeExchangeForm extends StatefulWidget {
-  const BridgeExchangeForm({Key? key}) : super(key: key);
+  const BridgeExchangeForm({super.key});
 
   @override
   State<StatefulWidget> createState() => _BridgeExchangeFormState();
@@ -75,7 +76,7 @@ class _BridgeExchangeFormState extends State<BridgeExchangeForm> {
 }
 
 class SourceProtocol extends StatelessWidget {
-  const SourceProtocol({Key? key}) : super(key: key);
+  const SourceProtocol({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -91,7 +92,7 @@ class SourceProtocol extends StatelessWidget {
 }
 
 class TargetProtocol extends StatelessWidget {
-  const TargetProtocol({Key? key}) : super(key: key);
+  const TargetProtocol({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -131,29 +132,55 @@ class _ExchangeButton extends StatelessWidget {
             ]);
 
             final inProgress = bridgeState.inProgress;
-            final isDisabled = inProgress || !isSystemClockValid;
+            final complete =
+                bridgeState.sellCoin != null &&
+                targetCoin != null &&
+                bridgeState.bestOrder != null &&
+                bridgeState.bestOrder!.price > Rational.zero &&
+                bridgeState.sellAmount != null &&
+                bridgeState.sellAmount! > Rational.zero;
+            final isDisabled = !complete || inProgress || !isSystemClockValid;
 
-            return SizedBox(
-              width: theme.custom.dexFormWidth,
-              child: ConnectWalletWrapper(
-                eventType: WalletsManagerEventType.bridge,
-                child: Opacity(
-                  opacity: isDisabled ? 0.8 : 1,
-                  child: SizedBox(
-                    width: theme.custom.dexFormWidth,
-                    child: UiPrimaryButton(
-                      height: 40,
-                      prefix: inProgress ? const _Spinner() : null,
-                      text: tradingEnabled
-                          ? LocaleKeys.exchange.tr()
-                          : LocaleKeys.tradingDisabled.tr(),
-                      onPressed: isDisabled || !tradingEnabled
-                          ? null
-                          : () => _onPressed(context),
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!complete && !inProgress)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      bridgeState.sellCoin == null ||
+                              targetCoin == null ||
+                              bridgeState.bestOrder == null
+                          ? 'Select source and target protocols.'
+                          : bridgeState.bestOrder!.price <= Rational.zero
+                          ? 'Waiting for a valid bridge price.'
+                          : 'Enter an amount greater than zero.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                SizedBox(
+                  width: theme.custom.dexFormWidth,
+                  child: ConnectWalletWrapper(
+                    eventType: WalletsManagerEventType.bridge,
+                    child: Opacity(
+                      opacity: isDisabled ? 0.8 : 1,
+                      child: SizedBox(
+                        width: theme.custom.dexFormWidth,
+                        child: UiPrimaryButton(
+                          height: 40,
+                          prefix: inProgress ? const _Spinner() : null,
+                          text: tradingEnabled
+                              ? LocaleKeys.exchange.tr()
+                              : LocaleKeys.tradingDisabled.tr(),
+                          onPressed: isDisabled || !tradingEnabled
+                              ? null
+                              : () => _onPressed(context),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
+              ],
             );
           },
         );

@@ -1,5 +1,6 @@
 import 'package:app_theme/app_theme.dart';
 import 'package:collection/collection.dart';
+import 'package:rational/rational.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -283,36 +284,69 @@ class TradeButton extends StatelessWidget {
           takerState.sellCoin?.id,
           buyCoin?.id,
         ]);
+        final complete =
+            takerState.sellCoin != null &&
+            buyCoin != null &&
+            takerState.selectedOrder != null &&
+            takerState.selectedOrder!.price > Rational.zero &&
+            takerState.sellAmount != null &&
+            takerState.sellAmount! > Rational.zero &&
+            !takerState.submissionOutcomeUnknown &&
+            takerState.swapUuid == null;
 
         return BlocSelector<TakerBloc, TakerState, bool>(
           selector: (state) => state.inProgress,
           builder: (context, inProgress) {
             final bool disabled =
+                !complete ||
                 inProgress ||
                 !isSystemClockValid ||
                 (takerState.buyCoin != null &&
                     takerState.selectedOrder == null);
 
-            return Opacity(
-              opacity: disabled ? 0.8 : 1,
-              child: UiPrimaryButton(
-                key: const Key('take-order-button'),
-                text: isTradingEnabled
-                    ? LocaleKeys.swapNow.tr()
-                    : LocaleKeys.tradingDisabled.tr(),
-                prefix: inProgress ? const TradeButtonSpinner() : null,
-                onPressed: disabled || !isTradingEnabled
-                    ? null
-                    : () =>
-                          context.read<TakerBloc>().add(TakerFormSubmitClick()),
-                height: isMobile ? 52 : 40,
-                child: _DexTradeButtonContent(
-                  text: isTradingEnabled
-                      ? LocaleKeys.swapNow.tr()
-                      : LocaleKeys.tradingDisabled.tr(),
-                  prefix: inProgress ? const TradeButtonSpinner() : null,
+            final hint = takerState.submissionOutcomeUnknown
+                ? 'Verify the previous submission before sending another swap.'
+                : takerState.sellCoin == null
+                ? 'Select the coin to sell.'
+                : takerState.selectedOrder == null || buyCoin == null
+                ? 'Select a buy coin and an available order.'
+                : takerState.selectedOrder!.price <= Rational.zero
+                ? 'Waiting for a valid order price.'
+                : 'Enter an amount greater than zero.';
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!complete && !inProgress)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      hint,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                Opacity(
+                  opacity: disabled ? 0.8 : 1,
+                  child: UiPrimaryButton(
+                    key: const Key('take-order-button'),
+                    text: isTradingEnabled
+                        ? LocaleKeys.swapNow.tr()
+                        : LocaleKeys.tradingDisabled.tr(),
+                    prefix: inProgress ? const TradeButtonSpinner() : null,
+                    onPressed: disabled || !isTradingEnabled
+                        ? null
+                        : () => context.read<TakerBloc>().add(
+                            TakerFormSubmitClick(),
+                          ),
+                    height: isMobile ? 52 : 40,
+                    child: _DexTradeButtonContent(
+                      text: isTradingEnabled
+                          ? LocaleKeys.swapNow.tr()
+                          : LocaleKeys.tradingDisabled.tr(),
+                      prefix: inProgress ? const TradeButtonSpinner() : null,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             );
           },
         );
