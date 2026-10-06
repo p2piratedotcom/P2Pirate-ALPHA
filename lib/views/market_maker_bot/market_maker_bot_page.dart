@@ -243,19 +243,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
       liveTrading: liveTrading,
     );
     if (!mounted) return;
-    if (_memory.sessionRevision != MmEngineService.instance.sessionRevision) {
-      _memory.strategies = null;
-      _memory.reconciliation = null;
-      _memory.credentials = null;
-      _memory.orders = const [];
-      _memory.observedAt = null;
-      _strategies = null;
-      _reconciliation = null;
-      _credentials = null;
-      _orders = [];
-      _selectedOrders.clear();
-    }
-    _memory.sessionRevision = MmEngineService.instance.sessionRevision;
+    _adoptEngineDisplaySession();
     if (_initializing) {
       setState(() {
         _initializing = false;
@@ -266,6 +254,35 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
       _balanceRefresh.selectVenue(_venues.keys.first);
     }
     await _refresh();
+  }
+
+  void _adoptEngineDisplaySession() {
+    final engine = MmEngineService.instance;
+    // A mode switch restarts the process just like a reconnect. Adopt only the
+    // successfully running session for this still-signed-in wallet, and discard
+    // its predecessor's snapshots before any read can be remembered as current.
+    if (!mounted ||
+        !engine.isRunning ||
+        engine.profile != _memory.walletId ||
+        _authBloc.state.currentUser?.walletId.compoundId != _memory.walletId ||
+        _memory.sessionRevision == engine.sessionRevision) {
+      return;
+    }
+    _balanceRefresh.invalidate(clear: true);
+    _memory.strategies = null;
+    _memory.reconciliation = null;
+    _memory.credentials = null;
+    _memory.orders = const [];
+    _memory.observedAt = null;
+    _strategies = null;
+    _reconciliation = null;
+    _credentials = null;
+    _orders = [];
+    _statusUpdated = null;
+    _statusError = null;
+    _paintedStale = true;
+    _selectedOrders.clear();
+    _memory.sessionRevision = engine.sessionRevision;
   }
 
   Future<void> _refresh({bool automatic = false}) async {
@@ -476,7 +493,10 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
           ),
         );
       } finally {
-        if (mounted && MmEngineService.instance.isRunning) await _refresh();
+        if (mounted && MmEngineService.instance.isRunning) {
+          _adoptEngineDisplaySession();
+          await _refresh();
+        }
       }
     });
   }
