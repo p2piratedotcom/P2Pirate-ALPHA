@@ -418,7 +418,10 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     });
   }
 
-  Future<void> _configureCredentials(String venue) async {
+  Future<void> _configureCredentials(
+    String venue, {
+    bool selectMainVenue = true,
+  }) async {
     if (_busy || _balanceLoading) return;
     final key = TextEditingController();
     final secret = TextEditingController();
@@ -495,8 +498,9 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
         );
         await _refresh();
         if (mounted) {
-          _balanceRefresh.invalidate(clear: true);
-          _balanceRefresh.selectVenue(selectedVenue);
+          // Both cards share account snapshots, but retain their own selector.
+          _balanceSource.invalidate(clear: true);
+          if (selectMainVenue) _balanceRefresh.selectVenue(selectedVenue);
         }
       });
     } finally {
@@ -1127,8 +1131,10 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                         },
                         onAdd: () => _configureCredentials(_venue),
                         onBalances: _balanceRefresh.refresh,
-                        onRebalanceConfigure: (venue) =>
-                            _configureCredentials(venue),
+                        onRebalanceConfigure: (venue) => _configureCredentials(
+                          venue,
+                          selectMainVenue: false,
+                        ),
                         onRebalanceBusy: (value) {
                           if (!mounted) return;
                           setState(() {
