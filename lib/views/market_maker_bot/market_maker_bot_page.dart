@@ -1,3 +1,4 @@
+import 'package:web_dex/views/market_maker_bot/mm_engine_balance_source.dart';
 import 'dart:async';
 import 'package:web_dex/bloc/coins_bloc/coins_bloc.dart';
 import 'package:web_dex/services/mm_engine/mm_engine_plugin_migration.dart';
@@ -38,6 +39,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
   List<Map<String, dynamic>> _orders = [];
   final _selectedOrders = <String>{};
   late final MmEngineBalanceRefresh _balanceRefresh;
+  late final MmEngineBalanceSource _balanceSource;
   Timer? _orderRefreshTimer;
   Future<void>? _refreshing;
   int _refreshGeneration = 0;
@@ -79,13 +81,15 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
   @override
   void initState() {
     super.initState();
-    _balanceRefresh = MmEngineBalanceRefresh(
+    _balanceSource = MmEngineBalanceSource(
       load: _fetchBalances,
       canRefresh: (venue) =>
           !_busy &&
           MmEngineService.instance.isRunning &&
           (_credentials?['venues'] as Map?)?[venue] == true,
-    )..addListener(_onBalanceChanged);
+    );
+    _balanceRefresh = MmEngineBalanceRefresh(shared: _balanceSource)
+      ..addListener(_onBalanceChanged);
     _orderRefreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (!mounted) return;
       // Lifecycle changes must redraw even when no further read is possible.
@@ -116,6 +120,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     _refreshGeneration++;
     _balanceRefresh.removeListener(_onBalanceChanged);
     _balanceRefresh.dispose();
+    _balanceSource.dispose();
     super.dispose();
   }
 
@@ -1098,6 +1103,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                         venueLabels: _venues,
                         credentials: credentials,
                         balances: _balanceRefresh.balances,
+                        balanceSource: _balanceSource,
                         busy: _busy,
                         live: live,
                         balanceError: _balanceRefresh.error,
@@ -1121,6 +1127,8 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                         },
                         onAdd: () => _configureCredentials(_venue),
                         onBalances: _balanceRefresh.refresh,
+                        onRebalanceConfigure: (venue) =>
+                            _configureCredentials(venue),
                         onRebalanceBusy: (value) {
                           if (!mounted) return;
                           setState(() {
@@ -1129,7 +1137,6 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                           });
                           if (!value) {
                             unawaited(_refresh(automatic: true));
-                            unawaited(_balanceRefresh.refresh());
                           }
                         },
                         onRebalanceChanged: () {

@@ -38,6 +38,8 @@ class MmEngineService {
   Map<String, String> _venueLabels = const {};
   Map<String, String> get venueLabels => _venueLabels;
   bool rebalanceSupported = false;
+  bool rebalanceSelectionSupported = false;
+  bool rebalanceIdealSupported = false;
 
   bool get isRunning => _process != null && _baseUrl != null;
   bool get liveEnabled => _liveEnabled;
@@ -235,6 +237,8 @@ class MmEngineService {
       _profile = walletId;
       final capabilities = await request('GET', '/v1/capabilities');
       rebalanceSupported = capabilities['rebalance'] == true;
+      rebalanceSelectionSupported = capabilities['rebalance_selection'] == 1;
+      rebalanceIdealSupported = capabilities['rebalance_ideal'] == true;
       if (capabilities['protocol'] != 1 ||
           capabilities['kdf_owner'] != 'wallet' ||
           capabilities['live_enabled'] != desiredLive ||
@@ -426,6 +430,8 @@ class MmEngineService {
 
   void _clearProcess() {
     rebalanceSupported = false;
+    rebalanceSelectionSupported = false;
+    rebalanceIdealSupported = false;
     _process = null;
     _baseUrl = null;
     _token = null;

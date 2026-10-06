@@ -1,16 +1,32 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'mm_engine_balance_source.dart';
 
 /// Read-only display snapshots. These never replace the engine's freshness
 /// checks used to size orders or authorize hedges.
 class MmEngineBalanceRefresh extends ChangeNotifier {
   MmEngineBalanceRefresh({
-    required this.load,
-    required this.canRefresh,
+    Future<List<Map<String, dynamic>>> Function(String venue)? load,
+    bool Function(String venue)? canRefresh,
+    this.shared,
+    String initialVenue = 'MEXC',
     this.interval = const Duration(seconds: 60),
     DateTime Function()? now,
-  }) : _now = now ?? DateTime.now {
-    _startTimer();
+  }) : assert(shared != null || (load != null && canRefresh != null)),
+       load = load ?? shared!.load,
+       canRefresh = canRefresh ?? shared!.canRefresh,
+       _now = now ?? DateTime.now,
+       venue = initialVenue {
+    if (shared == null) {
+      _startTimer();
+    } else {
+      shared!.observe(this, venue, expanded);
+      shared!.addListener(_sharedChanged);
+    }
+  }
+  final MmEngineBalanceSource? shared;
+  void _sharedChanged() {
+    if (!_disposed) notifyListeners();
   }
 
   final Future<List<Map<String, dynamic>>> Function(String venue) load;
@@ -22,16 +38,20 @@ class MmEngineBalanceRefresh extends ChangeNotifier {
   final _due = <String, DateTime>{};
   final _errors = <String, String>{};
   Timer? _timer;
-  String venue = 'MEXC';
+  String venue;
   bool expanded = true;
-  bool loading = false;
+  bool _loading = false;
+  bool get loading => shared?.loading(venue) ?? _loading;
   bool _disposed = false;
   int _generation = 0;
 
-  List<Map<String, dynamic>> get balances => _snapshots[venue] ?? const [];
-  DateTime? get updatedAt => _updated[venue];
-  String? get error => _errors[venue];
+  List<Map<String, dynamic>> get balances =>
+      shared?.rows(venue) ?? _snapshots[venue] ?? const [];
+  DateTime? get updatedAt =>
+      shared == null ? _updated[venue] : shared!.updatedAt(venue);
+  String? get error => shared == null ? _errors[venue] : shared!.error(venue);
   int get secondsRemaining {
+    if (shared != null) return shared!.secondsRemaining(venue);
     final milliseconds = (_due[venue] ?? _now())
         .difference(_now())
         .inMilliseconds;
@@ -53,12 +73,25 @@ class MmEngineBalanceRefresh extends ChangeNotifier {
     if (value == venue) return;
     _generation++;
     venue = value;
+    shared?.observe(this, venue, expanded);
     notifyListeners();
-    if (expanded) unawaited(refresh());
+    if (expanded) {
+      if (shared != null) {
+        unawaited(shared!.refresh(venue, force: false));
+      } else {
+        unawaited(refresh());
+      }
+    }
   }
 
   void toggleExpanded() {
     expanded = !expanded;
+    if (shared != null) {
+      shared!.observe(this, venue, expanded);
+      if (expanded) unawaited(shared!.refresh(venue, force: false));
+      notifyListeners();
+      return;
+    }
     _timer?.cancel();
     if (expanded) {
       _startTimer();
@@ -69,6 +102,10 @@ class MmEngineBalanceRefresh extends ChangeNotifier {
 
   /// Ignore replies from a previous engine session or replaced API credentials.
   void invalidate({bool clear = false}) {
+    if (shared != null) {
+      shared!.invalidate(clear: clear);
+      return;
+    }
     _generation++;
     _due.clear();
     if (clear) {
@@ -80,10 +117,14 @@ class MmEngineBalanceRefresh extends ChangeNotifier {
   }
 
   Future<void> refresh() async {
+    if (shared != null) {
+      if (!_disposed && expanded) await shared!.refresh(venue);
+      return;
+    }
     if (_disposed || loading || !expanded || !canRefresh(venue)) return;
     final requestedVenue = venue;
     final generation = _generation;
-    loading = true;
+    _loading = true;
     _errors.remove(requestedVenue);
     notifyListeners();
     try {
@@ -101,7 +142,7 @@ class MmEngineBalanceRefresh extends ChangeNotifier {
         if (generation == _generation) {
           _due[requestedVenue] = _now().add(interval);
         }
-        loading = false;
+        _loading = false;
         notifyListeners();
       }
     }
@@ -111,6 +152,8 @@ class MmEngineBalanceRefresh extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _timer?.cancel();
+    shared?.removeListener(_sharedChanged);
+    shared?.unobserve(this);
     super.dispose();
   }
 }

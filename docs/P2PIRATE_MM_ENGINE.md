@@ -155,3 +155,60 @@ engine. Unknown/open outcomes retain a durable hold: use **Refresh trade
 status**, including after navigation or engine restart, rather than resubmitting.
 No withdrawals are part of rebalance. Existing experimental adapter notices
 remain applicable; live rebalance execution has not been exercised here.
+
+
+## Selected CEX inventory rebalance
+
+CEX REBALANCE is now a separate collapsible card, independent of MY CEXs. Choose
+its venue, one or more maker orders, and funding assets with 0–100% sliders in
+5% steps. Existing hedge reserves are protected. Asset percentages establish
+absolute debit budgets from fresh balances; repeated Analyze preserves them,
+including partial fills and restart. A changed selection or confirmed Reset
+spending limits explicitly authorizes a new budget. There is only one Analyze
+button. Only confirmed sale proceeds fund future buys; the first funded LIMIT
+trade still requires confirmation and later steps require new analysis.
+
+The engine returns complete and achievable targets and a common coverage
+percentage, seeking balanced coverage rather than favoring the first maker.
+Selected unrelated assets can be sold through supported USDT routes. Missing
+routes, permissions, minima, fees and liquidity remain limiting. Partial
+coverage does not change maker quantities or grant live hedge coverage. All
+trading logic and durable budget accounting stay in MM_Engine; GUI controls
+require `rebalance_selection: 1`.
+
+### Ideal, actual balances and funded goal
+
+With `rebalance_ideal: true`, Analyze first displays the selected makers' local
+native hedge reference, without querying CEX or KDF. Fixed/max quantities and
+finite nominal auto budgets bound this reference; saved maker prices give
+indicative values and current OPEN liabilities remain covered. The reference
+is retained across the same spending allocation and confirmed partial steps.
+
+Next it displays actual free CEX balances against the complete ideal at fresh
+CEX prices, then current and attainable financial coverage (FULL/PARTIAL).
+Liquidity/minimum/volume constraints remain separate from financial coverage.
+The local reference stays visible if the account or market read fails.
+
+Coin sliders authorize funding sources, not buy destinations: a needed asset
+can be bought from zero balance. A maker selling DASH for USDT requires USDT
+to BUY DASH when the wallet swap happens; it does not require existing DASH.
+The reverse maker needs DASH inventory to SELL on its hedge side.
+
+Execute confirms the exact LIMIT quantity and price. Small market movements
+do not require equality with a newly optimized suggestion, but the approved
+trade must remain useful, funded and executable within the unchanged 1%
+impact/depth safety bounds. A 0.5% preview margin leaves room for revalidation.
+Rejected requests give a specific reason and never silently replace the trade.
+
+
+### One shared balance display per CEX
+
+Both CEX cards now subscribe to one page-owned source: one scheduler and one
+in-flight request per venue, a shared snapshot/timestamp/error/countdown, and
+last received rows retained on refresh failure. Independent venue selection and
+collapse controls remain; a hidden card does not schedule requests unless the
+other visible card needs that venue. Rebalance status with unchanged history no
+longer triggers account refreshes. Trade completion/credential/engine changes
+invalidate shared data safely; trading validation still reads its own fresh
+account data and never trusts this display cache. The engine display endpoint
+also deduplicates concurrent reads with a two-second burst cache.

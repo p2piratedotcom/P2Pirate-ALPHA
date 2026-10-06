@@ -1,8 +1,9 @@
+import 'mm_engine_balance_source.dart';
 import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_trading_controls.dart';
-import 'package:web_dex/views/market_maker_bot/mm_engine_rebalance_panel.dart';
+import 'package:web_dex/views/market_maker_bot/mm_engine_rebalance_section.dart';
 
 class MmEngineDashboard extends StatelessWidget {
   const MmEngineDashboard({
@@ -34,9 +35,12 @@ class MmEngineDashboard extends StatelessWidget {
     this.balanceUpdatedAt,
     this.onRebalanceBusy,
     this.onRebalanceChanged,
+    this.onRebalanceConfigure,
+    this.balanceSource,
   });
   final List<Map<String, dynamic>> orders, strategies, balances;
   final String venue;
+  final MmEngineBalanceSource? balanceSource;
   final Map<String, String> venueLabels;
   final Set<String> selectedOrders;
   final ValueChanged<Set<String>>? onSelection;
@@ -50,6 +54,7 @@ class MmEngineDashboard extends StatelessWidget {
   final DateTime? balanceUpdatedAt;
   final ValueChanged<bool>? onRebalanceBusy;
   final VoidCallback? onRebalanceChanged;
+  final ValueChanged<String>? onRebalanceConfigure;
   final VoidCallback onLive, onNew, onAdd, onBalances;
   final ValueChanged<String> onVenue;
   final void Function(String, bool) onStrategy;
@@ -203,8 +208,8 @@ class MmEngineDashboard extends StatelessWidget {
                   final values = [
                     row['creation_number'] ?? i + 1,
                     row['kdf_base'],
-                    row['kdf_volume'],
-                    row['kdf_price'],
+                    row['amount_label'] ?? row['kdf_volume'],
+                    row['price_label'] ?? row['kdf_price'],
                     row['kdf_rel'],
                     _premium(row['configured_premium']),
                     row['cex'],
@@ -381,6 +386,22 @@ class MmEngineDashboard extends StatelessWidget {
       final sold = spec[sellBase ? 'base' : 'quote'] as Map?;
       final bought = spec[sellBase ? 'quote' : 'base'] as Map?;
       final active = order['order_uuid'] != null;
+      Object? modeValue(Object? mode, Object? value) {
+        if (mode == 'auto') {
+          if (active) return 'Auto · ${value ?? 'updating'}';
+          final state = strategy?['state'];
+          final label = switch (state) {
+            'PAUSED' => 'paused',
+            'EXHAUSTED' => 'budget exhausted',
+            'REVIEW_REQUIRED' => 'review required',
+            'RECOVERING' => 'recovering',
+            _ => 'waiting',
+          };
+          return 'Auto · $label';
+        }
+        return mode == 'fixed' ? 'Fixed · ${value ?? '—'}' : value;
+      }
+
       final recovery = strategy?['recovery'] as Map?;
       final detail = '${strategy?['detail'] ?? ''}';
       final recoveryDetail = recovery == null || recovery['held'] == true
@@ -405,6 +426,14 @@ class MmEngineDashboard extends StatelessWidget {
         'kdf_rel': bought?['ticker'] ?? order['kdf_rel'],
         'cex': spec['cex'] ?? order['cex'],
         'configured_premium': spec['premium'] ?? order['configured_premium'],
+        'amount_label': modeValue(
+          spec['quantity_mode'],
+          active ? order['kdf_volume'] : spec['fixed_sold'],
+        ),
+        'price_label': modeValue(
+          spec['price_mode'],
+          active ? order['kdf_price'] : _fixedPrice(spec, sellBase),
+        ),
         'kdf_volume': active
             ? order['kdf_volume']
             : spec['quantity_mode'] == 'auto'
@@ -653,21 +682,24 @@ class MmEngineDashboard extends StatelessWidget {
                           ? 'Loading your Spot account automatically.'
                           : 'No positive Spot balances.',
                     ),
-                  const SizedBox(height: 24),
-                  MmEngineRebalancePanel(
-                    key: ValueKey(venue),
-                    venue: venue,
-                    busy: busy || balanceLoading,
-                    live: live,
-                    configured: credentials[venue] == true,
-                    onBusy: onRebalanceBusy ?? (_) {},
-                    onChanged: onRebalanceChanged ?? () {},
-                  ),
                 ],
               ],
             ),
           ),
         ),
+        const SizedBox(height: 28),
+        if (balanceSource != null)
+          MmEngineRebalanceSection(
+            balanceSource: balanceSource!,
+            venues: venueLabels,
+            credentials: credentials,
+            strategies: strategies,
+            busy: busy,
+            live: live,
+            onBusy: onRebalanceBusy ?? (_) {},
+            onChanged: onRebalanceChanged ?? () {},
+            onConfigure: onRebalanceConfigure,
+          ),
       ],
     );
   }
