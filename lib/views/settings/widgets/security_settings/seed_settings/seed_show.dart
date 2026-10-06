@@ -306,10 +306,9 @@ class _ShowingSwitcher extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         UiSwitcher(
+          semanticLabel: LocaleKeys.seedPhraseShowingShowPhrase.tr(),
           value: bloc.state.showSeedWords,
           onChanged: (isChecked) => bloc.add(ShowSeedWordsEvent(isChecked)),
-          width: 38,
-          height: 21,
         ),
         const SizedBox(width: 6),
         SelectableText(

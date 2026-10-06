@@ -31,6 +31,7 @@ class EnableTestCoinsSwitcher extends StatelessWidget {
         mainAxisSize: MainAxisSize.max,
         children: [
           UiSwitcher(
+            semanticLabel: LocaleKeys.enableTestCoins.tr(),
             key: const Key('enable-test-coins-switcher'),
             value: state.testCoinsEnabled,
             onChanged: (value) => _onSwitcherChanged(context, value),
@@ -43,8 +44,8 @@ class EnableTestCoinsSwitcher extends StatelessWidget {
   }
 
   void _onSwitcherChanged(BuildContext context, bool value) {
-    context
-        .read<SettingsBloc>()
-        .add(TestCoinsEnabledChanged(testCoinsEnabled: value));
+    context.read<SettingsBloc>().add(
+      TestCoinsEnabledChanged(testCoinsEnabled: value),
+    );
   }
 }

@@ -106,6 +106,11 @@ changing their source values, logs or machine confirmation payloads. See
 [GUI navigation](GUI_NAVIGATION_PERFORMANCE.md) and
 [English diagnostics](GUI_ENGLISH_DIAGNOSTICS.md).
 
+See [GUI task clarity and recovery](GUI_AUDIT_HARDENING.md) for native switch
+semantics, retained maker drafts, async recovery and the Details/Swap/rebalance
+presentation. Display formatting keeps exact values available and never changes
+confirmed execution quantities/prices.
+
 ## Setup and validation, safely
 
 Inspect `pubspec.yaml` for toolchain constraints (at review: Flutter >=3.47.5

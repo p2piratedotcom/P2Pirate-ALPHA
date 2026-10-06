@@ -34,6 +34,9 @@ five repositories. Do not attribute SDK/GUI changes to a different KDF binary.
 | Separate engine client | `lib/services/mm_engine/`, `lib/views/market_maker_bot/mm_engine_*.dart` |
 | Downloads and routing | `lib/services/coin_assets/`, `lib/services/tor/`, `lib/services/mm_engine/mm_engine_install_service.dart` |
 
+See [GUI task clarity and recovery](docs/GUI_AUDIT_HARDENING.md) before changing
+draft retention, async display recovery or maker/rebalance presentation.
+
 ## Wallet-specific constraints
 
 - The SDK is a **Git submodule pinned by the wallet gitlink**. Use `git submodule

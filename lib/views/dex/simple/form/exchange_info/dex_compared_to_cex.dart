@@ -77,8 +77,16 @@ class _View extends StatelessWidget {
             ),
           ),
         ),
-        const Spacer(),
-        Text(diff == null ? '—' : '${formatAmt(diff!)}%', style: style),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            diff == null
+                ? 'Reference unavailable'
+                : '${formatAmt(diff!.abs())}% ${diff! < 0 ? 'below' : 'above'} reference',
+            style: style,
+            textAlign: TextAlign.end,
+          ),
+        ),
       ],
     );
   }

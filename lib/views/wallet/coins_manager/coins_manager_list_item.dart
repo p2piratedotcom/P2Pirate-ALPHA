@@ -96,6 +96,7 @@ class _CoinsManagerListItemDesktop extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(right: 20.0),
               child: UiSwitcher(
+                semanticLabel: 'Select ${coin.abbr}',
                 value: isSelected,
                 onChanged: (_) => onSelect(),
               ),

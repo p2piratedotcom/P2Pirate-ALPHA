@@ -1,3 +1,7 @@
+> Historical layout QA for the initial preview screen. The rebalance read-only
+> statement below describes that fixture revision; current rebalance behavior is
+> documented in docs/GUI_AUDIT_HARDENING.md and docs/P2PIRATE_MM_ENGINE.md.
+
 # Trading engine layout QA
 
 - Source: /home/rnz/Documenti/MMEngine_1.jpg (1171 × 1111).

@@ -46,19 +46,12 @@ class _TakerFormDesktopLayoutState extends State<_TakerFormDesktopLayout> {
   void initState() {
     super.initState();
     _mainScrollController = ScrollController();
-    _mainScrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
-    _mainScrollController.removeListener(_onScroll);
     _mainScrollController.dispose();
     super.dispose();
-  }
-
-  void _onScroll() {
-    // Dismiss keyboard when user starts scrolling
-    FocusScope.of(context).unfocus();
   }
 
   @override
@@ -97,9 +90,9 @@ class _TakerFormDesktopLayoutState extends State<_TakerFormDesktopLayout> {
                       ],
                     ),
                   const SizedBox(height: 18),
-                  const TakerOrderbook(splitSides: true),
-                  const SizedBox(height: 20),
                   const Center(child: TakerFormDesktopControls()),
+                  const SizedBox(height: 20),
+                  const TakerOrderbook(splitSides: true),
                   const SizedBox(height: 24),
                 ],
               ),

@@ -1,3 +1,5 @@
+import 'mm_engine_scrollable_table.dart';
+import 'mm_engine_amount.dart';
 import 'mm_engine_balance_source.dart';
 import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
@@ -73,8 +75,7 @@ class MmEngineDashboard extends StatelessWidget {
     List<String> headings,
     List<List<Widget>> rows,
   ) => LayoutBuilder(
-    builder: (context, constraints) => SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
+    builder: (context, constraints) => MmEngineScrollableTable(
       child: SizedBox(
         width: constraints.maxWidth < 520 ? 520 : constraints.maxWidth,
         child: DataTable(
@@ -695,7 +696,7 @@ class MmEngineDashboard extends StatelessWidget {
                         [
                           text(row['name'] ?? row['ticker']),
                           text(row['ticker']),
-                          text(row['available']),
+                          MmEngineAmount(row['available']),
                         ],
                     ],
                   ),

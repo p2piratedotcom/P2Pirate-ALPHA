@@ -12,9 +12,12 @@ class BridgeAvailableBalance extends StatelessWidget {
     return BlocBuilder<BridgeBloc, BridgeState>(
       buildWhen: (prev, cur) {
         return prev.maxSellAmount != cur.maxSellAmount ||
+            prev.sellCoin != cur.sellCoin ||
             prev.availableBalanceState != cur.availableBalanceState;
       },
       builder: (context, state) {
+        if (state.sellCoin == null)
+          return const Text('Choose a source network');
         return AvailableBalance(
           state.maxSellAmount,
           state.availableBalanceState,

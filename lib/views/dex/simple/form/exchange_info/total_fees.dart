@@ -55,7 +55,7 @@ class _TotalFeesState extends State<TotalFees> {
             alignment: Alignment.centerRight,
             child: AutoScrollText(
               text: widget.preimage == null
-                  ? '—'
+                  ? 'Calculated on review'
                   : getTotalFee(
                       widget.preimage!.totalFees,
                       coinsRepository.getCoin,

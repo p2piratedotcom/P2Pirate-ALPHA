@@ -22,6 +22,7 @@ class SettingsManageTor extends StatelessWidget {
         builder: (context, state) => Row(
           children: [
             UiSwitcher(
+              semanticLabel: 'Route wallet and KDF traffic through Tor',
               key: const Key('tor-enabled-switcher'),
               value: state.torEnabled,
               onChanged: (enabled) => context.read<SettingsBloc>().add(

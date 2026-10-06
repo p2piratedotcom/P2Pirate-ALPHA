@@ -70,10 +70,13 @@ class _Balance extends StatelessWidget {
         }
         break;
       case AvailableBalanceState.unavailable:
-        value = formatAmt(0.0);
+        value = 'Unavailable';
+        break;
+      case AvailableBalanceState.failure:
+        value = 'Could not refresh';
         break;
       case AvailableBalanceState.success:
-      case AvailableBalanceState.failure:
+        if (availableBalance == null) value = 'Unavailable';
         break;
     }
 
