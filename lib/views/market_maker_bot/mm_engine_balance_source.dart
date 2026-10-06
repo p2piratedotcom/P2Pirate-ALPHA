@@ -10,6 +10,11 @@ class MmEngineBalanceSource extends ChangeNotifier {
     this.interval = const Duration(seconds: 60),
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now {
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (_disposed) return;
       final venues = {
@@ -22,11 +27,32 @@ class MmEngineBalanceSource extends ChangeNotifier {
           unawaited(refresh(venue, force: false));
         }
       }
-      notifyListeners();
+      clock.value++;
     });
   }
-  final Future<List<Map<String, dynamic>>> Function(String) load;
-  final bool Function(String) canRefresh;
+
+  Future<List<Map<String, dynamic>>> Function(String) load;
+  bool Function(String) canRefresh;
+  final ValueNotifier<int> clock = ValueNotifier(0);
+  final Map<String, (String, bool)> viewPreferences = {};
+  void resume({
+    required Future<List<Map<String, dynamic>>> Function(String) load,
+    required bool Function(String) canRefresh,
+  }) {
+    if (_disposed) return;
+    this.load = load;
+    this.canRefresh = canRefresh;
+    _startTimer();
+  }
+
+  void suspend() {
+    _timer?.cancel();
+    _timer = null;
+    // Release the page callbacks while retaining data and in-flight reads.
+    load = (_) async => const [];
+    canRefresh = (_) => false;
+  }
+
   final Duration interval;
   final DateTime Function() _now;
   final _rows = <String, List<Map<String, dynamic>>>{};
@@ -35,7 +61,7 @@ class MmEngineBalanceSource extends ChangeNotifier {
   final _errors = <String, String>{};
   final _requests = <String, Future<void>>{};
   final _views = <Object, (String, bool)>{};
-  late final Timer _timer;
+  Timer? _timer;
   int _generation = 0;
   bool _disposed = false;
   List<Map<String, dynamic>> rows(String venue) => _rows[venue] ?? const [];
@@ -99,9 +125,11 @@ class MmEngineBalanceSource extends ChangeNotifier {
 
   @override
   void dispose() {
+    if (_disposed) return;
     _disposed = true;
-    _timer.cancel();
+    _timer?.cancel();
     _views.clear();
+    clock.dispose();
     super.dispose();
   }
 }

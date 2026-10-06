@@ -25,6 +25,23 @@ class PortfolioGrowthChart extends StatefulWidget {
 }
 
 class _PortfolioGrowthChartState extends State<PortfolioGrowthChart> {
+  late final PortfolioGrowthBloc _bloc;
+  final Object _viewOwner = Object();
+  @override
+  void initState() {
+    super.initState();
+    _bloc = context.read<PortfolioGrowthBloc>();
+    _bloc.add(PortfolioGrowthViewChanged(_viewOwner, true));
+  }
+
+  @override
+  void dispose() {
+    if (!_bloc.isClosed) {
+      _bloc.add(PortfolioGrowthViewChanged(_viewOwner, false));
+    }
+    super.dispose();
+  }
+
   late List<Coin> _selectedCoins = widget.initialCoins;
 
   Coin? get _singleCoinOrNull => _selectedCoins.singleOrNull;

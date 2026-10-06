@@ -9,6 +9,7 @@ class MmEngineBalanceRefresh extends ChangeNotifier {
     Future<List<Map<String, dynamic>>> Function(String venue)? load,
     bool Function(String venue)? canRefresh,
     this.shared,
+    this.viewKey,
     String initialVenue = 'MEXC',
     this.interval = const Duration(seconds: 60),
     DateTime Function()? now,
@@ -20,11 +21,22 @@ class MmEngineBalanceRefresh extends ChangeNotifier {
     if (shared == null) {
       _startTimer();
     } else {
+      final saved = shared!.viewPreferences[viewKey];
+      if (saved != null) {
+        venue = saved.$1;
+        expanded = saved.$2;
+      }
       shared!.observe(this, venue, expanded);
       shared!.addListener(_sharedChanged);
     }
   }
   final MmEngineBalanceSource? shared;
+  final String? viewKey;
+  Listenable get clock => shared?.clock ?? this;
+  void _remember() {
+    if (viewKey != null) shared?.viewPreferences[viewKey!] = (venue, expanded);
+  }
+
   void _sharedChanged() {
     if (!_disposed) notifyListeners();
   }
@@ -73,6 +85,7 @@ class MmEngineBalanceRefresh extends ChangeNotifier {
     if (value == venue) return;
     _generation++;
     venue = value;
+    _remember();
     shared?.observe(this, venue, expanded);
     notifyListeners();
     if (expanded) {
@@ -86,6 +99,7 @@ class MmEngineBalanceRefresh extends ChangeNotifier {
 
   void toggleExpanded() {
     expanded = !expanded;
+    _remember();
     if (shared != null) {
       shared!.observe(this, venue, expanded);
       if (expanded) unawaited(shared!.refresh(venue, force: false));
@@ -150,6 +164,7 @@ class MmEngineBalanceRefresh extends ChangeNotifier {
 
   @override
   void dispose() {
+    _remember();
     _disposed = true;
     _timer?.cancel();
     shared?.removeListener(_sharedChanged);

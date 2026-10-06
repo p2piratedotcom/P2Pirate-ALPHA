@@ -102,14 +102,14 @@ class _WalletOverviewState extends State<WalletOverview> {
             // Get 24h change data from the PortfolioGrowthBloc
             BlocBuilder<PortfolioGrowthBloc, PortfolioGrowthState>(
               builder: (context, state) {
-                final double totalChange24h =
+                final double? totalChange24h =
                     state is PortfolioGrowthChartLoadSuccess
                     ? state.totalChange24h
-                    : 0.0;
-                final double percentageChange24h =
+                    : null;
+                final double? percentageChange24h =
                     state is PortfolioGrowthChartLoadSuccess
                     ? state.percentageChange24h
-                    : 0.0;
+                    : null;
 
                 return BalanceSummaryWidget(
                   totalBalance: totalBalance,
@@ -175,14 +175,11 @@ class _WalletOverviewState extends State<WalletOverview> {
                   totalBalance != null && !valuation.isPartial && !hideBalances
                   ? BlocBuilder<PortfolioGrowthBloc, PortfolioGrowthState>(
                       builder: (context, state) {
-                        final double totalChange =
-                            state is PortfolioGrowthChartLoadSuccess
-                            ? state.percentageChange24h
-                            : 0.0;
-                        final double totalChange24h =
-                            state is PortfolioGrowthChartLoadSuccess
-                            ? state.totalChange24h
-                            : 0.0;
+                        if (state is! PortfolioGrowthChartLoadSuccess) {
+                          return const Text('24h change: —');
+                        }
+                        final double totalChange = state.percentageChange24h;
+                        final double totalChange24h = state.totalChange24h;
 
                         return TrendPercentageText(
                           percentage: totalChange,

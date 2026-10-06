@@ -34,7 +34,7 @@ class ExchangeRate extends StatelessWidget {
           style: theme.custom.tradingFormDetailsLabel,
         ),
         if (isEmptyData)
-          Text('0.00', style: theme.custom.tradingFormDetailsContent)
+          Text('—', style: theme.custom.tradingFormDetailsContent)
         else
           Flexible(
             child: _Rates(
@@ -111,7 +111,10 @@ class _Rates extends StatelessWidget {
       return getFormattedFiatAmount(context, base ?? '', Rational.zero);
     }
     return getFormattedFiatAmount(
-        context, base ?? '', rate?.inverse ?? Rational.zero);
+      context,
+      base ?? '',
+      rate?.inverse ?? Rational.zero,
+    );
   }
 
   String get price {

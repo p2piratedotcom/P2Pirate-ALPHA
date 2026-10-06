@@ -47,6 +47,7 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
   bool _loadedStatus = false;
   DateTime? _nextStatusAt;
   Timer? _timer;
+  final _expiryClock = ValueNotifier<int>(0);
 
   bool get _pending => _history.any(
     (row) => !const {
@@ -68,7 +69,7 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
   void initState() {
     super.initState();
     _timer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (mounted && _plan != null) setState(() {});
+      if (mounted && _plan != null) _expiryClock.value++;
       if (mounted &&
           !_busy &&
           !widget.busy &&
@@ -95,6 +96,7 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
   @override
   void dispose() {
     _timer?.cancel();
+    _expiryClock.dispose();
     super.dispose();
   }
 
@@ -530,17 +532,20 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
                 onPressed: inputDisabled ? null : _resetBudget,
                 child: const Text('Reset spending limits'),
               ),
-            ElevatedButton.icon(
-              onPressed:
-                  disabled ||
-                      !widget.live ||
-                      _expired ||
-                      _pending ||
-                      plan?['can_execute'] != true
-                  ? null
-                  : _execute,
-              icon: const Icon(Icons.balance),
-              label: const Text('Execute rebalance'),
+            ValueListenableBuilder<int>(
+              valueListenable: _expiryClock,
+              builder: (context, _, child) => ElevatedButton.icon(
+                onPressed:
+                    disabled ||
+                        !widget.live ||
+                        _expired ||
+                        _pending ||
+                        plan?['can_execute'] != true
+                    ? null
+                    : _execute,
+                icon: const Icon(Icons.balance),
+                label: const Text('Execute rebalance'),
+              ),
             ),
             TextButton.icon(
               onPressed: disabled ? null : _status,
@@ -593,9 +598,12 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
         ],
         if (plan != null) ...[
           const SizedBox(height: 12),
-          SelectableText(
-            'Maker orders included: ${(plan['maker_orders'] as List? ?? []).map((row) => "#${row['number']} ${row['sell']}/${row['buy']}").join(', ')} · '
-            '${_expired ? 'Proposal expired — Analyze again' : 'Proposal valid until ${DateTime.fromMillisecondsSinceEpoch(((plan['expires'] as num) * 1000).toInt()).toLocal().toIso8601String().split('.').first.replaceAll('T', ' ')}'}',
+          ValueListenableBuilder<int>(
+            valueListenable: _expiryClock,
+            builder: (context, _, child) => SelectableText(
+              'Maker orders included: ${(plan['maker_orders'] as List? ?? []).map((row) => "#${row['number']} ${row['sell']}/${row['buy']}").join(', ')} · '
+              '${_expired ? 'Proposal expired — Analyze again' : 'Proposal valid until ${DateTime.fromMillisecondsSinceEpoch(((plan['expires'] as num) * 1000).toInt()).toLocal().toIso8601String().split('.').first.replaceAll('T', ' ')}'}',
+            ),
           ),
           const SizedBox(height: 12),
           if (orders.isEmpty)

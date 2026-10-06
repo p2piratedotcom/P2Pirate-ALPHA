@@ -39,6 +39,20 @@ class ProfitLossBloc extends Bloc<ProfitLossEvent, ProfitLossState> {
       transformer: restartable(),
     );
     on<ProfitLossPortfolioChartClearRequested>(_onClearPortfolioProfitLoss);
+    on<ProfitLossSessionChanged>((event, emit) {
+      _sessionBound = true;
+      _walletId = event.walletId;
+      _generation++;
+      emit(const ProfitLossInitial());
+    });
+    on<ProfitLossViewChanged>((event, emit) {
+      _trackViews = true;
+      if (event.visible) {
+        _views.add(event.owner);
+      } else {
+        _views.remove(event.owner);
+      }
+    });
   }
 
   final ProfitLossRepository _profitLossRepository;
@@ -46,11 +60,18 @@ class ProfitLossBloc extends Bloc<ProfitLossEvent, ProfitLossState> {
 
   final _log = Logger('ProfitLossBloc');
   final UpdateFrequencyBackoffStrategy _backoffStrategy;
+  final Set<Object> _views = {};
+  bool _trackViews = false;
+  bool get _visible => !_trackViews || _views.isNotEmpty;
+  int _generation = 0;
+  bool _sessionBound = false;
+  String? _walletId;
 
   void _onClearPortfolioProfitLoss(
     ProfitLossPortfolioChartClearRequested event,
     Emitter<ProfitLossState> emit,
   ) {
+    _generation++;
     emit(const ProfitLossInitial());
   }
 
@@ -58,10 +79,17 @@ class ProfitLossBloc extends Bloc<ProfitLossEvent, ProfitLossState> {
     ProfitLossPortfolioChartLoadRequested event,
     Emitter<ProfitLossState> emit,
   ) async {
+    if (_sessionBound && (event.walletId != _walletId || _walletId == null)) {
+      return;
+    }
+    final generation = ++_generation;
+    bool current() => !emit.isDone && generation == _generation;
     try {
       final supportedCoins = await event.coins.filterSupportedCoins();
+      if (!current()) return;
       final filteredEventCoins = event.coins.withoutTestCoins();
       final initialActiveCoins = await supportedCoins.removeInactiveCoins(_sdk);
+      if (!current()) return;
       if (supportedCoins.isEmpty && filteredEventCoins.length <= 1) {
         return emit(
           PortfolioProfitLossChartUnsupported(
@@ -70,31 +98,37 @@ class ProfitLossBloc extends Bloc<ProfitLossEvent, ProfitLossState> {
         );
       }
 
-      await _getProfitLossChart(
-        event,
-        initialActiveCoins,
-        useCache: true,
-      ).then(emit.call).catchError((Object error, StackTrace stackTrace) {
-        const errorMessage = 'Failed to load CACHED portfolio profit/loss';
-        _log.warning(errorMessage, error, stackTrace);
-      });
+      await _getProfitLossChart(event, initialActiveCoins, useCache: true)
+          .then((value) {
+            if (current()) emit(value);
+          })
+          .catchError((Object error, StackTrace stackTrace) {
+            const errorMessage = 'Failed to load CACHED portfolio profit/loss';
+            _log.warning(errorMessage, error, stackTrace);
+          });
 
       // Fetch the un-cached version of the chart to update the cache.
+      if (!current()) return;
+      if (!_visible) {
+        await _runPeriodicUpdates(event, emit, generation);
+        return;
+      }
       if (supportedCoins.isNotEmpty) {
         await _sdk.waitForEnabledCoinsToPassThreshold(
           supportedCoins,
           delay: kActivationPollingInterval,
         );
       }
+      if (!current() || !_visible) return;
       final activeCoins = await supportedCoins.removeInactiveCoins(_sdk);
       if (activeCoins.isNotEmpty) {
-        await _getProfitLossChart(
-          event,
-          activeCoins,
-          useCache: false,
-        ).then(emit.call).catchError((Object e, StackTrace s) {
-          _log.severe('Failed to load uncached profit/loss chart', e, s);
-        });
+        await _getProfitLossChart(event, activeCoins, useCache: false)
+            .then((value) {
+              if (current()) emit(value);
+            })
+            .catchError((Object e, StackTrace s) {
+              _log.severe('Failed to load uncached profit/loss chart', e, s);
+            });
       }
     } catch (error, stackTrace) {
       _log.shout('Failed to load portfolio profit/loss', error, stackTrace);
@@ -103,10 +137,11 @@ class ProfitLossBloc extends Bloc<ProfitLossEvent, ProfitLossState> {
     }
 
     // Reset backoff strategy for new load request
+    if (!current()) return;
     _backoffStrategy.reset();
 
     // Create periodic update stream with dynamic intervals
-    await _runPeriodicUpdates(event, emit);
+    await _runPeriodicUpdates(event, emit, generation);
   }
 
   Future<ProfitLossState> _getProfitLossChart(
@@ -249,9 +284,10 @@ class ProfitLossBloc extends Bloc<ProfitLossEvent, ProfitLossState> {
   Future<void> _runPeriodicUpdates(
     ProfitLossPortfolioChartLoadRequested event,
     Emitter<ProfitLossState> emit,
+    int generation,
   ) async {
     while (true) {
-      if (isClosed || emit.isDone) {
+      if (isClosed || emit.isDone || generation != _generation) {
         _log.fine('Stopping profit/loss periodic updates: bloc closed.');
         break;
       }
@@ -261,7 +297,7 @@ class ProfitLossBloc extends Bloc<ProfitLossEvent, ProfitLossState> {
       try {
         await Future.delayed(_backoffStrategy.getNextInterval());
 
-        if (isClosed || emit.isDone) {
+        if (isClosed || emit.isDone || generation != _generation) {
           _log.fine(
             'Skipping profit/loss periodic update: bloc closed during delay.',
           );
@@ -271,6 +307,7 @@ class ProfitLossBloc extends Bloc<ProfitLossEvent, ProfitLossState> {
           break;
         }
 
+        if (!_visible) continue;
         final supportedCoins = await event.coins.filterSupportedCoins();
         final activeCoins = await supportedCoins.removeInactiveCoins(_sdk);
         if (_isStalePeriodicUpdate(event.selectedPeriod, stage: 'pre-fetch')) {
@@ -284,8 +321,10 @@ class ProfitLossBloc extends Bloc<ProfitLossEvent, ProfitLossState> {
         if (_isStalePeriodicUpdate(event.selectedPeriod, stage: 'pre-emit')) {
           break;
         }
+        if (emit.isDone || generation != _generation) return;
         emit(updatedChartState);
       } catch (error, stackTrace) {
+        if (emit.isDone || generation != _generation) return;
         if (_isStalePeriodicUpdate(event.selectedPeriod, stage: 'error')) {
           break;
         }

@@ -41,17 +41,38 @@ class PortfolioGrowthBloc
       transformer: restartable(),
     );
     on<PortfolioGrowthClearRequested>(_onClearPortfolioGrowth);
+    on<PortfolioGrowthSessionChanged>((event, emit) {
+      _sessionBound = true;
+      _walletId = event.walletId;
+      _generation++;
+      emit(const PortfolioGrowthInitial());
+    });
+    on<PortfolioGrowthViewChanged>((event, emit) {
+      _trackViews = true;
+      if (event.visible) {
+        _views.add(event.owner);
+      } else {
+        _views.remove(event.owner);
+      }
+    });
   }
 
   final PortfolioGrowthRepository _portfolioGrowthRepository;
   final KomodoDefiSdk _sdk;
   final _log = Logger('PortfolioGrowthBloc');
   final UpdateFrequencyBackoffStrategy _backoffStrategy;
+  final Set<Object> _views = {};
+  bool _trackViews = false;
+  bool get _visible => !_trackViews || _views.isNotEmpty;
+  int _generation = 0;
+  bool _sessionBound = false;
+  String? _walletId;
 
   void _onClearPortfolioGrowth(
     PortfolioGrowthClearRequested event,
     Emitter<PortfolioGrowthState> emit,
   ) {
+    _generation++;
     emit(const PortfolioGrowthInitial());
   }
 
@@ -59,6 +80,7 @@ class PortfolioGrowthBloc
     PortfolioGrowthPeriodChanged event,
     Emitter<PortfolioGrowthState> emit,
   ) {
+    if (_sessionBound && event.walletId != _walletId) return;
     final coins = event.coins.withoutTestCoins();
     final (
       int totalCoins,
@@ -120,6 +142,11 @@ class PortfolioGrowthBloc
     PortfolioGrowthLoadRequested event,
     Emitter<PortfolioGrowthState> emit,
   ) async {
+    if (_sessionBound && (event.walletId != _walletId || _walletId == null)) {
+      return;
+    }
+    final generation = ++_generation;
+    bool current() => !emit.isDone && generation == _generation;
     try {
       final List<Coin> coins = await event.coins.filterSupportedCoins(
         (coin) => _portfolioGrowthRepository.isCoinChartSupported(
@@ -130,6 +157,7 @@ class PortfolioGrowthBloc
       // Charts for individual coins (coin details) are parsed here as well,
       // and should be hidden if not supported.
       final filteredEventCoins = event.coins.withoutTestCoins();
+      if (!current()) return;
       if (coins.isEmpty && filteredEventCoins.length <= 1) {
         final (
           int totalCoins,
@@ -148,36 +176,42 @@ class PortfolioGrowthBloc
         );
       }
 
-      await _loadChart(
-        filteredEventCoins,
-        event,
-        useCache: true,
-      ).then(emit.call).catchError((Object error, StackTrace stackTrace) {
-        const errorMessage = 'Failed to load cached chart';
-        _log.warning(errorMessage, error, stackTrace);
-        // ignore cached errors, as the periodic refresh attempts should recover
-        // at the cost of a longer first loading time.
-      });
+      await _loadChart(filteredEventCoins, event, useCache: true)
+          .then((value) {
+            if (current()) emit(value);
+          })
+          .catchError((Object error, StackTrace stackTrace) {
+            const errorMessage = 'Failed to load cached chart';
+            _log.warning(errorMessage, error, stackTrace);
+            // ignore cached errors, as the periodic refresh attempts should recover
+            // at the cost of a longer first loading time.
+          });
 
       // In case most coins are activating on wallet startup, wait for at least
       // 50% of the coins to be enabled before attempting to load the uncached
       // chart.
+      if (!current()) return;
+      if (!_visible) {
+        await _runPeriodicUpdates(event, emit, generation);
+        return;
+      }
       await _sdk.waitForEnabledCoinsToPassThreshold(
         filteredEventCoins,
         delay: kActivationPollingInterval,
       );
       // Only remove inactivate/activating coins after an attempt to load the
       // cached chart, as the cached chart may contain inactive coins.
-      await _loadChart(
-        filteredEventCoins,
-        event,
-        useCache: false,
-      ).then(emit.call).catchError((Object error, StackTrace stackTrace) {
-        _log.shout('Failed to load chart', error, stackTrace);
-        // Don't emit an error state here. If cached and uncached attempts
-        // both fail, the periodic refresh attempts should recovery
-        // at the cost of a longer first loading time.
-      });
+      if (!current() || !_visible) return;
+      await _loadChart(filteredEventCoins, event, useCache: false)
+          .then((value) {
+            if (current()) emit(value);
+          })
+          .catchError((Object error, StackTrace stackTrace) {
+            _log.shout('Failed to load chart', error, stackTrace);
+            // Don't emit an error state here. If cached and uncached attempts
+            // both fail, the periodic refresh attempts should recovery
+            // at the cost of a longer first loading time.
+          });
     } catch (error, stackTrace) {
       _log.shout('Failed to load portfolio growth', error, stackTrace);
       // Don't emit an error state here, as the periodic refresh attempts should
@@ -185,10 +219,11 @@ class PortfolioGrowthBloc
     }
 
     // Reset backoff strategy for new load request
+    if (!current()) return;
     _backoffStrategy.reset();
 
     // Create periodic update stream with dynamic intervals
-    await _runPeriodicUpdates(event, emit);
+    await _runPeriodicUpdates(event, emit, generation);
   }
 
   Future<PortfolioGrowthState> _loadChart(
@@ -320,31 +355,35 @@ class PortfolioGrowthBloc
   Future<void> _runPeriodicUpdates(
     PortfolioGrowthLoadRequested event,
     Emitter<PortfolioGrowthState> emit,
+    int generation,
   ) async {
     while (true) {
-      if (isClosed || emit.isDone) {
+      if (isClosed || emit.isDone || generation != _generation) {
         _log.fine('Stopping portfolio growth periodic updates: bloc closed.');
         break;
       }
       try {
         await Future.delayed(_backoffStrategy.getNextInterval());
 
-        if (isClosed || emit.isDone) {
+        if (isClosed || emit.isDone || generation != _generation) {
           _log.fine(
             'Skipping portfolio growth periodic update: bloc closed during delay.',
           );
           break;
         }
 
+        if (!_visible) continue;
         final (chart, coins) = await _fetchPortfolioGrowthChart(event);
-        emit(
-          await _handlePortfolioGrowthUpdate(
-            chart,
-            event.selectedPeriod,
-            coins,
-          ),
+        if (emit.isDone || generation != _generation) return;
+        final updated = await _handlePortfolioGrowthUpdate(
+          chart,
+          event.selectedPeriod,
+          coins,
         );
+        if (emit.isDone || generation != _generation) return;
+        emit(updated);
       } catch (error, stackTrace) {
+        if (emit.isDone || generation != _generation) return;
         _log.shout('Failed to load portfolio growth', error, stackTrace);
         final (
           int totalCoins,

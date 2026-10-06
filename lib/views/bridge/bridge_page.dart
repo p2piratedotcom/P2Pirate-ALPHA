@@ -1,5 +1,6 @@
 import 'package:app_theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:web_dex/router/state/session_navigation_memory.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:web_dex/bloc/auth_bloc/auth_bloc.dart';
 import 'package:web_dex/common/screen.dart';
@@ -31,6 +32,10 @@ class _BridgePageState extends State<BridgePage> with TickerProviderStateMixin {
 
   @override
   void initState() {
+    SessionNavigationMemory.bindWallet(
+      context.read<AuthBloc>().state.currentUser?.walletId.compoundId,
+    );
+    _activeTabIndex = SessionNavigationMemory.bridgeTab;
     routingState.bridgeState.addListener(_onRouteChange);
     super.initState();
   }
@@ -106,6 +111,7 @@ class _BridgePageState extends State<BridgePage> with TickerProviderStateMixin {
   }
 
   void _setActiveTab(int i) {
+    SessionNavigationMemory.bridgeTab = i;
     setState(() {
       _activeTabIndex = i;
     });

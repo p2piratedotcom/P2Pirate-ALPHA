@@ -11,6 +11,21 @@ class PortfolioGrowthClearRequested extends PortfolioGrowthEvent {
   const PortfolioGrowthClearRequested();
 }
 
+class PortfolioGrowthSessionChanged extends PortfolioGrowthEvent {
+  const PortfolioGrowthSessionChanged(this.walletId);
+  final String? walletId;
+  @override
+  List<Object> get props => [walletId ?? ''];
+}
+
+class PortfolioGrowthViewChanged extends PortfolioGrowthEvent {
+  const PortfolioGrowthViewChanged(this.owner, this.visible);
+  final Object owner;
+  final bool visible;
+  @override
+  List<Object> get props => [owner, visible];
+}
+
 class PortfolioGrowthLoadRequested extends PortfolioGrowthEvent {
   const PortfolioGrowthLoadRequested({
     required this.coins,

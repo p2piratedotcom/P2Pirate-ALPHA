@@ -17,12 +17,14 @@ class MmEngineRebalanceSection extends StatefulWidget {
     required this.onBusy,
     required this.onChanged,
     required this.onConfigure,
+    this.credentialsLoading = false,
   });
   final Map<String, String> venues;
   final MmEngineBalanceSource balanceSource;
   final Map credentials;
   final List<Map<String, dynamic>> strategies;
   final bool busy, live;
+  final bool credentialsLoading;
   final ValueChanged<bool> onBusy;
   final VoidCallback onChanged;
   final ValueChanged<String>? onConfigure;
@@ -38,6 +40,7 @@ class _MmEngineRebalanceSectionState extends State<MmEngineRebalanceSection> {
     super.initState();
     _balances = MmEngineBalanceRefresh(
       shared: widget.balanceSource,
+      viewKey: 'rebalance',
       initialVenue: widget.venues.containsKey('MEXC') || widget.venues.isEmpty
           ? 'MEXC'
           : widget.venues.keys.first,
@@ -115,7 +118,10 @@ class _MmEngineRebalanceSectionState extends State<MmEngineRebalanceSection> {
                   ),
                   const SizedBox(height: 20),
                   const Divider(),
-                  if (widget.credentials[venue] != true)
+                  if (widget.credentialsLoading)
+                    const Text('Checking saved CEX configuration…'),
+                  if (!widget.credentialsLoading &&
+                      widget.credentials[venue] != true)
                     TextButton(
                       onPressed: widget.busy || widget.onConfigure == null
                           ? null
@@ -125,10 +131,13 @@ class _MmEngineRebalanceSectionState extends State<MmEngineRebalanceSection> {
                   OverflowBar(
                     alignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        _balances.loading
-                            ? 'Refreshing $venue balances…'
-                            : 'Next balance refresh in ${_balances.secondsRemaining}s',
+                      ListenableBuilder(
+                        listenable: _balances.clock,
+                        builder: (context, child) => Text(
+                          _balances.loading
+                              ? 'Refreshing $venue balances…'
+                              : 'Next balance refresh in ${_balances.secondsRemaining}s',
+                        ),
                       ),
                       TextButton.icon(
                         onPressed: widget.busy || _balances.loading

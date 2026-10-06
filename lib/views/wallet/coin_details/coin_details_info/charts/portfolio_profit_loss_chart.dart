@@ -22,6 +22,21 @@ class PortfolioProfitLossChart extends StatefulWidget {
 }
 
 class PortfolioProfitLossChartState extends State<PortfolioProfitLossChart> {
+  late final ProfitLossBloc _bloc;
+  final Object _viewOwner = Object();
+  @override
+  void initState() {
+    super.initState();
+    _bloc = context.read<ProfitLossBloc>();
+    _bloc.add(ProfitLossViewChanged(_viewOwner, true));
+  }
+
+  @override
+  void dispose() {
+    if (!_bloc.isClosed) _bloc.add(ProfitLossViewChanged(_viewOwner, false));
+    super.dispose();
+  }
+
   late List<Coin> _selectedCoins = widget.initialCoins;
 
   Coin? get _singleCoinOrNull => _selectedCoins.singleOrNull;

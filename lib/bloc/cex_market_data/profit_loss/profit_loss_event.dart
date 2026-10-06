@@ -11,6 +11,21 @@ class ProfitLossPortfolioChartClearRequested extends ProfitLossEvent {
   const ProfitLossPortfolioChartClearRequested();
 }
 
+class ProfitLossSessionChanged extends ProfitLossEvent {
+  const ProfitLossSessionChanged(this.walletId);
+  final String? walletId;
+  @override
+  List<Object> get props => [walletId ?? ''];
+}
+
+class ProfitLossViewChanged extends ProfitLossEvent {
+  const ProfitLossViewChanged(this.owner, this.visible);
+  final Object owner;
+  final bool visible;
+  @override
+  List<Object> get props => [owner, visible];
+}
+
 class ProfitLossPortfolioChartLoadRequested extends ProfitLossEvent {
   const ProfitLossPortfolioChartLoadRequested({
     required this.coins,
@@ -25,18 +40,11 @@ class ProfitLossPortfolioChartLoadRequested extends ProfitLossEvent {
   final String walletId;
 
   @override
-  List<Object> get props => [
-        coins,
-        fiatCoinId,
-        selectedPeriod,
-        walletId,
-      ];
+  List<Object> get props => [coins, fiatCoinId, selectedPeriod, walletId];
 }
 
 class ProfitLossPortfolioPeriodChanged extends ProfitLossEvent {
-  const ProfitLossPortfolioPeriodChanged({
-    required this.selectedPeriod,
-  });
+  const ProfitLossPortfolioPeriodChanged({required this.selectedPeriod});
 
   final Duration selectedPeriod;
 

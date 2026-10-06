@@ -24,6 +24,12 @@ import 'package:web_dex/bloc/coins_manager/coins_manager_bloc.dart';
 import 'package:web_dex/router/state/wallet_state.dart';
 import 'package:web_dex/model/main_menu_value.dart';
 import 'package:web_dex/shared/widgets/quick_login_switch.dart';
+import 'package:web_dex/views/market_maker_bot/mm_engine_page_memory.dart';
+import 'package:web_dex/views/wallet/wallet_page/wallet_main/wallet_page_memory.dart';
+import 'package:web_dex/router/state/session_navigation_memory.dart';
+import 'package:web_dex/bloc/cex_market_data/portfolio_growth/portfolio_growth_bloc.dart';
+import 'package:web_dex/bloc/cex_market_data/profit_loss/profit_loss_bloc.dart';
+import 'package:web_dex/bloc/assets_overview/bloc/asset_overview_bloc.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -40,6 +46,22 @@ class _MainLayoutState extends State<MainLayout> {
       showMessageBeforeUnload('Are you sure you want to leave?');
     }
     final tradingStatusBloc = context.read<TradingStatusBloc>();
+    SessionNavigationMemory.bindWallet(
+      context.read<AuthBloc>().state.currentUser?.walletId.compoundId,
+    );
+    final chartWallet = context
+        .read<AuthBloc>()
+        .state
+        .currentUser
+        ?.walletId
+        .name;
+    context.read<PortfolioGrowthBloc>().add(
+      PortfolioGrowthSessionChanged(chartWallet),
+    );
+    context.read<ProfitLossBloc>().add(ProfitLossSessionChanged(chartWallet));
+    context.read<AssetOverviewBloc>().add(
+      AssetOverviewSessionChanged(chartWallet),
+    );
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await AlphaVersionWarningService().run();
@@ -75,8 +97,25 @@ class _MainLayoutState extends State<MainLayout> {
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<AuthBloc, AuthBlocState>(
-      listenWhen: (previous, current) => previous.mode != current.mode,
+      listenWhen: (previous, current) =>
+          previous.mode != current.mode ||
+          previous.currentUser?.walletId != current.currentUser?.walletId,
       listener: (context, state) {
+        // Display caches must not survive logout/account replacement.
+        MmEnginePageMemory.clear();
+        WalletPageMemory.clear();
+        SessionNavigationMemory.bindWallet(
+          state.currentUser?.walletId.compoundId,
+        );
+        context.read<PortfolioGrowthBloc>().add(
+          PortfolioGrowthSessionChanged(state.currentUser?.walletId.name),
+        );
+        context.read<ProfitLossBloc>().add(
+          ProfitLossSessionChanged(state.currentUser?.walletId.name),
+        );
+        context.read<AssetOverviewBloc>().add(
+          AssetOverviewSessionChanged(state.currentUser?.walletId.name),
+        );
         // Route after login completes (works for both software and hardware wallets)
         if (state.mode == AuthorizeMode.logIn) {
           QuickLoginSwitch.trackUserLoggedIn();

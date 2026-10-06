@@ -9,9 +9,11 @@ import 'package:web_dex/shared/ui/ui_tab_bar/ui_tab.dart';
 import 'package:web_dex/shared/ui/ui_tab_bar/ui_tab_bar.dart';
 
 class BridgeTabBar extends StatefulWidget {
-  const BridgeTabBar(
-      {Key? key, required this.currentTabIndex, required this.onTabClick})
-      : super(key: key);
+  const BridgeTabBar({
+    super.key,
+    required this.currentTabIndex,
+    required this.onTabClick,
+  });
   final int currentTabIndex;
   final Function(int) onTabClick;
 
@@ -28,8 +30,9 @@ class _BridgeTabBarState extends State<BridgeTabBar> {
   void initState() {
     _onDataChange(null);
 
-    final tradingEntitiesBloc =
-        RepositoryProvider.of<TradingEntitiesBloc>(context);
+    final tradingEntitiesBloc = RepositoryProvider.of<TradingEntitiesBloc>(
+      context,
+    );
     _listeners.add(tradingEntitiesBloc.outMyOrders.listen(_onDataChange));
     _listeners.add(tradingEntitiesBloc.outSwaps.listen(_onDataChange));
 
@@ -38,7 +41,9 @@ class _BridgeTabBarState extends State<BridgeTabBar> {
 
   @override
   void dispose() {
-    _listeners.map((listener) => listener.cancel());
+    for (final listener in _listeners) {
+      unawaited(listener.cancel());
+    }
 
     super.dispose();
   }
@@ -73,8 +78,9 @@ class _BridgeTabBarState extends State<BridgeTabBar> {
   void _onDataChange(dynamic _) {
     if (!mounted) return;
 
-    final tradingEntitiesBloc =
-        RepositoryProvider.of<TradingEntitiesBloc>(context);
+    final tradingEntitiesBloc = RepositoryProvider.of<TradingEntitiesBloc>(
+      context,
+    );
     setState(() {
       _inProgressCount = tradingEntitiesBloc.swaps
           .where((swap) => !swap.isCompleted && swap.isTheSameTicker)
