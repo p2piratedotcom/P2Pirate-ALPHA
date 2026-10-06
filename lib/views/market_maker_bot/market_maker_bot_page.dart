@@ -268,6 +268,9 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
         _memory.sessionRevision == engine.sessionRevision) {
       return;
     }
+    // Fence any dashboard reply captured before this session, independently of
+    // the caller's existing busy/reconnect serialization.
+    _refreshGeneration++;
     _balanceRefresh.invalidate(clear: true);
     _memory.strategies = null;
     _memory.reconciliation = null;

@@ -23,7 +23,8 @@ timestamps are preserved: restoring a display never makes old data fresh. No
 rebalance proposal, approval, API credential or trading authorization is cached.
 Reconnects and successful live/preview mode switches use the same display-session
 adoption path: old snapshots and balance rows are cleared before reading the new
-process, then fresh snapshots can be remembered under its new revision. A failed
+process, and the dashboard refresh generation rejects predecessor replies. Fresh
+snapshots can then be remembered under the new revision. A failed
 or wrong-wallet restart cannot relabel the old snapshot as belonging to it.
 Off-page display timers are suspended, with same-session in-flight balance reads
 allowed to finish. Each venue continues to have one shared display request.
