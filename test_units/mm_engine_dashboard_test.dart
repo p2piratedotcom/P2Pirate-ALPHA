@@ -396,7 +396,7 @@ void main() {
       expect(find.text('12'), findsOneWidget);
       expect(find.text('ARRR'), findsOneWidget);
       expect(find.text('USDT-BEP20'), findsOneWidget);
-      expect(find.text('auto'), findsNWidgets(2));
+      expect(find.text('Auto · paused'), findsNWidgets(2));
       expect(find.text('Manual pause'), findsOneWidget);
       await tester.ensureVisible(find.text('Modify'));
       await tester.tap(find.text('Modify'));
@@ -451,9 +451,9 @@ void main() {
         ),
       ),
     );
-    expect(find.text('4'), findsOneWidget);
+    expect(find.text('Fixed · 4'), findsOneWidget);
     expect(find.text('0.25'), findsNothing);
-    expect(find.text('5'), findsOneWidget);
+    expect(find.text('Fixed · 5'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
