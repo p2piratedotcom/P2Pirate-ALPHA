@@ -808,32 +808,26 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                 'Wallet or engine session changed. Reopen the maker form.',
               );
             }
-            if (existing != null) {
-              await _requireConfirmedStatus();
-              final id = existing['id'];
-              final current = ((_strategies?['strategies'] as List?) ?? [])
-                  .whereType<Map<String, dynamic>>()
-                  .where((row) => row['id'] == id);
-              if (current.isEmpty ||
-                  current.first['enabled'] != 0 ||
-                  current.first['state'] != 'PAUSED' ||
-                  _orders.any((order) => order['strategy_id'] == id)) {
-                throw StateError(
-                  'Order state changed. Pause and withdraw it before modifying.',
-                );
-              }
-            }
-            await MmEngineService.instance.request(
-              'POST',
-              existing == null
-                  ? '/v1/strategies/create'
-                  : '/v1/strategies/update',
-              body: existing == null
-                  ? {
-                      'specs': [spec],
-                      'confirmation': 'SALVA IN PAUSA',
-                    }
-                  : {'spec': spec, 'confirmation': 'AGGIORNA IN PAUSA'},
+            await saveMmEnginePausedMaker(
+              spec: spec,
+              modifying: existing != null,
+              isCurrentSession: sameSession,
+              request: MmEngineService.instance.request,
+              verifyModification: () async {
+                await _requireConfirmedStatus();
+                final id = existing!['id'];
+                final current = ((_strategies?['strategies'] as List?) ?? [])
+                    .whereType<Map<String, dynamic>>()
+                    .where((row) => row['id'] == id);
+                if (current.isEmpty ||
+                    current.first['enabled'] != 0 ||
+                    current.first['state'] != 'PAUSED' ||
+                    _orders.any((order) => order['strategy_id'] == id)) {
+                  throw StateError(
+                    'Order state changed. Pause and withdraw it before modifying.',
+                  );
+                }
+              },
             );
             if (sameSession()) await _refresh();
             _memory.makerDrafts.remove(draftKey);

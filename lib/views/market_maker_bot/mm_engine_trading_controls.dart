@@ -7,6 +7,38 @@ typedef MmEngineControlRequest =
       required Map<String, Object?> body,
     });
 
+/// Session-bound configuration save; an awaited modification read cannot
+/// transfer an approval to a replacement engine process.
+Future<void> saveMmEnginePausedMaker({
+  required Map<String, Object?> spec,
+  required bool modifying,
+  required bool Function() isCurrentSession,
+  required Future<void> Function() verifyModification,
+  required MmEngineControlRequest request,
+}) async {
+  void requireSession() {
+    if (!isCurrentSession()) {
+      throw StateError(
+        'Wallet or engine session changed. Reopen the maker form.',
+      );
+    }
+  }
+
+  requireSession();
+  if (modifying) await verifyModification();
+  requireSession();
+  await request(
+    'POST',
+    modifying ? '/v1/strategies/update' : '/v1/strategies/create',
+    body: modifying
+        ? {'spec': spec, 'confirmation': 'AGGIORNA IN PAUSA'}
+        : {
+            'specs': [spec],
+            'confirmation': 'SALVA IN PAUSA',
+          },
+  );
+}
+
 const mmEngineStartLiveNotice =
     'P2Pirate Trading Engine can publish funded KDF maker orders and place real '
     'hedges on the selected CEX. Starting live mode keeps all orders paused. '

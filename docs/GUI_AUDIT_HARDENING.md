@@ -33,3 +33,8 @@ policy. SDK/KDF behavior and the SDK gitlink are unchanged.
 Fixtures use disposable state; no funded swap/maker/rebalance is submitted by the
 suite. Native screen-reader acceptance, release frame timing and funded flows need
 separate evidence. Large-list virtualization remains a profiling candidate.
+
+Configuration saves use `saveMmEnginePausedMaker`: modification-status refresh
+is awaited before the final captured-session check and paused-save request. A
+replacement engine cannot inherit an approval from a predecessor. Session adoption
+clears drafts; stale dialogs cannot repopulate them through a later capture.
