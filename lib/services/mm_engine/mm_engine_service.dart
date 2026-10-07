@@ -40,6 +40,7 @@ class MmEngineService {
   bool rebalanceSupported = false;
   bool rebalanceSelectionSupported = false;
   bool rebalanceIdealSupported = false;
+  bool optionalHedgingSupported = false;
   int _sessionRevision = 0;
   int get sessionRevision => _sessionRevision;
 
@@ -239,6 +240,7 @@ class MmEngineService {
       _token = token;
       _profile = walletId;
       final capabilities = await request('GET', '/v1/capabilities');
+      optionalHedgingSupported = capabilities['optional_hedging'] == 1;
       rebalanceSupported = capabilities['rebalance'] == true;
       rebalanceSelectionSupported = capabilities['rebalance_selection'] == 1;
       rebalanceIdealSupported = capabilities['rebalance_ideal'] == true;
@@ -436,6 +438,7 @@ class MmEngineService {
     rebalanceSupported = false;
     rebalanceSelectionSupported = false;
     rebalanceIdealSupported = false;
+    optionalHedgingSupported = false;
     _process = null;
     _baseUrl = null;
     _token = null;

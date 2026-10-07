@@ -143,7 +143,9 @@ class _MmEngineRebalancePanelState extends State<MmEngineRebalancePanel> {
 
   List<Map<String, dynamic>> get _makers => widget.strategies.where((row) {
     final spec = row['spec'] as Map?;
-    return spec?['cex'] == widget.venue && row['state'] != 'DELETED';
+    return spec?['cex'] == widget.venue &&
+        spec?['hedging_enabled'] != false &&
+        row['state'] != 'DELETED';
   }).toList();
 
   bool get _validSelection =>

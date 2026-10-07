@@ -405,6 +405,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                 'updated_at',
                 'observed_at_ms',
                 'last_success_ms',
+                'observed_ms',
                 'last_write',
               }.contains(e.key) &&
               !(strategy && e.key == 'preview'))
@@ -442,9 +443,26 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     }
   }
 
+  bool get _liveRequiresCexCredentials {
+    if (!MmEngineService.instance.optionalHedgingSupported ||
+        _strategies == null ||
+        _statusStale ||
+        _statusError != null) {
+      return true;
+    }
+    return ((_strategies?['strategies'] as List?) ?? const [])
+        .whereType<Map>()
+        .any(
+          (row) =>
+              row['enabled'] == 1 &&
+              (row['spec'] as Map?)?['hedging_enabled'] != false,
+        );
+  }
+
   Future<void> _setLive(bool enabled) async {
     final keyring = _credentials?['venues'];
     if (enabled &&
+        _liveRequiresCexCredentials &&
         (keyring is! Map || !keyring.values.any((value) => value == true))) {
       setState(
         () => _error = 'Configure at least one exchange before live trading.',
@@ -480,6 +498,15 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     await _runBusy(() async {
       _balanceRefresh.invalidate();
       try {
+        if (enabled) {
+          await _requireConfirmedStatus();
+          final currentKeyring = _credentials?['venues'];
+          if (_liveRequiresCexCredentials &&
+              (currentKeyring is! Map ||
+                  !currentKeyring.values.any((value) => value == true))) {
+            throw StateError('Configure a CEX before enabling hedged makers.');
+          }
+        }
         await switchMmEngineTradingMode(
           enabled: enabled,
           request: MmEngineService.instance.request,
@@ -540,7 +567,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Only the orders below will be activated. This can publish real KDF maker orders and hedge completed swaps on their configured exchanges.',
+                  'Only these makers will be activated and may publish real KDF orders. Hedging runs only for makers whose saved Hedging choice is On.',
                 ),
                 const SizedBox(height: 16),
                 for (final row in selected)
@@ -718,6 +745,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
       context: context,
       barrierDismissible: false,
       builder: (context) => MmEngineStrategyForm(
+        allowOptionalHedging: MmEngineService.instance.optionalHedgingSupported,
         activeTickers: activeTickers,
         venues: _venues,
         strategyId: strategyId,
@@ -757,9 +785,17 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
             );
           }
           final available = _credentials?['venues'];
-          if (available is! Map || available[spec['cex']] != true) {
+          final hedging = spec['hedging_enabled'] != false;
+          if (hedging &&
+              (available is! Map || available[spec['cex']] != true)) {
             throw StateError(
               'Configure ${spec['cex']} API credentials before preview. Your draft is kept.',
+            );
+          }
+          if ((hedging || spec['price_mode'] == 'auto') &&
+              !_venues.containsKey(spec['cex'])) {
+            throw StateError(
+              'Restore the public CEX price plugin before preview. Your draft is kept.',
             );
           }
           setState(() => _busy = true);
@@ -1282,6 +1318,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                         ),
                       MmEngineDashboard(
                         orders: _orders,
+                        sharedCoverage: _strategies?['shared_coverage'] as Map?,
                         strategies: strategies.toList(),
                         venue: _venue,
                         venueLabels: _venues,

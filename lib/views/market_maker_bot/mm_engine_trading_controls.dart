@@ -43,7 +43,8 @@ const mmEngineStartLiveNotice =
     'P2Pirate Trading Engine can publish funded KDF maker orders and place real '
     'hedges on the selected CEX. Starting live mode keeps all orders paused. '
     'Select the orders you want and press Start selected orders to activate them. '
-    'Check balances, CEX API permissions and order limits first. '
+    'Check wallet balances and order limits first. Makers with Hedging On also '
+    'require CEX API permissions and hedge funding; Hedging Off needs no CEX keys. '
     'Orders you explicitly start may resume when you next open this wallet.';
 
 Set<String> startableMakerOrderIds(
