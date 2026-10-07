@@ -32,6 +32,7 @@ class MmEngineStrategyForm extends StatefulWidget {
     required this.strategyId,
     this.venues = const {'MEXC': 'MEXC', 'GATE': 'Gate'},
     this.initialSpec,
+    this.allowOptionalHedging = false,
     this.availableBalances = const {},
     this.loadBalance,
     this.onPreview,
@@ -44,6 +45,7 @@ class MmEngineStrategyForm extends StatefulWidget {
   final Map<String, String> venues;
   final String strategyId;
   final Map<String, dynamic>? initialSpec;
+  final bool allowOptionalHedging;
   final Map<String, String> availableBalances;
   final Future<String?> Function(String ticker)? loadBalance;
 
@@ -84,6 +86,7 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
   String _venue = 'MEXC';
   String _side = 'SELL_ARRR';
   bool _replenish = true;
+  bool _hedgingEnabled = true;
   bool _autoPrice = true;
   bool _autoQuantity = true;
   bool _submitting = false;
@@ -142,6 +145,7 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
       _quoteTicker = '${quote['ticker']}';
       _baseAsset.text = '${base['asset']}';
       _quoteAsset.text = '${quote['asset']}';
+      _hedgingEnabled = spec['hedging_enabled'] != false;
       _venue = '${spec['cex']}';
       _side = '${spec['side']}';
       _premium.text =
@@ -176,6 +180,9 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
         }
         _venue = draft['venue'] as String? ?? _venue;
         _side = draft['side'] as String? ?? _side;
+      }
+      if (widget.initialSpec == null && widget.allowOptionalHedging) {
+        _hedgingEnabled = draft['hedgingEnabled'] as bool? ?? true;
       }
       _autoPrice = draft['autoPrice'] as bool? ?? _autoPrice;
       _autoQuantity = draft['autoQuantity'] as bool? ?? _autoQuantity;
@@ -273,6 +280,7 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
         'fixedPrice': _fixedPrice.text,
         'fixedSold': _fixedSold.text,
         'updateSeconds': _updateSeconds.text,
+        'hedgingEnabled': _hedgingEnabled,
         'autoPrice': _autoPrice,
         'autoQuantity': _autoQuantity,
         'replenish': _replenish,
@@ -337,16 +345,18 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
         'Exact exchange asset code for the quote wallet coin, for example USDT for USDT-BEP20.',
     'Hedge exchange':
         'Exchange where the engine hedges completed KDF swaps. Requires Spot read and trading API permissions.',
+    'Price reference CEX':
+        'Public price source only. No private API credentials or CEX hedge balance is required when hedging is off.',
     'KDF maker side':
         'Sell base spends base and receives quote; Buy base spends quote and receives base.',
     'Premium (%)':
-        'Markup relative to the exchange reference price. Fees and risk limits also affect the final quote.',
+        'Markup relative to the exchange reference. Hedged makers also include hedge costs; fixed prices use the explicit entered price.',
     'Automatic price':
         'Recalculate KDF price from current exchange order books and the premium. Off uses a fixed quote-per-base price.',
     'Fixed KDF price':
-        'Fixed quote coin units per one base coin. Exchange hedge and safety checks still apply.',
+        'Fixed quote coin units per one base coin. This price is not automatically repriced. Wallet balance and budget checks always apply.',
     'Automatic quantity':
-        'Size each order from wallet funds, exchange hedge balances, market depth and budget limits.',
+        'With hedging on, size from wallet funds, CEX hedge capacity and budgets. With hedging off, size from wallet funds and budgets only.',
     'Fixed sold amount':
         'Amount of the coin you sell on KDF. Safety limits may reduce the publishable amount.',
     'Maximum sold per order (optional)':
@@ -440,6 +450,9 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
       'scale_group': widget.initialSpec?['scale_group'] ?? '',
       'auto_fraction': widget.initialSpec?['auto_fraction'] ?? '1',
       'cex': _venue,
+      if (widget.allowOptionalHedging ||
+          widget.initialSpec?.containsKey('hedging_enabled') == true)
+        'hedging_enabled': _hedgingEnabled,
     };
     // Engine Spot routes use USDT as numeraire. Preserve the selected sell/buy
     // semantics when the user puts USDT on the base side of the wallet pair.
@@ -537,30 +550,61 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    initialValue: _venue,
-                    decoration: _decoration('Hedge exchange'),
-                    items: [
-                      if (!_venueAvailable)
-                        DropdownMenuItem(
-                          value: _venue,
-                          enabled: false,
-                          child: Text('$_venue (plugin unavailable)'),
-                        ),
-                      for (final entry in widget.venues.entries)
-                        DropdownMenuItem(
-                          value: entry.key,
-                          child: Text(
-                            entry.value.toLowerCase().endsWith('spot')
-                                ? entry.value
-                                : '${entry.value} Spot',
-                          ),
-                        ),
-                    ],
-                    onChanged: widget.initialSpec != null
+                  SwitchListTile(
+                    title: const Text('Hedging'),
+                    subtitle: Text(
+                      widget.initialSpec != null
+                          ? 'Locked for this maker. Create a new maker to change hedging.'
+                          : 'Hedge completed swaps on the CEX. This choice cannot be changed after creation.',
+                    ),
+                    value: _hedgingEnabled,
+                    onChanged:
+                        widget.initialSpec != null ||
+                            !widget.allowOptionalHedging
                         ? null
-                        : (value) => setState(() => _venue = value ?? _venue),
+                        : (value) => setState(() => _hedgingEnabled = value),
                   ),
+                  if (!widget.allowOptionalHedging &&
+                      widget.initialSpec == null)
+                    const Text(
+                      'An updated engine is required to create makers without hedging.',
+                    ),
+                  if (!_hedgingEnabled)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        'No CEX trade will compensate a swap. Wallet inventory changes remain exposed. Choose a fixed price or a public CEX price reference below.',
+                      ),
+                    ),
+                  if (_hedgingEnabled || _autoPrice)
+                    DropdownButtonFormField<String>(
+                      initialValue: _venue,
+                      decoration: _decoration(
+                        _hedgingEnabled
+                            ? 'Hedge exchange'
+                            : 'Price reference CEX',
+                      ),
+                      items: [
+                        if ((_hedgingEnabled || _autoPrice) && !_venueAvailable)
+                          DropdownMenuItem(
+                            value: _venue,
+                            enabled: false,
+                            child: Text('$_venue (plugin unavailable)'),
+                          ),
+                        for (final entry in widget.venues.entries)
+                          DropdownMenuItem(
+                            value: entry.key,
+                            child: Text(
+                              entry.value.toLowerCase().endsWith('spot')
+                                  ? entry.value
+                                  : '${entry.value} Spot',
+                            ),
+                          ),
+                      ],
+                      onChanged: widget.initialSpec != null
+                          ? null
+                          : (value) => setState(() => _venue = value ?? _venue),
+                    ),
                   if (!_venueAvailable)
                     const Text(
                       'The saved CEX plugin is unavailable. Restore it before previewing or modifying this order; its route is preserved.',
@@ -593,6 +637,11 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
                     validator: _premiumPercent,
                   ),
                   SwitchListTile(
+                    subtitle: !_hedgingEnabled
+                        ? const Text(
+                            'Price reference only; no hedging or CEX balance requirement.',
+                          )
+                        : null,
                     title: _helpTitle('Automatic price'),
                     value: _autoPrice,
                     onChanged: (value) => setState(() => _autoPrice = value),
@@ -672,7 +721,11 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
           message:
               'Read market depth and balances, validate hedge capacity and show the proposed order. This does not publish it.',
           child: ElevatedButton(
-            onPressed: _venueAvailable && !_submitting ? _submit : null,
+            onPressed:
+                (!_hedgingEnabled && !_autoPrice || _venueAvailable) &&
+                    !_submitting
+                ? _submit
+                : null,
             child: const Text('Preview'),
           ),
         ),

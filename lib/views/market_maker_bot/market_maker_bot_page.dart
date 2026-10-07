@@ -405,6 +405,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                 'updated_at',
                 'observed_at_ms',
                 'last_success_ms',
+                'observed_ms',
                 'last_write',
               }.contains(e.key) &&
               !(strategy && e.key == 'preview'))
@@ -540,7 +541,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Only the orders below will be activated. This can publish real KDF maker orders and hedge completed swaps on their configured exchanges.',
+                  'Only these makers will be activated and may publish real KDF orders. Hedging runs only for makers whose saved Hedging choice is On.',
                 ),
                 const SizedBox(height: 16),
                 for (final row in selected)
@@ -718,6 +719,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
       context: context,
       barrierDismissible: false,
       builder: (context) => MmEngineStrategyForm(
+        allowOptionalHedging: MmEngineService.instance.optionalHedgingSupported,
         activeTickers: activeTickers,
         venues: _venues,
         strategyId: strategyId,
@@ -1282,6 +1284,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                         ),
                       MmEngineDashboard(
                         orders: _orders,
+                        sharedCoverage: _strategies?['shared_coverage'] as Map?,
                         strategies: strategies.toList(),
                         venue: _venue,
                         venueLabels: _venues,

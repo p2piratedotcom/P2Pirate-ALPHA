@@ -1,4 +1,5 @@
 import 'mm_engine_scrollable_table.dart';
+import 'mm_engine_shared_coverage.dart';
 import 'mm_engine_amount.dart';
 import 'mm_engine_balance_source.dart';
 import 'package:decimal/decimal.dart';
@@ -13,6 +14,7 @@ class MmEngineDashboard extends StatelessWidget {
   const MmEngineDashboard({
     super.key,
     required this.orders,
+    this.sharedCoverage,
     required this.strategies,
     required this.venue,
     required this.credentials,
@@ -47,6 +49,7 @@ class MmEngineDashboard extends StatelessWidget {
   });
   final List<Map<String, dynamic>> orders, strategies, balances;
   final String venue;
+  final Map? sharedCoverage;
   final MmEngineBalanceSource? balanceSource;
   final Map<String, String> venueLabels;
   final Set<String> selectedOrders;
@@ -104,7 +107,7 @@ class MmEngineDashboard extends StatelessWidget {
       'PRICE',
       'BUY',
       'PREMIUM',
-      'HEDGING CEX',
+      'HEDGE / PRICE SOURCE',
       'STATUS',
     ];
     final theme = Theme.of(context);
@@ -220,7 +223,7 @@ class MmEngineDashboard extends StatelessWidget {
                     row['price_label'] ?? row['kdf_price'],
                     row['kdf_rel'],
                     _premium(row['configured_premium']),
-                    row['cex'],
+                    row['hedging_label'] ?? row['cex'],
                     row['status'],
                   ];
                   return Padding(
@@ -433,6 +436,14 @@ class MmEngineDashboard extends StatelessWidget {
         'kdf_base': sold?['ticker'] ?? order['kdf_base'],
         'kdf_rel': bought?['ticker'] ?? order['kdf_rel'],
         'cex': spec['cex'] ?? order['cex'],
+        'hedging_enabled':
+            spec['hedging_enabled'] ?? order['hedging_enabled'] ?? true,
+        'hedging_label':
+            (spec['hedging_enabled'] ?? order['hedging_enabled']) == false
+            ? (spec['price_mode'] == 'auto'
+                  ? 'Off · ${spec['cex']} price only'
+                  : 'Off · fixed price')
+            : 'On · ${spec['cex'] ?? order['cex'] ?? 'CEX'}',
         'configured_premium': spec['premium'] ?? order['configured_premium'],
         'amount_label': modeValue(
           spec['quantity_mode'],
@@ -559,6 +570,11 @@ class MmEngineDashboard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
+                if (sharedCoverage != null)
+                  MmEngineSharedCoverage(
+                    sharedCoverage!,
+                    confirmed: statusConfirmed,
+                  ),
                 _makerTable(context, display),
                 if (display.isEmpty)
                   Padding(

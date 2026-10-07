@@ -61,7 +61,8 @@ class MmEngineOrderDetails extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          '${row['status'] ?? strategy?['state'] ?? 'Unknown'} · Hedge on ${spec['cex'] ?? 'Unavailable'}',
+          '${row['status'] ?? strategy?['state'] ?? 'Unknown'} · '
+          '${spec['hedging_enabled'] == false ? 'Hedging off (locked)' : 'Hedging on ${spec['cex'] ?? 'Unavailable'} (locked)'}',
         ),
         if (updated != null)
           Padding(

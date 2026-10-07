@@ -242,3 +242,11 @@ modules/contracts, proposed change, risks, exact checks actually performed,
 checks not run, companion repositories affected, and guide sections updated.
 Implementation, fixture tests, a compatible release, installation, startup,
 read-only account validation and funded acceptance are separate milestones.
+
+
+## Optional maker hedging candidate
+
+[Optional hedging/shared coverage](OPTIONAL_HEDGING_SHARED_COVERAGE.md) describes
+capability negotiation, immutable switches, drafts, risk wording and unknown
+balances. Mathematical/authorization decisions remain in MM_Engine; the GUI does
+not infer funding or perform a rebalance while displaying these snapshots.
