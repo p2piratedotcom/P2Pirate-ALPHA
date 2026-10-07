@@ -23,3 +23,8 @@ rebalance execution is introduced. Engine details and limitations are documented
 in MM_Engine/docs/OPTIONAL_HEDGING_SHARED_COVERAGE.md. Impeller and SDK/KDF behavior
 are unchanged. Static analysis is not widget, concurrent financial or funded
 acceptance; no production restart is implied by a source change.
+
+Keyless preview and live activation are supported by capable engines when no
+enabled maker requires hedging. Legacy engines retain their CEX credential gate;
+public-price-only makers still require the installed public-route plugin. Current
+maker state is rechecked before switching to live mode.
