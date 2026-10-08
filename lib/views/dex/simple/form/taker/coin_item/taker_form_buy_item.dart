@@ -84,6 +84,8 @@ class TakerFormBuyItem extends StatelessWidget {
 
 class _BuyHeader extends StatelessWidget {
   @override
-  Widget build(BuildContext context) =>
-      DexFormGroupHeader(title: LocaleKeys.buy.tr());
+  Widget build(BuildContext context) => const DexFormGroupHeader(
+    title: 'Asset I want to buy',
+    readableTitle: true,
+  );
 }

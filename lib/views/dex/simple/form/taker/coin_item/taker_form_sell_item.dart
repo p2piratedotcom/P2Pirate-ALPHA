@@ -46,7 +46,8 @@ class _SellHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DexFormGroupHeader(
-      title: LocaleKeys.sell.tr(),
+      title: 'Asset I want to sell',
+      readableTitle: true,
       actions: [
         Flexible(child: _AvailableGroup()),
         const SizedBox(width: 8),
@@ -76,24 +77,24 @@ class _AvailableGroup extends StatelessWidget {
 
 class _HalfButton extends DexSmallButton {
   _HalfButton()
-      : super(LocaleKeys.half.tr(), (context) {
-          context.read<TakerBloc>().add(TakerAmountButtonClick(0.5));
-        });
+    : super(LocaleKeys.half.tr(), (context) {
+        context.read<TakerBloc>().add(TakerAmountButtonClick(0.5));
+      });
 }
 
 class _MaxButton extends DexSmallButton {
   _MaxButton()
-      : super(LocaleKeys.max.tr(), (context) {
-          context.read<TakerBloc>().add(TakerAmountButtonClick(1));
-        });
+    : super(LocaleKeys.max.tr(), (context) {
+        context.read<TakerBloc>().add(TakerAmountButtonClick(1));
+      });
 }
 
 class _ExactButton extends DexSmallButton {
   _ExactButton()
-      : super(LocaleKeys.exact.tr(), (context) {
-          final state = context.read<TakerBloc>().state;
-          final order = state.selectedOrder;
-          if (order == null) return;
-          context.read<TakerBloc>().add(TakerSetSellAmount(order.maxVolume));
-        });
+    : super(LocaleKeys.exact.tr(), (context) {
+        final state = context.read<TakerBloc>().state;
+        final order = state.selectedOrder;
+        if (order == null) return;
+        context.read<TakerBloc>().add(TakerSetSellAmount(order.maxVolume));
+      });
 }

@@ -18,6 +18,7 @@ class OrderbookTableItem extends StatefulWidget {
     this.showOrderDetails = false,
     this.usdPrice,
     this.details,
+    this.separatedRow = false,
   }) : super(key: key);
 
   final Order order;
@@ -30,6 +31,7 @@ class OrderbookTableItem extends StatefulWidget {
 
   /// Optional aligned numeric cells; selection and UUID copy stay on this row.
   final Widget? details;
+  final bool separatedRow;
 
   @override
   State<OrderbookTableItem> createState() => _OrderbookTableItemState();
@@ -82,6 +84,52 @@ class _OrderbookTableItemState extends State<OrderbookTableItem> {
   }
 
   Widget _buildItem() {
+    if (widget.separatedRow) {
+      final scheme = Theme.of(context).colorScheme;
+      return Semantics(
+        selected: widget.isSelected,
+        button: widget.onClick != null && !_isPreview,
+        child: Material(
+          color: widget.isSelected
+              ? scheme.primary.withValues(alpha: 0.12)
+              : dexPageColors.frontPlate,
+          borderRadius: BorderRadius.circular(8),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: widget.onClick == null || _isPreview
+                ? null
+                : () => widget.onClick!(widget.order),
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 64),
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: widget.isSelected
+                      ? scheme.primary
+                      : scheme.outlineVariant,
+                ),
+              ),
+              child: Stack(
+                alignment: Alignment.centerRight,
+                children: [
+                  if (widget.isSelected)
+                    Positioned(
+                      left: 8,
+                      child: Icon(
+                        Icons.check_circle_outline,
+                        size: 18,
+                        color: scheme.primary,
+                      ),
+                    ),
+                  _buildTextData(),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     return Material(
       type: MaterialType.transparency,
       child: InkWell(
@@ -189,7 +237,7 @@ class _OrderbookTableItemState extends State<OrderbookTableItem> {
           if (widget.showOrderDetails)
             SizedBox(
               width: 40,
-              height: 34,
+              height: widget.separatedRow ? 44 : 34,
               child:
                   widget.order.uuid == null ||
                       widget.order.uuid!.isEmpty ||
@@ -197,7 +245,7 @@ class _OrderbookTableItemState extends State<OrderbookTableItem> {
                   ? const Center(child: Text('-'))
                   : IconButton(
                       padding: EdgeInsets.zero,
-                      iconSize: 16,
+                      iconSize: widget.separatedRow ? 20 : 16,
                       tooltip:
                           'Maker order UUID: ${widget.order.uuid}\nClick to copy',
                       icon: const Icon(Icons.copy_outlined),
