@@ -62,8 +62,15 @@ class OrderbookSplitTable extends StatelessWidget {
     final volumeCoin = Coin.normalizeAbbr(orderbook.base);
     final buyPanel = _OrderSidePanel(
       key: const Key('buy-orders-panel'),
-      title: LocaleKeys.buy.tr(),
-      emptyLabel: unavailableMessage ?? LocaleKeys.orderBookNoBids.tr(),
+      title: visibleDirection == OrderDirection.bid
+          ? 'Available offers'
+          : LocaleKeys.buy.tr(),
+      separatedOffers: visibleDirection == OrderDirection.bid,
+      emptyLabel:
+          unavailableMessage ??
+          (visibleDirection == OrderDirection.bid
+              ? 'No offers available for this pair.'
+              : LocaleKeys.orderBookNoBids.tr()),
       color: theme.custom.bidsColor,
       orders: bids,
       priceCoin: priceCoin,
@@ -108,6 +115,7 @@ class _OrderSidePanel extends StatefulWidget {
   const _OrderSidePanel({
     super.key,
     required this.title,
+    this.separatedOffers = false,
     required this.emptyLabel,
     required this.color,
     required this.orders,
@@ -120,6 +128,7 @@ class _OrderSidePanel extends StatefulWidget {
   });
 
   final String title;
+  final bool separatedOffers;
   final String emptyLabel;
   final Color color;
   final List<Order> orders;
@@ -159,16 +168,27 @@ class _OrderSidePanelState extends State<_OrderSidePanel> {
     final parsedQuoteUsd = rawQuoteUsd == null
         ? null
         : Rational.tryParse(rawQuoteUsd.toString());
+    final minimumWidth = widget.separatedOffers
+        ? (showUsd ? 1080.0 : 680.0)
+        : (showUsd ? 880.0 : 580.0);
     final quoteUsd = parsedQuoteUsd != null && parsedQuoteUsd > Rational.zero
         ? parsedQuoteUsd
         : null;
     return Container(
-      height: 360,
-      decoration: BoxDecoration(
-        color: dexPageColors.frontPlate,
-        border: Border.all(color: widget.color.withValues(alpha: 0.6)),
-        borderRadius: BorderRadius.circular(8),
-      ),
+      height: widget.separatedOffers
+          ? 104 +
+                (widget.orders.isEmpty
+                        ? 64
+                        : widget.orders.length.clamp(1, 6) * 74)
+                    .toDouble()
+          : 360,
+      decoration: widget.separatedOffers
+          ? null
+          : BoxDecoration(
+              color: dexPageColors.frontPlate,
+              border: Border.all(color: widget.color.withValues(alpha: 0.6)),
+              borderRadius: BorderRadius.circular(8),
+            ),
       child: LayoutBuilder(
         builder: (context, constraints) => Scrollbar(
           controller: _horizontalController,
@@ -177,8 +197,8 @@ class _OrderSidePanelState extends State<_OrderSidePanel> {
             controller: _horizontalController,
             scrollDirection: Axis.horizontal,
             child: SizedBox(
-              width: constraints.maxWidth < (showUsd ? 880 : 580)
-                  ? (showUsd ? 880 : 580)
+              width: constraints.maxWidth < minimumWidth
+                  ? minimumWidth
                   : constraints.maxWidth,
               height: constraints.maxHeight,
               child: Column(
@@ -188,9 +208,11 @@ class _OrderSidePanelState extends State<_OrderSidePanel> {
                     padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
                     child: Text(
                       widget.title,
-                      style: textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style:
+                          (widget.separatedOffers
+                                  ? textTheme.titleLarge
+                                  : textTheme.titleMedium)
+                              ?.copyWith(fontWeight: FontWeight.w600),
                     ),
                   ),
                   Padding(
@@ -259,7 +281,7 @@ class _OrderSidePanelState extends State<_OrderSidePanel> {
                         ? Center(
                             child: Text(
                               widget.emptyLabel,
-                              style: textTheme.bodySmall?.copyWith(
+                              style: textTheme.bodyMedium?.copyWith(
                                 color: widget.color,
                               ),
                             ),
@@ -267,10 +289,13 @@ class _OrderSidePanelState extends State<_OrderSidePanel> {
                         : Scrollbar(
                             controller: _scrollController,
                             thumbVisibility: true,
-                            child: ListView.builder(
+                            child: ListView.separated(
                               controller: _scrollController,
                               padding: const EdgeInsets.fromLTRB(12, 8, 18, 12),
                               itemCount: widget.orders.length,
+                              separatorBuilder: (_, __) => SizedBox(
+                                height: widget.separatedOffers ? 10 : 0,
+                              ),
                               itemBuilder: (context, index) {
                                 final order = widget.orders[index];
                                 final volumeFraction =
@@ -285,6 +310,7 @@ class _OrderSidePanelState extends State<_OrderSidePanel> {
                                   ),
                                   volumeFraction: volumeFraction,
                                   large: true,
+                                  separatedRow: widget.separatedOffers,
                                   showOrderDetails: true,
                                   details: _offerCells(
                                     order,
@@ -406,7 +432,7 @@ class _OrderSidePanelState extends State<_OrderSidePanel> {
         textAlign: TextAlign.right,
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          fontSize: 13,
+          fontSize: widget.separatedOffers ? 16 : 13,
           fontWeight: FontWeight.w500,
           color: color,
         ),
@@ -429,7 +455,7 @@ class _ColumnHeading extends StatelessWidget {
       '$label $coin',
       textAlign: TextAlign.right,
       overflow: TextOverflow.ellipsis,
-      style: Theme.of(context).textTheme.labelSmall,
+      style: Theme.of(context).textTheme.labelMedium?.copyWith(fontSize: 14),
     ),
   );
 }
