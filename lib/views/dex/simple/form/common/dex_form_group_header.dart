@@ -25,22 +25,31 @@ class DexFormGroupHeader extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 16),
-            child: Row(
-              mainAxisSize: MainAxisSize.max,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                if (title != null)
-                  Flexible(
-                    child: DexFormTitle(title!, readable: readableTitle),
-                  ),
-                if (actions != null)
-                  Flexible(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: actions!,
-                    ),
-                  ),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final headerTitle = title == null
+                    ? null
+                    : DexFormTitle(title!, readable: readableTitle);
+                if (actions == null)
+                  return headerTitle ?? const SizedBox.shrink();
+                if (readableTitle && constraints.maxWidth < 480) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (headerTitle != null) headerTitle,
+                      if (headerTitle != null) const SizedBox(height: 8),
+                      Row(children: actions!),
+                    ],
+                  );
+                }
+                return Row(
+                  children: [
+                    if (headerTitle != null) headerTitle,
+                    if (headerTitle != null) const SizedBox(width: 12),
+                    Expanded(child: Row(children: actions!)),
+                  ],
+                );
+              },
             ),
           ),
         ),
