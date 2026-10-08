@@ -250,13 +250,27 @@ class Mm2Api {
           }
           if (resp['error'] != null) {
             // Throw to allow a quick retry during transient auth/session races
-            throw Exception(resp['error'].toString());
+            final detail = '${resp['message'] ?? ''} ${resp['error'] ?? ''}'
+                .toLowerCase();
+            if (detail.contains('no response from any peer')) {
+              throw Exception(
+                'DEX peers did not respond. Swap offers are unavailable. Wait for the DEX connection to recover, then retry.',
+              );
+            }
+            if (resp['code'] is int) {
+              throw Exception(
+                'KDF could not load swap offers (HTTP ${resp['code']}). Retry when the DEX connection is available.',
+              );
+            }
+            throw Exception(
+              'KDF could not load swap offers. Retry when the DEX connection is available.',
+            );
           }
           return resp;
         },
         maxAttempts: 4,
         backoffStrategy: const LinearBackoff(
-          initialDelay: Duration(milliseconds:  500),
+          initialDelay: Duration(milliseconds: 500),
           increment: Duration(milliseconds: 250),
           maxDelay: Duration(seconds: 3),
         ),

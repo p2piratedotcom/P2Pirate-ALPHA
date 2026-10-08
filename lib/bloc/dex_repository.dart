@@ -226,8 +226,7 @@ class DexRepository {
 
     final String? errorText = response['error'] as String?;
     if (errorText != null && errorText.isNotEmpty) {
-      // Map known "no orders" network condition to empty result so UI shows a
-      // graceful "Nothing found" instead of an error panel.
+      // A peer timeout is unavailable liquidity, not a successful empty book.
       final String? errorType = response['error_type'] as String?;
       final String? errorPath = response['error_path'] as String?;
       final bool isNoOrdersNetworkCondition =
@@ -237,13 +236,18 @@ class DexRepository {
 
       // Mm2Api.getBestOrders may wrap MM2 errors in an Exception() during
       // retry handling, yielding text like: "Exception: No response from any peer"
-      // (without error_type/error_path). Treat these as "no orders" as well.
+      // (without error_type/error_path). Preserve the unavailable state.
       final bool isWrappedNoOrdersText = errorText.toLowerCase().contains(
         'no response from any peer',
       );
 
       if (isNoOrdersNetworkCondition || isWrappedNoOrdersText) {
-        return BestOrders(result: <String, List<BestOrder>>{});
+        return BestOrders(
+          error: TextError(
+            error:
+                'DEX peers did not respond. Swap offers are unavailable. Wait for the DEX connection to recover, then retry.',
+          ),
+        );
       }
 
       log(

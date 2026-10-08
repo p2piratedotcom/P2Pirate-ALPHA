@@ -76,6 +76,16 @@ an independent legacy publishing loop alongside MM_Engine.
    submission and uncertain-result recovery are different states. Keep drafts
    across ordinary navigation but do not reuse derived confirmation data as a
    fresh quote or retry an uncertain funded submission.
+   The desktop Taker Swap book shows only the selectable green Buy-side panel
+   for the selected Sell/Buy coin pair. Reversing the pair requests the opposite
+   book; a reply for the previous pair is never left selectable while loading.
+   Price/volume units and UUID matching stay in the selected book's orientation.
+   Offer rows include available quantity, native unit/total prices and optional
+   USD unit/total estimates. Totals use the full available offer and exclude swap
+   fees. Rational native calculations never feed rounded display values into
+   submission. Header/value tooltips explain units, minimums and precision, displaying at most eight decimal places with approximation markers; a
+   missing USD reference is unavailable, not zero. USD display follows Settings.
+   Narrow panels scroll headings and data together to retain column alignment.
 4. **Trading Engine:** install verification, showing the page, preview, live
    permission, saving a paused strategy and starting selected makers are separate
    actions. New profiles default to non-live behavior. Previously approved live
@@ -250,3 +260,5 @@ read-only account validation and funded acceptance are separate milestones.
 capability negotiation, immutable switches, drafts, risk wording and unknown
 balances. Mathematical/authorization decisions remain in MM_Engine; the GUI does
 not infer funding or perform a rebalance while displaying these snapshots.
+
+Swap offer discovery preserves a peer-no-response failure as unavailable, rather than treating it as successful empty liquidity. The best_orders HTTP wrapper reads only the known peer failure category from the SDK response message and presents fixed English copy; generic HTTP failures retain only the numeric status. An empty directional taker book shows an unavailable message while discovery has failed; populated book rows remain usable and ordinary swap validation remains mandatory. This does not repair peer connectivity or change the pinned SDK.

@@ -17,6 +17,7 @@ class OrderbookTableItem extends StatefulWidget {
     this.large = false,
     this.showOrderDetails = false,
     this.usdPrice,
+    this.details,
   }) : super(key: key);
 
   final Order order;
@@ -26,6 +27,9 @@ class OrderbookTableItem extends StatefulWidget {
   final bool large;
   final bool showOrderDetails;
   final String? usdPrice;
+
+  /// Optional aligned numeric cells; selection and UUID copy stay on this row.
+  final Widget? details;
 
   @override
   State<OrderbookTableItem> createState() => _OrderbookTableItemState();
@@ -42,7 +46,8 @@ class _OrderbookTableItemState extends State<OrderbookTableItem> {
   void initState() {
     final coinsRepository = RepositoryProvider.of<CoinsRepo>(context);
     _isPreview = widget.order.uuid == orderPreviewUuid;
-    _isTradeWithSelf = widget.order.address ==
+    _isTradeWithSelf =
+        widget.order.address ==
         coinsRepository.getCoin(widget.order.rel)?.address;
     _style = TextStyle(
       fontSize: widget.large ? 13 : 11,
@@ -51,8 +56,8 @@ class _OrderbookTableItemState extends State<OrderbookTableItem> {
     _color = _isPreview
         ? theme.custom.targetColor
         : widget.order.direction == OrderDirection.ask
-            ? theme.custom.asksColor
-            : theme.custom.bidsColor;
+        ? theme.custom.asksColor
+        : theme.custom.bidsColor;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       setState(() {
@@ -103,22 +108,14 @@ class _OrderbookTableItemState extends State<OrderbookTableItem> {
     if (_isTradeWithSelf) {
       return Positioned(
         left: 2,
-        child: Icon(
-          Icons.circle,
-          size: 4,
-          color: _color,
-        ),
+        child: Icon(Icons.circle, size: 4, color: _color),
       );
     }
 
     if (_isPreview || widget.isSelected) {
       return Positioned(
         left: 0,
-        child: Icon(
-          Icons.forward,
-          size: 8,
-          color: _color,
-        ),
+        child: Icon(Icons.forward, size: 8, color: _color),
       );
     }
 
@@ -130,9 +127,7 @@ class _OrderbookTableItemState extends State<OrderbookTableItem> {
       widthFactor: widget.volumeFraction.clamp(0.0, 1.0).toDouble(),
       child: ConstrainedBox(
         constraints: BoxConstraints(minHeight: widget.large ? 34 : 21),
-        child: Container(
-          color: _color.withValues(alpha: 0.1),
-        ),
+        child: Container(color: _color.withValues(alpha: 0.1)),
       ),
     );
   }
@@ -157,48 +152,54 @@ class _OrderbookTableItemState extends State<OrderbookTableItem> {
         mainAxisSize: MainAxisSize.max,
         children: [
           const SizedBox(width: 10),
-          Expanded(
-            child: AutoScrollText(
-              text: widget.order.price.toDouble().toStringAsFixed(8),
-              style: _style.copyWith(color: _color),
-            ),
-          ),
-          const SizedBox(width: 10),
-          if (widget.showOrderDetails && widget.usdPrice != null)
+          if (widget.details != null)
+            Expanded(child: widget.details!)
+          else ...[
             Expanded(
-              child: Text(
-                widget.usdPrice!,
-                overflow: TextOverflow.ellipsis,
-                style: _style,
+              child: AutoScrollText(
+                text: widget.order.price.toDouble().toStringAsFixed(8),
+                style: _style.copyWith(color: _color),
               ),
             ),
-          if (widget.showOrderDetails)
-            Expanded(
-              child: Text(
+            const SizedBox(width: 10),
+            if (widget.showOrderDetails && widget.usdPrice != null)
+              Expanded(
+                child: Text(
+                  widget.usdPrice!,
+                  overflow: TextOverflow.ellipsis,
+                  style: _style,
+                ),
+              ),
+            if (widget.showOrderDetails)
+              Expanded(
+                child: Text(
+                  formatAmt(widget.order.maxVolume.toDouble()),
+                  textAlign: TextAlign.right,
+                  overflow: TextOverflow.ellipsis,
+                  style: _style.copyWith(color: _isPreview ? _color : null),
+                ),
+              )
+            else
+              Text(
                 formatAmt(widget.order.maxVolume.toDouble()),
-                textAlign: TextAlign.right,
-                overflow: TextOverflow.ellipsis,
                 style: _style.copyWith(color: _isPreview ? _color : null),
               ),
-            )
-          else
-            Text(
-              formatAmt(widget.order.maxVolume.toDouble()),
-              style: _style.copyWith(color: _isPreview ? _color : null),
-            ),
+          ],
           const SizedBox(width: 4),
           if (widget.showOrderDetails)
             SizedBox(
               width: 40,
               height: 34,
-              child: widget.order.uuid == null ||
+              child:
+                  widget.order.uuid == null ||
                       widget.order.uuid!.isEmpty ||
                       _isPreview
                   ? const Center(child: Text('-'))
                   : IconButton(
                       padding: EdgeInsets.zero,
                       iconSize: 16,
-                      tooltip: 'Maker order UUID: ${widget.order.uuid}\nClick to copy',
+                      tooltip:
+                          'Maker order UUID: ${widget.order.uuid}\nClick to copy',
                       icon: const Icon(Icons.copy_outlined),
                       onPressed: () async {
                         try {
