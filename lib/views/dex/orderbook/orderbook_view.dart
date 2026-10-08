@@ -27,6 +27,8 @@ class OrderbookView extends StatefulWidget {
     this.onBidClick,
     this.onAskClick,
     this.splitSides = false,
+    this.visibleDirection,
+    this.unavailableMessage,
   });
 
   final Coin? base;
@@ -36,6 +38,8 @@ class OrderbookView extends StatefulWidget {
   final Function(Order)? onBidClick;
   final Function(Order)? onAskClick;
   final bool splitSides;
+  final OrderDirection? visibleDirection;
+  final String? unavailableMessage;
 
   @override
   State<OrderbookView> createState() => _OrderbookViewState();
@@ -113,6 +117,13 @@ class _OrderbookViewState extends State<OrderbookView> {
           return const Center(child: UiSpinner());
         }
 
+        // A pair change can render before the stream's loading event arrives.
+        // Never leave the previous pair's offers selectable during that gap.
+        if (response.base != widget.base?.abbr ||
+            response.rel != widget.rel?.abbr) {
+          return const Center(child: UiSpinner());
+        }
+
         final Orderbook orderbook = Orderbook.fromSdkResponse(response);
         if (widget.splitSides) {
           return OrderbookSplitTable(
@@ -121,6 +132,8 @@ class _OrderbookViewState extends State<OrderbookView> {
             selectedOrderUuid: widget.selectedOrderUuid,
             onAskClick: widget.onAskClick,
             onBidClick: widget.onBidClick,
+            visibleDirection: widget.visibleDirection,
+            unavailableMessage: widget.unavailableMessage,
           );
         }
         if (orderbook.asks.isEmpty && orderbook.bids.isEmpty) {

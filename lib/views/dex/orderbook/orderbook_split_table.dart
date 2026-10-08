@@ -1,3 +1,4 @@
+import 'package:decimal/decimal.dart';
 import 'package:app_theme/app_theme.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -11,7 +12,7 @@ import 'package:web_dex/model/orderbook/order.dart';
 import 'package:web_dex/model/orderbook/orderbook.dart';
 import 'package:web_dex/views/dex/orderbook/orderbook_table_item.dart';
 
-/// Large Buy and Sell order-book panels for the desktop Swap form.
+/// Desktop order-book panels, optionally restricted to the actionable side.
 class OrderbookSplitTable extends StatelessWidget {
   const OrderbookSplitTable(
     this.orderbook, {
@@ -20,6 +21,8 @@ class OrderbookSplitTable extends StatelessWidget {
     this.selectedOrderUuid,
     this.onAskClick,
     this.onBidClick,
+    this.visibleDirection,
+    this.unavailableMessage,
   });
 
   final Orderbook orderbook;
@@ -27,6 +30,8 @@ class OrderbookSplitTable extends StatelessWidget {
   final String? selectedOrderUuid;
   final ValueChanged<Order>? onAskClick;
   final ValueChanged<Order>? onBidClick;
+  final OrderDirection? visibleDirection;
+  final String? unavailableMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +49,12 @@ class OrderbookSplitTable extends StatelessWidget {
     });
 
     var highestVolume = Rational.zero;
-    for (final order in [...asks, ...bids]) {
+    final visibleOrders = switch (visibleDirection) {
+      OrderDirection.bid => bids,
+      OrderDirection.ask => asks,
+      null => [...asks, ...bids],
+    };
+    for (final order in visibleOrders) {
       if (order.maxVolume > highestVolume) highestVolume = order.maxVolume;
     }
 
@@ -53,7 +63,7 @@ class OrderbookSplitTable extends StatelessWidget {
     final buyPanel = _OrderSidePanel(
       key: const Key('buy-orders-panel'),
       title: LocaleKeys.buy.tr(),
-      emptyLabel: LocaleKeys.orderBookNoBids.tr(),
+      emptyLabel: unavailableMessage ?? LocaleKeys.orderBookNoBids.tr(),
       color: theme.custom.bidsColor,
       orders: bids,
       priceCoin: priceCoin,
@@ -63,6 +73,7 @@ class OrderbookSplitTable extends StatelessWidget {
       selectedOrderUuid: selectedOrderUuid,
       onOrderClick: onBidClick,
     );
+    if (visibleDirection == OrderDirection.bid) return buyPanel;
     final sellPanel = _OrderSidePanel(
       key: const Key('sell-orders-panel'),
       title: LocaleKeys.sell.tr(),
@@ -76,6 +87,7 @@ class OrderbookSplitTable extends StatelessWidget {
       selectedOrderUuid: selectedOrderUuid,
       onOrderClick: onAskClick,
     );
+    if (visibleDirection == OrderDirection.ask) return sellPanel;
 
     return LayoutBuilder(
       builder: (context, constraints) => constraints.maxWidth < 960
@@ -124,10 +136,12 @@ class _OrderSidePanel extends StatefulWidget {
 
 class _OrderSidePanelState extends State<_OrderSidePanel> {
   final ScrollController _scrollController = ScrollController();
+  final ScrollController _horizontalController = ScrollController();
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _horizontalController.dispose();
     super.dispose();
   }
 
@@ -139,9 +153,15 @@ class _OrderSidePanelState extends State<_OrderSidePanel> {
     );
     final coinsState = context.watch<CoinsBloc>().state;
     final quoteCoin = coinsState.coins[widget.priceTicker];
-    final quoteUsd = quoteCoin == null
+    final rawQuoteUsd = quoteCoin == null
         ? null
-        : coinsState.getPriceForAsset(quoteCoin.id)?.price?.toDouble();
+        : coinsState.getPriceForAsset(quoteCoin.id)?.price;
+    final parsedQuoteUsd = rawQuoteUsd == null
+        ? null
+        : Rational.tryParse(rawQuoteUsd.toString());
+    final quoteUsd = parsedQuoteUsd != null && parsedQuoteUsd > Rational.zero
+        ? parsedQuoteUsd
+        : null;
     return Container(
       height: 360,
       decoration: BoxDecoration(
@@ -149,119 +169,267 @@ class _OrderSidePanelState extends State<_OrderSidePanel> {
         border: Border.all(color: widget.color.withValues(alpha: 0.6)),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
-            child: Text(
-              widget.title,
-              style: textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
+      child: LayoutBuilder(
+        builder: (context, constraints) => Scrollbar(
+          controller: _horizontalController,
+          thumbVisibility: true,
+          child: SingleChildScrollView(
+            controller: _horizontalController,
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: constraints.maxWidth < (showUsd ? 880 : 580)
+                  ? (showUsd ? 880 : 580)
+                  : constraints.maxWidth,
+              height: constraints.maxHeight,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
+                    child: Text(
+                      widget.title,
+                      style: textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 22, right: 18),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _ColumnHeading(
+                            'Available',
+                            widget.volumeCoin,
+                            'Maximum quantity available in this offer, in ${widget.volumeCoin}. The minimum accepted quantity is shown on each row.',
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _ColumnHeading(
+                            'Unit price',
+                            '${widget.priceCoin}/${widget.volumeCoin}',
+                            '${widget.priceCoin} per one ${widget.volumeCoin}.',
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _ColumnHeading(
+                            'Total',
+                            widget.priceCoin,
+                            'Available quantity × unit price, for the full offer. Excludes swap fees; not the amount entered in the form.',
+                          ),
+                        ),
+                        if (showUsd) ...[
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _ColumnHeading(
+                              'Unit price',
+                              'USD/${widget.volumeCoin}',
+                              'Estimated USD value per one ${widget.volumeCoin}, using the current ${widget.priceCoin} USD reference.',
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: _ColumnHeading(
+                              'Total',
+                              'USD',
+                              'Estimated USD value of the full available offer. Excludes swap fees and is not an execution guarantee.',
+                            ),
+                          ),
+                        ],
+                        const SizedBox(width: 4),
+                        const SizedBox(
+                          width: 40,
+                          child: Center(
+                            child: _ColumnHeading(
+                              'UUID',
+                              '',
+                              'Maker order identifier. Use the copy button on a row to copy its full UUID.',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: widget.orders.isEmpty
+                        ? Center(
+                            child: Text(
+                              widget.emptyLabel,
+                              style: textTheme.bodySmall?.copyWith(
+                                color: widget.color,
+                              ),
+                            ),
+                          )
+                        : Scrollbar(
+                            controller: _scrollController,
+                            thumbVisibility: true,
+                            child: ListView.builder(
+                              controller: _scrollController,
+                              padding: const EdgeInsets.fromLTRB(12, 8, 18, 12),
+                              itemCount: widget.orders.length,
+                              itemBuilder: (context, index) {
+                                final order = widget.orders[index];
+                                final volumeFraction =
+                                    widget.highestVolume == Rational.zero
+                                    ? 0.0
+                                    : (order.maxVolume / widget.highestVolume)
+                                          .toDouble();
+                                return OrderbookTableItem(
+                                  order,
+                                  key: Key(
+                                    'split-order-${order.direction.name}-$index-${order.uuid ?? ''}',
+                                  ),
+                                  volumeFraction: volumeFraction,
+                                  large: true,
+                                  showOrderDetails: true,
+                                  details: _offerCells(
+                                    order,
+                                    quoteUsd,
+                                    showUsd,
+                                  ),
+                                  isSelected:
+                                      widget.selectedOrderUuid != null &&
+                                      order.uuid == widget.selectedOrderUuid,
+                                  onClick: widget.onOrderClick,
+                                );
+                              },
+                            ),
+                          ),
+                  ),
+                ],
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.only(left: 22, right: 18),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _ColumnHeading(
-                    LocaleKeys.price.tr(),
-                    widget.priceCoin,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                if (showUsd)
-                  const Expanded(child: _ColumnHeading('Price', 'USD')),
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: _ColumnHeading(
-                      LocaleKeys.volume.tr(),
-                      widget.volumeCoin,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                const SizedBox(
-                  width: 40,
-                  child: Center(child: _ColumnHeading('UUID', '')),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Divider(height: 1),
-          Expanded(
-            child: widget.orders.isEmpty
-                ? Center(
-                    child: Text(
-                      widget.emptyLabel,
-                      style: textTheme.bodySmall?.copyWith(color: widget.color),
-                    ),
-                  )
-                : Scrollbar(
-                    controller: _scrollController,
-                    thumbVisibility: true,
-                    child: ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.fromLTRB(12, 8, 18, 12),
-                      itemCount: widget.orders.length,
-                      itemBuilder: (context, index) {
-                        final order = widget.orders[index];
-                        final volumeFraction =
-                            widget.highestVolume == Rational.zero
-                            ? 0.0
-                            : (order.maxVolume / widget.highestVolume)
-                                  .toDouble();
-                        return OrderbookTableItem(
-                          order,
-                          key: Key(
-                            'split-order-${order.direction.name}-$index-${order.uuid ?? ''}',
-                          ),
-                          volumeFraction: volumeFraction,
-                          large: true,
-                          showOrderDetails: true,
-                          // KDF quotes rel units per base unit. Convert that
-                          // amount using the rel coin's current USD quote.
-                          usdPrice: showUsd ? _usdPrice(order, quoteUsd) : null,
-                          isSelected:
-                              widget.selectedOrderUuid != null &&
-                              order.uuid == widget.selectedOrderUuid,
-                          onClick: widget.onOrderClick,
-                        );
-                      },
-                    ),
-                  ),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  String _usdPrice(Order order, double? quoteUsd) {
-    if (quoteUsd == null || !quoteUsd.isFinite || quoteUsd <= 0) return 'N/A';
-    // KDF quotes rel units per one base unit on both sides.
-    final value = order.price.toDouble() * quoteUsd;
-    if (!value.isFinite || value <= 0) return 'N/A';
-    if (value < 0.00000001) return '<\$0.00000001';
-    return '\$${value.toStringAsFixed(value < 0.01 ? 8 : 2)}';
+  Widget _offerCells(Order order, Rational? quoteUsd, bool showUsd) {
+    // Native totals stay Rational. These display values never feed submissions.
+    final total = order.price * order.maxVolume;
+    final unitUsd = quoteUsd == null ? null : order.price * quoteUsd;
+    final totalUsd = quoteUsd == null ? null : total * quoteUsd;
+    final minimum = order.minVolume;
+    final quantityTip =
+        'Available: ${_precise(order.maxVolume)} ${widget.volumeCoin}.\n'
+        '${minimum == null ? 'Minimum quantity unavailable.' : 'Minimum: ${_precise(minimum)} ${widget.volumeCoin}.'}';
+    return Row(
+      children: [
+        Expanded(child: _amountCell(order.maxVolume, quantityTip)),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _amountCell(
+            order.price,
+            '${_precise(order.price)} ${widget.priceCoin} per one ${widget.volumeCoin}.',
+            color: order.uuid == orderPreviewUuid
+                ? theme.custom.targetColor
+                : widget.color,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _amountCell(
+            total,
+            '${_precise(order.maxVolume)} ${widget.volumeCoin} × ${_precise(order.price)} ${widget.priceCoin}/${widget.volumeCoin} = ${_precise(total)} ${widget.priceCoin}.\nFull available offer; swap fees excluded.',
+          ),
+        ),
+        if (showUsd) ...[
+          const SizedBox(width: 12),
+          Expanded(
+            child: _amountCell(
+              unitUsd,
+              quoteUsd == null
+                  ? 'USD estimate unavailable: no USD reference for ${widget.priceCoin}.'
+                  : 'Estimated ${_precise(unitUsd!)} USD per ${widget.volumeCoin}.\nReference: 1 ${widget.priceCoin} ≈ ${_precise(quoteUsd)} USD.',
+              usd: true,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _amountCell(
+              totalUsd,
+              quoteUsd == null
+                  ? 'USD total unavailable: no USD reference for ${widget.priceCoin}.'
+                  : 'Estimated total: ${_precise(totalUsd!)} USD.\n${_precise(total)} ${widget.priceCoin} × ${_precise(quoteUsd)} USD/${widget.priceCoin}.\nFull available offer; swap fees excluded.',
+              usd: true,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  String _precise(Rational value) {
+    if (value > Rational.zero && value < Rational.parse('0.00000001')) {
+      return '<0.00000001';
+    }
+    final fixed = value
+        .toDecimal(scaleOnInfinitePrecision: 18)
+        .toStringAsFixed(8);
+    final compact = fixed.replaceFirst(RegExp(r'\.?0+$'), '');
+    return Rational.parse(compact) == value ? compact : '≈ $compact';
+  }
+
+  Widget _amountCell(
+    Rational? value,
+    String tooltip, {
+    bool usd = false,
+    Color? color,
+  }) {
+    String text = 'N/A';
+    if (value != null) {
+      final digits = usd && value >= Rational.parse('0.01') ? 2 : 8;
+      final smallest = Rational.parse('0.00000001');
+      if (value > Rational.zero && value < smallest) {
+        text = usd ? '<\$0.00000001' : '<0.00000001';
+      } else {
+        final fixed = value
+            .toDecimal(scaleOnInfinitePrecision: 18)
+            .toStringAsFixed(digits);
+        if (usd) {
+          text = '≈ \$$fixed';
+        } else {
+          final compact = fixed.replaceFirst(RegExp(r'\.?0+$'), '');
+          text = Rational.parse(compact) == value ? compact : '≈ $compact';
+        }
+      }
+    }
+    return Tooltip(
+      message: tooltip,
+      child: Text(
+        text,
+        textAlign: TextAlign.right,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          color: color,
+        ),
+      ),
+    );
   }
 }
 
 class _ColumnHeading extends StatelessWidget {
-  const _ColumnHeading(this.label, this.coin);
+  const _ColumnHeading(this.label, this.coin, this.tooltip);
 
   final String label;
   final String coin;
+  final String tooltip;
 
   @override
-  Widget build(BuildContext context) {
-    return Text(
+  Widget build(BuildContext context) => Tooltip(
+    message: tooltip,
+    child: Text(
       '$label $coin',
+      textAlign: TextAlign.right,
       overflow: TextOverflow.ellipsis,
       style: Theme.of(context).textTheme.labelSmall,
-    );
-  }
+    ),
+  );
 }

@@ -19,6 +19,8 @@ class TakerOrderbook extends StatelessWidget {
     return BlocBuilder<TakerBloc, TakerState>(
       buildWhen: (prev, cur) {
         if (prev.sellCoin?.abbr != cur.sellCoin?.abbr) return true;
+        if (prev.buyCoin?.abbr != cur.buyCoin?.abbr) return true;
+        if (prev.bestOrders != cur.bestOrders) return true;
         if (prev.selectedOrder?.uuid != cur.selectedOrder?.uuid) return true;
 
         return false;
@@ -28,15 +30,27 @@ class TakerOrderbook extends StatelessWidget {
 
         return OrderbookView(
           splitSides: splitSides,
-          base: state.sellCoin,
-          rel: selectedOrder == null
+          visibleDirection: OrderDirection.bid,
+          unavailableMessage: state.bestOrders?.error == null
               ? null
-              : coinsBloc.getCoin(selectedOrder.coin),
+              : 'Offers could not be confirmed. Retry the offer search above.',
+          base: state.sellCoin,
+          rel:
+              state.buyCoin ??
+              (selectedOrder == null
+                  ? null
+                  : coinsBloc.getCoin(selectedOrder.coin)),
           selectedOrderUuid: state.selectedOrder?.uuid,
           onBidClick: (Order order) {
             if (state.selectedOrder?.uuid == order.uuid) return;
-            context.read<TakerBloc>().add(TakerSelectOrder(
-                BestOrder.fromOrder(order, state.selectedOrder?.coin)));
+            context.read<TakerBloc>().add(
+              TakerSelectOrder(
+                BestOrder.fromOrder(
+                  order,
+                  state.buyCoin?.abbr ?? state.selectedOrder?.coin,
+                ),
+              ),
+            );
           },
         );
       },
