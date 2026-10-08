@@ -30,8 +30,9 @@ class DexFormGroupHeader extends StatelessWidget {
                 final headerTitle = title == null
                     ? null
                     : DexFormTitle(title!, readable: readableTitle);
-                if (actions == null)
+                if (actions == null) {
                   return headerTitle ?? const SizedBox.shrink();
+                }
                 if (readableTitle && constraints.maxWidth < 480) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
