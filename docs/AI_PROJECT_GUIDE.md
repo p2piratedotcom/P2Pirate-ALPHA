@@ -182,6 +182,14 @@ are intentions, not proof of accepted binaries.
 - Engine downloads require expected repository identity, immutable-release
   metadata, compatibility and asset digests. Installation/download is not a live
   permission. Source changes do not hot-update a running engine.
+- CEX plugin downloads first load only the public commit-pinned catalog. The
+  user selects exchanges with no default selection; only selected adapter/config
+  files are downloaded. Unselected installed plugins are copied unchanged into
+  the new verified snapshot, retaining their source commits and original licenses,
+  even when an exchange is no longer in the latest catalog. Empty/cancelled
+  selections do not stop the engine or install files. Identical selected plugins
+  report up to date without migrating the engine. See
+  [selective plugin downloads](CEX_PLUGIN_DOWNLOAD_SELECTION.md).
 - Plugin snapshots are executable Python code, pinned/verified against their
   catalog. Child processes are not OS security sandboxes. Experimental venues
   remain explicitly untested against live accounts/funded orders.
