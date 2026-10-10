@@ -155,12 +155,6 @@ class CexPluginService {
     final retained = (installed?.entries ?? <Map<String, dynamic>>[]).where(
       (entry) => !venues.contains(entry['venue']),
     );
-    if (retained.isNotEmpty &&
-        installed!.licenseDigest != available.licenseDigest) {
-      throw StateError(
-        'The plugin license changed. Select all installed exchanges to update them together.',
-      );
-    }
     if (retained.length + venues.length > 32) {
       throw const FormatException('Too many installed CEX plugins');
     }
@@ -168,7 +162,7 @@ class CexPluginService {
 
   static String _snapshotDigest(List<int> catalog, List<int> sources) =>
       sha256.convert([
-        ...utf8.encode('P2Pirate CEX snapshot v1\n'),
+        ...utf8.encode('P2Pirate CEX snapshot v2\n'),
         ...sha256.convert(catalog).bytes,
         ...sha256.convert(sources).bytes,
       ]).toString();
@@ -257,11 +251,19 @@ class CexPluginService {
         'plugins': combined,
       }),
     );
-    final sources = <String, String>{
+    final sources = <String, Map<String, String>>{
       for (final item in retained)
-        item['venue'] as String:
-            existing!.pluginCommits[item['venue']] ?? existing.commit,
-      for (final item in downloaded) item['venue'] as String: commit,
+        item['venue'] as String: {
+          'commit': existing!.pluginCommits[item['venue']] ?? existing.commit,
+          'license_sha256':
+              existing.pluginLicenseDigests[item['venue']] ??
+              existing.licenseDigest,
+        },
+      for (final item in downloaded)
+        item['venue'] as String: {
+          'commit': commit,
+          'license_sha256': remote.licenseDigest,
+        },
     };
     final sourcesBytes = utf8.encode(jsonEncode(sources));
     final name = venues == null
@@ -287,6 +289,43 @@ class CexPluginService {
       await File(
         p.join(staging.path, 'LICENSE'),
       ).writeAsBytes(license, flush: true);
+      // Retain original license bytes for unselected/removed venues. A new
+      // repository license never silently replaces the license of older code.
+      final oldLicenses =
+          retained
+              .map((item) => sources[item['venue']]!['license_sha256']!)
+              .toSet()
+            ..remove(remote.licenseDigest);
+      for (final digest in oldLicenses) {
+        final relative = digest == existing!.licenseDigest
+            ? 'LICENSE'
+            : 'licenses/$digest.txt';
+        final source = File(p.join(existing.directory.path, relative));
+        var parent = source.parent;
+        while (true) {
+          if (await FileSystemEntity.isLink(parent.path)) {
+            throw const FormatException(
+              'Unsafe retained plugin license parent',
+            );
+          }
+          final next = parent.parent;
+          if (next.path == parent.path) break;
+          parent = next;
+        }
+        if (await FileSystemEntity.isLink(source.path) ||
+            await source.length() > 65536) {
+          throw const FormatException('Unsafe retained plugin license');
+        }
+        final bytes = await source.readAsBytes();
+        if (sha256.convert(bytes).toString() != digest) {
+          throw const FormatException(
+            'Retained plugin license checksum mismatch',
+          );
+        }
+        final target = File(p.join(staging.path, 'licenses', '$digest.txt'));
+        await target.parent.create(recursive: true);
+        await target.writeAsBytes(bytes, flush: true);
+      }
       var count = 0;
       for (final item in downloaded) {
         onStage?.call(
@@ -564,6 +603,9 @@ class CexPluginService {
     final sources = <String, String>{
       for (final venue in labels.keys) venue: commit,
     };
+    final licenseDigests = <String, String>{
+      for (final venue in labels.keys) venue: manifest.$2,
+    };
     final sourcesType = await FileSystemEntity.type(
       sourcesFile.path,
       followLinks: false,
@@ -584,18 +626,49 @@ class CexPluginService {
       final decoded = jsonDecode(utf8.decode(sourcesBytes));
       if (decoded is! Map ||
           decoded.length != labels.length ||
-          decoded.keys.any((key) => !labels.containsKey(key)) ||
-          decoded.values.any(
-            (value) => value is! String || !_commit.hasMatch(value),
-          )) {
+          decoded.keys.any((key) => !labels.containsKey(key))) {
         throw const FormatException('Invalid CEX plugin source metadata');
       }
-      if (!requireSources &&
-          _commit.hasMatch(commit) &&
-          decoded.values.any((value) => value != commit)) {
-        throw const FormatException('Invalid full-catalog source metadata');
+      final checkedLicenses = <String>{manifest.$2};
+      for (final entry in decoded.entries) {
+        final value = entry.value;
+        // Only old full snapshots may infer a shared license for string metadata.
+        if (!requireSources &&
+            value is String &&
+            value == commit &&
+            _commit.hasMatch(value)) {
+          sources[entry.key] = value;
+          continue;
+        }
+        if (value is! Map ||
+            value.length != 2 ||
+            value.keys.toSet().difference({
+              'commit',
+              'license_sha256',
+            }).isNotEmpty ||
+            value['commit'] is! String ||
+            !_commit.hasMatch(value['commit']) ||
+            value['license_sha256'] is! String ||
+            !_digest.hasMatch(value['license_sha256']) ||
+            !requireSources &&
+                _commit.hasMatch(commit) &&
+                (value['commit'] != commit ||
+                    value['license_sha256'] != manifest.$2)) {
+          throw const FormatException(
+            'Invalid CEX plugin source/license metadata',
+          );
+        }
+        final digest = value['license_sha256'] as String;
+        if (checkedLicenses.add(digest) &&
+            sha256
+                    .convert(await read('licenses/$digest.txt', 65536))
+                    .toString() !=
+                digest) {
+          throw const FormatException('Invalid retained plugin license');
+        }
+        sources[entry.key] = value['commit'];
+        licenseDigests[entry.key] = digest;
       }
-      sources.addAll(Map<String, String>.from(decoded));
     }
     return CexPluginSnapshot(
       directory,
@@ -607,6 +680,7 @@ class CexPluginService {
       licenseDigest: manifest.$2,
       isSelective: requireSources,
       pluginCommits: Map<String, String>.unmodifiable(sources),
+      pluginLicenseDigests: Map<String, String>.unmodifiable(licenseDigests),
     );
   }
 
@@ -718,6 +792,7 @@ class CexPluginSnapshot {
     this.licenseDigest = '',
     this.isSelective = false,
     this.pluginCommits = const {},
+    this.pluginLicenseDigests = const {},
   });
   final Directory directory;
   final String commit;
@@ -726,6 +801,7 @@ class CexPluginSnapshot {
   final String licenseDigest;
   final bool isSelective;
   final Map<String, String> pluginCommits;
+  final Map<String, String> pluginLicenseDigests;
 }
 
 class CexPluginCatalog {

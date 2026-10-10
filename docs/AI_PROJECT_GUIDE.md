@@ -185,7 +185,8 @@ are intentions, not proof of accepted binaries.
 - CEX plugin downloads first load only the public commit-pinned catalog. The
   user selects exchanges with no default selection; only selected adapter/config
   files are downloaded. Unselected installed plugins are copied unchanged into
-  the new verified snapshot, retaining their source commits. Empty/cancelled
+  the new verified snapshot, retaining their source commits and original licenses,
+  even when an exchange is no longer in the latest catalog. Empty/cancelled
   selections do not stop the engine or install files. Identical selected plugins
   report up to date without migrating the engine. See
   [selective plugin downloads](CEX_PLUGIN_DOWNLOAD_SELECTION.md).
