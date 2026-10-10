@@ -58,6 +58,9 @@ draft retention, async display recovery or maker/rebalance presentation.
   `linux/my_application.cc`. Development uses `--no-enable-impeller`. Do not
   re-enable Impeller or reset the GPU to investigate a wallet issue. Record Xid/OOM
   evidence separately; a crash or RPC timeout alone does not establish its cause.
+- CEX download consent selects exchanges before fetching adapters/configs.
+  Preserve unselected installed plugins and their provenance; selection is not
+  credential or live permission. See `docs/CEX_PLUGIN_DOWNLOAD_SELECTION.md`.
 - Tor failure must not silently become direct traffic. Updates to catalogs,
   plugins and executables retain identity/digest/size/protocol checks and consent.
 - Preserve GPL source/provenance and separate third-party artwork/binary notices.

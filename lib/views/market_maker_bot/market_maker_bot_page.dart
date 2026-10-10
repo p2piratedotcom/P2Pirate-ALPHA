@@ -1,3 +1,4 @@
+import 'mm_engine_cex_download_dialog.dart';
 import 'mm_engine_order_details.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_balance_source.dart';
 import 'dart:async';
@@ -1062,40 +1063,43 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
   Future<void> _downloadPlugins() async {
     if (_busy) return;
     await _runBusy(() async {
-      final service = CexPluginService.instance;
-      final current = await service.currentForDownload();
-      final latest = await service.latestCommit();
-      if (!mounted) return;
-      if (current?.commit == latest) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('CEX plugins are up to date.')),
-        );
-        return;
-      }
       final user = context.read<AuthBloc>().state.currentUser;
       if (user == null) throw StateError('Wallet is no longer signed in');
       final walletId = user.walletId.compoundId;
       final sdk = RepositoryProvider.of<KomodoDefiSdk>(context);
-      final accepted = await showDialog<bool>(
+      final service = CexPluginService.instance;
+      setState(() => _downloadStatus = 'Loading available CEX plugins…');
+      late final CexPluginCatalog available;
+      late final CexPluginSnapshot? current;
+      try {
+        current = await service.currentForDownload();
+        available = await service.catalog();
+      } finally {
+        if (mounted) setState(() => _downloadStatus = null);
+      }
+      if (!mounted) return;
+      if (context.read<AuthBloc>().state.currentUser?.walletId.compoundId !=
+          walletId) {
+        throw StateError('Wallet changed while loading CEX plugins');
+      }
+      final selected = await showDialog<Set<String>>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Download CEX plugins?'),
-          content: const Text(
-            'Download exchange adapters and public configuration from P2Pirate CEX_configs. Existing API keys stay local. Running orders are paused and the engine stopped before an update. A wallet awaiting live recovery first restores its live session to reconcile existing orders and hedges; pending swaps can prevent shutdown. It enters preview only after recovery and guarded shutdown succeed.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Download'),
-            ),
-          ],
-        ),
+        builder: (context) =>
+            MmEngineCexDownloadDialog(catalog: available, installed: current),
       );
-      if (accepted != true || !mounted) return;
+      if (selected == null || selected.isEmpty || !mounted) return;
+      if (context.read<AuthBloc>().state.currentUser?.walletId.compoundId !=
+          walletId) {
+        throw StateError('Wallet changed during CEX plugin selection');
+      }
+      if (service.selectionIsCurrent(current, available, selected)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('The selected CEX plugins are up to date.'),
+          ),
+        );
+        return;
+      }
       void checkWallet() {
         if (!mounted ||
             context.read<AuthBloc>().state.currentUser?.walletId.compoundId !=
@@ -1113,7 +1117,9 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
           download: () async {
             checkWallet();
             await service.download(
-              commit: latest,
+              commit: available.commit,
+              available: available,
+              venues: selected,
               onStage: (stage) {
                 if (mounted) setState(() => _downloadStatus = stage);
               },
