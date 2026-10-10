@@ -1092,6 +1092,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
           walletId) {
         throw StateError('Wallet changed during CEX plugin selection');
       }
+      service.validateSelection(current, available, selected);
       if (service.selectionIsCurrent(current, available, selected)) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

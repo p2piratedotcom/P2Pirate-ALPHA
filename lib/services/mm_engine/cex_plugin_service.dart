@@ -54,17 +54,7 @@ class CexPluginService {
       throw const FormatException('Invalid plugin commit');
     }
     final directory = Directory(p.join(root.path, name));
-    final snapshot = await verify(directory, name.substring(0, 40));
-    if (name.length > 40) {
-      final manifest = File(p.join(directory.path, 'catalog.json'));
-      if (await FileSystemEntity.isLink(manifest.path) ||
-          await manifest.length() > 65536 ||
-          sha256.convert(await manifest.readAsBytes()).toString() !=
-              name.substring(41)) {
-        throw const FormatException('Invalid plugin snapshot identity');
-      }
-    }
-    return snapshot;
+    return verify(directory, name.substring(0, 40));
   }
 
   /// Explicit installation may repair corruption; startup still uses current()
@@ -150,6 +140,39 @@ class CexPluginService {
             );
       });
 
+  /// Pure preflight: reject impossible selections before pausing any makers.
+  void validateSelection(
+    CexPluginSnapshot? installed,
+    CexPluginCatalog available,
+    Set<String> venues,
+  ) {
+    final known = available.entries
+        .map((entry) => entry['venue'] as String)
+        .toSet();
+    if (venues.isEmpty || !known.containsAll(venues)) {
+      throw const FormatException('Select at least one available CEX plugin');
+    }
+    final retained = (installed?.entries ?? <Map<String, dynamic>>[]).where(
+      (entry) => !venues.contains(entry['venue']),
+    );
+    if (retained.isNotEmpty &&
+        installed!.licenseDigest != available.licenseDigest) {
+      throw StateError(
+        'The plugin license changed. Select all installed exchanges to update them together.',
+      );
+    }
+    if (retained.length + venues.length > 32) {
+      throw const FormatException('Too many installed CEX plugins');
+    }
+  }
+
+  static String _snapshotDigest(List<int> catalog, List<int> sources) =>
+      sha256.convert([
+        ...utf8.encode('P2Pirate CEX snapshot v1\n'),
+        ...sha256.convert(catalog).bytes,
+        ...sha256.convert(sources).bytes,
+      ]).toString();
+
   Future<CexPluginSnapshot> download({
     String? commit,
     Set<String>? venues,
@@ -181,7 +204,9 @@ class CexPluginService {
         throw const FormatException('Invalid plugin commit');
       }
       final installed = await currentForDownload();
-      if (installed?.commit == expectedCommit) return installed!;
+      if (installed?.commit == expectedCommit && !installed!.isSelective) {
+        return installed;
+      }
     }
     final remote = available ?? await catalog(commit: expectedCommit);
     final commit = remote.commit;
@@ -204,15 +229,11 @@ class CexPluginService {
     final selected =
         venues ??
         remote.entries.map((entry) => entry['venue'] as String).toSet();
-    final known = remote.entries
-        .map((entry) => entry['venue'] as String)
-        .toSet();
-    if (selected.isEmpty || !known.containsAll(selected)) {
-      throw const FormatException('Select at least one available CEX plugin');
-    }
     final existing = await currentForDownload();
+    validateSelection(venues == null ? null : existing, remote, selected);
     if (selectionIsCurrent(existing, remote, selected) &&
-        (venues != null || existing!.commit == commit)) {
+        (venues != null ||
+            existing!.commit == commit && !existing.isSelective)) {
       return existing!;
     }
     final retained = venues == null
@@ -220,12 +241,6 @@ class CexPluginService {
         : (existing?.entries ?? <Map<String, dynamic>>[])
               .where((entry) => !selected.contains(entry['venue']))
               .toList();
-    if (retained.isNotEmpty &&
-        existing!.licenseDigest != remote.licenseDigest) {
-      throw StateError(
-        'The plugin license changed. Select all installed exchanges to update them together.',
-      );
-    }
     final downloaded = remote.entries
         .where((entry) => selected.contains(entry['venue']))
         .toList();
@@ -242,9 +257,16 @@ class CexPluginService {
         'plugins': combined,
       }),
     );
+    final sources = <String, String>{
+      for (final item in retained)
+        item['venue'] as String:
+            existing!.pluginCommits[item['venue']] ?? existing.commit,
+      for (final item in downloaded) item['venue'] as String: commit,
+    };
+    final sourcesBytes = utf8.encode(jsonEncode(sources));
     final name = venues == null
         ? commit
-        : '$commit-${sha256.convert(manifest)}';
+        : '$commit-${_snapshotDigest(manifest, sourcesBytes)}';
     final root = await _root;
     var parent = root;
     while (true) {
@@ -317,20 +339,14 @@ class CexPluginService {
           await target.writeAsBytes(bytes, flush: true);
         }
       }
-      final sources = <String, String>{
-        for (final item in retained)
-          item['venue'] as String:
-              existing!.pluginCommits[item['venue']] ?? existing.commit,
-        for (final item in downloaded) item['venue'] as String: commit,
-      };
       await File(
         p.join(staging.path, 'plugin-sources.json'),
-      ).writeAsString(jsonEncode(sources), flush: true);
+      ).writeAsBytes(sourcesBytes, flush: true);
       await File(
         p.join(staging.path, 'catalog.json'),
       ).writeAsBytes(manifest, flush: true);
       onStage?.call('Verifying CEX plugin compatibility…');
-      await verify(staging, commit);
+      await verify(staging, commit, requireSources: venues != null);
       final target = Directory(p.join(root.path, name));
       final targetType = await FileSystemEntity.type(
         target.path,
@@ -339,17 +355,18 @@ class CexPluginService {
       if (targetType != FileSystemEntityType.notFound) {
         var valid = false;
         try {
-          await verify(target, commit);
-          valid =
-              venues == null ||
-              sha256
-                      .convert(
-                        await File(
-                          p.join(target.path, 'catalog.json'),
-                        ).readAsBytes(),
-                      )
-                      .toString() ==
-                  sha256.convert(manifest).toString();
+          final installed = await verify(target, commit);
+          valid = venues == null
+              ? !installed.isSelective
+              : _snapshotDigest(
+                      await File(
+                        p.join(target.path, 'catalog.json'),
+                      ).readAsBytes(),
+                      await File(
+                        p.join(target.path, 'plugin-sources.json'),
+                      ).readAsBytes(),
+                    ) ==
+                    _snapshotDigest(manifest, sourcesBytes);
         } on FormatException {
           // Replacement staging was fully verified above; retain the bad copy.
         } on FileSystemException {
@@ -478,8 +495,12 @@ class CexPluginService {
 
   static Future<CexPluginSnapshot> verify(
     Directory directory,
-    String commit,
-  ) async {
+    String commit, {
+    bool requireSources = false,
+  }) async {
+    final name = p.basename(directory.path);
+    final isSelective = _snapshotName.hasMatch(name) && name.length > 40;
+    requireSources = requireSources || isSelective;
     if (await FileSystemEntity.isLink(directory.path)) {
       throw const FormatException('Unsafe plugin directory');
     }
@@ -502,7 +523,8 @@ class CexPluginService {
       return file.readAsBytes();
     }
 
-    final manifest = _manifest(await read('catalog.json', 65536));
+    final manifestBytes = await read('catalog.json', 65536);
+    final manifest = _manifest(manifestBytes);
     if (sha256.convert(await read('LICENSE', 65536)).toString() !=
         manifest.$2) {
       throw const FormatException('Invalid plugin license');
@@ -542,11 +564,24 @@ class CexPluginService {
     final sources = <String, String>{
       for (final venue in labels.keys) venue: commit,
     };
-    if (await FileSystemEntity.type(sourcesFile.path, followLinks: false) !=
-        FileSystemEntityType.notFound) {
-      final decoded = jsonDecode(
-        utf8.decode(await read('plugin-sources.json', 8192)),
+    final sourcesType = await FileSystemEntity.type(
+      sourcesFile.path,
+      followLinks: false,
+    );
+    if (requireSources && sourcesType == FileSystemEntityType.notFound) {
+      throw const FormatException(
+        'Missing selective CEX plugin source metadata',
       );
+    }
+    if (sourcesType != FileSystemEntityType.notFound) {
+      final sourcesBytes = await read('plugin-sources.json', 8192);
+      if (isSelective &&
+          (commit != 'local' && name.substring(0, 40) != commit ||
+              name.substring(41) !=
+                  _snapshotDigest(manifestBytes, sourcesBytes))) {
+        throw const FormatException('Invalid CEX plugin snapshot identity');
+      }
+      final decoded = jsonDecode(utf8.decode(sourcesBytes));
       if (decoded is! Map ||
           decoded.length != labels.length ||
           decoded.keys.any((key) => !labels.containsKey(key)) ||
@@ -554,6 +589,11 @@ class CexPluginService {
             (value) => value is! String || !_commit.hasMatch(value),
           )) {
         throw const FormatException('Invalid CEX plugin source metadata');
+      }
+      if (!requireSources &&
+          _commit.hasMatch(commit) &&
+          decoded.values.any((value) => value != commit)) {
+        throw const FormatException('Invalid full-catalog source metadata');
       }
       sources.addAll(Map<String, String>.from(decoded));
     }
@@ -565,6 +605,7 @@ class CexPluginService {
         manifest.$1.map(Map<String, dynamic>.unmodifiable),
       ),
       licenseDigest: manifest.$2,
+      isSelective: requireSources,
       pluginCommits: Map<String, String>.unmodifiable(sources),
     );
   }
@@ -675,6 +716,7 @@ class CexPluginSnapshot {
     this.labels, {
     this.entries = const [],
     this.licenseDigest = '',
+    this.isSelective = false,
     this.pluginCommits = const {},
   });
   final Directory directory;
@@ -682,6 +724,7 @@ class CexPluginSnapshot {
   final Map<String, String> labels;
   final List<Map<String, dynamic>> entries;
   final String licenseDigest;
+  final bool isSelective;
   final Map<String, String> pluginCommits;
 }
 

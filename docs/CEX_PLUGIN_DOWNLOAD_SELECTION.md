@@ -17,15 +17,19 @@ configuration, source-bundle and symlink checks. The shared LICENSE digest must
 match for retained plugins; a changed license requires selecting all installed
 exchanges rather than silently relicensing older adapters.
 
-A selective snapshot directory is named `<catalog-commit>-<catalog-SHA256>`;
+A selective snapshot directory is named `<catalog-commit>-<snapshot-SHA256>`;
 `current` names that immutable directory. Legacy 40-character commit pointers
-remain readable. The suffix is checked against the installed catalog. A bounded
-`plugin-sources.json` sidecar records the actual source commit for each retained
+remain readable. The suffix binds both the catalog bytes and the provenance sidecar through
+fixed-length SHA-256 hashes with domain separation. A selective snapshot must
+include its bounded `plugin-sources.json` sidecar, which records the actual source commit for each retained
 or downloaded venue; the snapshot's commit identifies the catalog used for the
 latest selection, not a claim every retained adapter was updated. The engine
 receives the directory and does not need a protocol/schema change. Older wallet
 versions do not understand the new pointer form; old snapshots are preserved,
 not overwritten or deleted by this change.
+
+Legacy full-download offline reuse is restricted to non-selective commit
+snapshots; a partial snapshot cannot satisfy a legacy full request.
 
 Concurrent installations are rejected instead of returning another request's
 result. Staging is verified before activation; failures retain the prior pointer.
