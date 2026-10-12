@@ -110,6 +110,10 @@ docs is not authoritative over the current worker/catalog implementation.
 
 Display memory is scoped to wallet/process and keeps original timestamps.
 Reconnection/live-mode changes fence old replies before adopting new snapshots.
+Dashboard reads capture the authenticated wallet ID and engine process revision
+before awaiting. Both replies and failures are discarded after logout, account
+replacement or generation changes, even while the page remains mounted during
+shutdown. See `mm_engine_dashboard_read.dart` for the isolated read seam.
 Showing a cached row must not authorize a start. Pause/Stop can remain available
 when status is stale. English presentation translates legacy diagnostics without
 changing their source values, logs or machine confirmation payloads. See

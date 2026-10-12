@@ -128,6 +128,10 @@ to end.
 
 ## Remaining release work
 
+- Retain an explicit release review of coin-data and artwork distribution terms,
+  including the database-rights limitation recorded in the provenance audit.
+  File hashes and factual-data descriptions do not complete that review; record
+  the basis for each catalog/artwork snapshot included in a public release.
 - Publish the prepared, hash-verified Ubuntu Tor and torsocks source packages,
   licenses and notices with a future reviewed GUI release. The local AppImage
   already contains them; see [asset provenance](LINUX_ASSET_PROVENANCE.md).

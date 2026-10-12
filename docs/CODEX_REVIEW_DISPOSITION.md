@@ -2,8 +2,11 @@
 
 This ledger covers the 24 inline comments on merged GUI pull requests through
 #56, two on GUI #57, five on SDK pull requests #5–#6, and one on SDK #9. The links point to
-the original review comments. “Fixed here” describes the local remediation
-branch; it is not a release verification or a claim that the fix is merged.
+the original review comments. The original “Fixed here” entries below were
+subsequently published in GUI #57: commits `224668b321` and `b9ececa08e`,
+merged as `c467b7b`. Their current code paths were rechecked on 12 October
+2026 against published wallet `d7a95e4`. This does not identify an installed
+binary or constitute funded acceptance.
 
 ## GUI
 
@@ -62,3 +65,34 @@ branch; it is not a release verification or a claim that the fix is merged.
 The Tor/KDF path, swap submission, recovery broadcasts, and AppImage artifact
 hashes were not exercised against a live wallet or published binary. They
 still require isolated end-to-end verification before release.
+
+
+## Follow-up verification (12 October 2026)
+
+All 28 previously unanswered GUI findings were checked against published wallet
+`d7a95e4`. Twenty-six have their corrective paths in that revision. The newer
+credential replacement finding (#64) is also addressed: `00d3d826` cleared the
+selected balance view after storing credentials; the shared scheduler introduced
+by #71 (`e940cce`, including `9b5d857c`) now invalidates both cards' account
+snapshots with `_balanceSource.invalidate(clear: true)`.
+
+Two remaining gaps are corrected in this follow-up source change:
+
+- [#74 dashboard reply](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/74#pullrequestreview-5431680917):
+  reconnect generation fencing existed, but logout/account replacement could
+  leave the page mounted while shutdown awaited. `_readDashboard` now captures
+  wallet ID and engine session revision, checks them against current auth/profile
+  and refresh generation before reading and before applying success or failure.
+  The extracted read seam discards a stale reply/error without changing the next
+  session's rows, selection, timestamps or error state.
+- [#43 distribution ledger](https://github.com/p2piratedotcom/P2Pirate-ALPHA/pull/43#discussion_r4147093850):
+  #57 restored the explicit release gates. Later provenance edits described the
+  factual-data basis but removed the explicit remaining coin-data/artwork review
+  entry. This follow-up restores it, including the documented database-rights
+  limitation; recording hashes is not marked as completion of that release task.
+
+Verification: the asynchronous dashboard fixture was red without the reply
+fence (11 failures, 2 passes), then all 13 cases passed. The selected combined
+wallet fixtures passed 40 tests; analysis of the dashboard caller, read seam and
+fixture reported no issues. These are isolated source/fixture checks. No real
+wallet, recovery broadcast, CEX account, funded trade or runtime restart was used.

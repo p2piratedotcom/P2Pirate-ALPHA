@@ -23,6 +23,7 @@ import 'package:web_dex/views/market_maker_bot/mm_engine_loading_gate.dart';
 import 'package:collection/collection.dart';
 
 import 'mm_engine_page_memory.dart';
+import 'mm_engine_dashboard_read.dart';
 import 'mm_engine_status_strip.dart';
 
 import 'package:web_dex/shared/utils/mm_engine_english.dart';
@@ -314,16 +315,29 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     required int generation,
   }) async {
     final engine = MmEngineService.instance;
+    final walletId = _authBloc.state.currentUser?.walletId.compoundId;
+    final sessionRevision = engine.sessionRevision;
+    bool sameSession() =>
+        mounted &&
+        generation == _refreshGeneration &&
+        walletId != null &&
+        walletId == _memory.walletId &&
+        _authBloc.state.currentUser?.walletId.compoundId == walletId &&
+        engine.profile == walletId &&
+        engine.sessionRevision == sessionRevision;
     try {
       // Orders include their matching strategy states in a single snapshot.
       // Periodic reads never touch credentials or fetch remote CEX balances.
-      final replies = await Future.wait([
-        engine.request('GET', '/v1/orders'),
-        engine.request('GET', '/v1/reconciliation'),
-        if (!automatic || _credentials == null)
-          engine.request('GET', '/v1/credentials/status'),
-      ]);
-      if (!mounted || generation != _refreshGeneration) return;
+      final replies = await readMmEngineDashboard(
+        isCurrentSession: sameSession,
+        load: () => Future.wait([
+          engine.request('GET', '/v1/orders'),
+          engine.request('GET', '/v1/reconciliation'),
+          if (!automatic || _credentials == null)
+            engine.request('GET', '/v1/credentials/status'),
+        ]),
+      );
+      if (replies == null || !sameSession()) return;
       final orders = replies[0];
       final states = orders['strategy_states'];
       if (states is! Map<String, dynamic> || orders['orders'] is! List) {
@@ -385,7 +399,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
       _statusClock.value++;
       _rememberDisplay();
     } catch (error) {
-      if (!mounted || generation != _refreshGeneration) return;
+      if (!sameSession()) return;
       const message =
           'Order status refresh failed. Showing the last confirmed state.';
       if (!_paintedStale || _statusError != message) {
