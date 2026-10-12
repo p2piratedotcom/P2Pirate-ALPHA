@@ -272,3 +272,11 @@ not infer funding or perform a rebalance while displaying these snapshots.
 Swap offer discovery preserves a peer-no-response failure as unavailable, rather than treating it as successful empty liquidity. The best_orders HTTP wrapper reads only the known peer failure category from the SDK response message and presents fixed English copy; generic HTTP failures retain only the numeric status. An empty directional taker book shows an unavailable message while discovery has failed; populated book rows remain usable and ordinary swap validation remains mandatory. This does not repair peer connectivity or change the pinned SDK.
 
 Taker Swap names its selectors “Asset I want to sell” and “Asset I want to buy”. Available offers use separated, selectable rows with 16px amounts, 14px column labels, visible selected state and preserved UUID copy/tooltips. The list removes the enclosing book box and histogram fill, sizes to its content up to six visible offers, then scrolls vertically; native/USD columns scroll together horizontally when needed. Legacy maker books retain their book presentation.
+
+## Maker deletion and paired creation
+
+See [maker deletion and opposite creation](MAKER_DELETE_AND_OPPOSITE.md).
+The new-maker form can preview/save both directions in one paused group,
+with opposite premium and engine-converted sold budgets. Delete archives
+only the selected maker after withdrawal and recovery checks; history is
+preserved. It requires the companion engine deletion-guard capability.

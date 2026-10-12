@@ -37,6 +37,8 @@ Future<Map<String, dynamic>> sendMmEngineRequest(
     // independent freshness deadline on the final order book.
     final responseTimeout =
         path == '/v1/strategies/preview' ||
+            path == '/v1/strategies/opposite' ||
+            path == '/v1/strategies/delete-group' ||
             path == '/v1/strategies/create' ||
             path.startsWith('/v1/rebalance/') ||
             path.startsWith('/v1/exchanges/balances')

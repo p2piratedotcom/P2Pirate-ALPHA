@@ -36,6 +36,7 @@ class MmEngineStrategyForm extends StatefulWidget {
     this.availableBalances = const {},
     this.loadBalance,
     this.onPreview,
+    this.onPreviewPair,
     this.draft,
     this.onDraftChanged,
   });
@@ -51,6 +52,10 @@ class MmEngineStrategyForm extends StatefulWidget {
 
   /// False returns to this draft; true means the paused configuration was saved.
   final Future<bool> Function(Map<String, Object?> spec)? onPreview;
+
+  /// The engine derives the inverse; the form never converts amounts or funds.
+  final Future<bool> Function(Map<String, Object?> spec, bool createOpposite)?
+  onPreviewPair;
   final Map<String, Object?>? draft;
   final ValueChanged<Map<String, Object?>>? onDraftChanged;
 
@@ -95,6 +100,7 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
   int _balanceGeneration = 0;
   bool _balanceLoading = false;
   bool _saved = false;
+  bool _createOpposite = false;
 
   Future<void> _refreshBalance() async {
     final ticker = _baseTicker;
@@ -104,20 +110,26 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
     setState(() => _balanceLoading = true);
     try {
       final amount = await loader(ticker);
-      if (!mounted || generation != _balanceGeneration || ticker != _baseTicker)
+      if (!mounted ||
+          generation != _balanceGeneration ||
+          ticker != _baseTicker) {
         return;
+      }
       setState(() {
-        if (amount != null)
+        if (amount != null) {
           _balances[ticker] = amount;
-        else
+        } else {
           _balances.remove(ticker);
+        }
       });
     } catch (_) {
-      if (mounted && generation == _balanceGeneration)
+      if (mounted && generation == _balanceGeneration) {
         setState(() => _balances.remove(ticker));
+      }
     } finally {
-      if (mounted && generation == _balanceGeneration)
+      if (mounted && generation == _balanceGeneration) {
         setState(() => _balanceLoading = false);
+      }
     }
   }
 
@@ -187,6 +199,9 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
       _autoPrice = draft['autoPrice'] as bool? ?? _autoPrice;
       _autoQuantity = draft['autoQuantity'] as bool? ?? _autoQuantity;
       _replenish = draft['replenish'] as bool? ?? _replenish;
+      if (widget.initialSpec == null) {
+        _createOpposite = draft['createOpposite'] as bool? ?? false;
+      }
       for (final pair in [
         (_baseAsset, 'baseAsset'),
         (_quoteAsset, 'quoteAsset'),
@@ -264,7 +279,7 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
   }
 
   void _captureDraft() {
-    if (!_saved)
+    if (!_saved) {
       widget.onDraftChanged?.call({
         'strategyId': widget.strategyId,
         'baseTicker': _baseTicker,
@@ -284,7 +299,9 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
         'autoPrice': _autoPrice,
         'autoQuantity': _autoQuantity,
         'replenish': _replenish,
+        'createOpposite': _createOpposite,
       });
+    }
   }
 
   @override
@@ -468,7 +485,7 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
                 .toString();
       }
     }
-    if (widget.onPreview == null) {
+    if (widget.onPreview == null && widget.onPreviewPair == null) {
       _saved = true;
       Navigator.of(context).pop(spec);
       return;
@@ -478,7 +495,12 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
       _error = null;
     });
     try {
-      final saved = await widget.onPreview!(spec);
+      final saved = widget.onPreviewPair != null
+          ? await widget.onPreviewPair!(
+              spec,
+              widget.initialSpec == null && _createOpposite,
+            )
+          : await widget.onPreview!(spec);
       if (saved && mounted) {
         _saved = true;
         Navigator.of(context).pop(spec);
@@ -635,6 +657,7 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
                       signed: true,
                     ),
                     validator: _premiumPercent,
+                    onChanged: (_) => setState(() {}),
                   ),
                   SwitchListTile(
                     subtitle: !_hedgingEnabled
@@ -684,6 +707,24 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
                     value: _replenish,
                     onChanged: (value) => setState(() => _replenish = value),
                   ),
+                  if (widget.initialSpec == null &&
+                      widget.onPreviewPair != null)
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: const Text('Create the opposite maker order too'),
+                      subtitle: Text(
+                        'Also sell ${_side == 'SELL_ARRR' ? _quoteTicker ?? 'buy coin' : _baseTicker ?? 'base coin'} '
+                        'to buy ${_side == 'SELL_ARRR' ? _baseTicker ?? 'sell coin' : _quoteTicker ?? 'quote coin'}, '
+                        'with premium ${Decimal.tryParse(_premium.text.trim()) == null ? 'of the opposite sign' : '${-Decimal.parse(_premium.text.trim())}%'}.'
+                        '\nBoth orders are saved paused. Preview shows the '
+                        'opposite order’s quantities, price and budget in its sell coin.',
+                      ),
+                      value: _createOpposite,
+                      onChanged: (value) => setState(() {
+                        _createOpposite = value ?? false;
+                      }),
+                    ),
                   const Text(
                     'The engine will preview exchange depth, balances and hedge '
                     'coverage before saving. The strategy remains paused.',
