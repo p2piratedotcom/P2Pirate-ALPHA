@@ -713,6 +713,51 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     }
   }
 
+  Future<bool> _reconcileMakerSave(
+    MmEnginePageMemory memory,
+    bool Function() sameSession,
+  ) async {
+    final pending = memory.unconfirmedMakerSave;
+    if (pending == null) return false;
+    await _requireConfirmedStatus();
+    if (!mounted ||
+        !sameSession() ||
+        _statusUpdated == null ||
+        _statusUpdated!.isBefore(pending.requestedAt)) {
+      throw StateError(
+        'The previous save is still unconfirmed. Refresh the maker list '
+        'before saving again. Your draft and IDs are kept.',
+      );
+    }
+    final ids = ((_strategies?['strategies'] as List?) ?? [])
+        .whereType<Map>()
+        .map((row) => row['id'])
+        .toSet();
+    final present = pending.ids.where(ids.contains).toSet();
+    if (present.isNotEmpty && present.length != pending.ids.length) {
+      throw StateError(
+        'Only part of the previous maker pair is present. Inspect the maker '
+        'list before creating more orders. Your draft and IDs are kept.',
+      );
+    }
+    memory.confirmMakerSave();
+    if (present.isNotEmpty) {
+      memory.makerDrafts.remove('new');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Previous maker save confirmed. Review the orders in the list; '
+            'they were not saved again.',
+          ),
+        ),
+      );
+      return true;
+    }
+    // Both IDs are absent in a confirmed post-request snapshot. A user may
+    // preview again with the retained IDs; no automatic write is issued here.
+    return false;
+  }
+
   Future<void> _createStrategy({Map<String, dynamic>? existing}) async {
     if (_busy) return;
     final existingSpec = existing?['spec'] as Map<String, dynamic>?;
@@ -727,10 +772,6 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
             .toSet()
             .toList()
           ..sort();
-    if (existing == null && activeTickers.length < 2) {
-      setState(() => _error = 'Activate at least two coins in Wallet.');
-      return;
-    }
     final sdk = RepositoryProvider.of<KomodoDefiSdk>(context);
     final walletId = _authBloc.state.currentUser?.walletId.compoundId;
     bool sameWallet() =>
@@ -741,6 +782,23 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
     bool sameSession() =>
         sameWallet() &&
         MmEngineService.instance.sessionRevision == draftRevision;
+    final makerMemory = _memory;
+    if (existing == null && makerMemory.unconfirmedMakerSave != null) {
+      var alreadySaved = false;
+      await _runBusy(() async {
+        alreadySaved = await _reconcileMakerSave(makerMemory, sameSession);
+      });
+      if (!mounted ||
+          !sameSession() ||
+          makerMemory.unconfirmedMakerSave != null ||
+          alreadySaved) {
+        return;
+      }
+    }
+    if (existing == null && activeTickers.length < 2) {
+      setState(() => _error = 'Activate at least two coins in Wallet.');
+      return;
+    }
     final draftKey = existing?['id'] as String? ?? 'new';
     final draft = _memory.makerDrafts[draftKey];
     final strategyId =
@@ -773,6 +831,21 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
         },
         onPreviewPair: (spec, createOpposite) async {
           if (!sameSession()) {
+            throw StateError(
+              'Wallet or engine session changed. Reopen the maker form.',
+            );
+          }
+          if (existing == null && makerMemory.unconfirmedMakerSave != null) {
+            setState(() => _busy = true);
+            try {
+              if (await _reconcileMakerSave(makerMemory, sameSession)) {
+                return true;
+              }
+            } finally {
+              if (mounted) setState(() => _busy = false);
+            }
+          }
+          if (!mounted || !sameSession()) {
             throw StateError(
               'Wallet or engine session changed. Reopen the maker form.',
             );
@@ -880,35 +953,52 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
                 'Wallet or engine session changed. Reopen the maker form.',
               );
             }
-            await saveMmEnginePausedMaker(
-              spec: spec,
-              additionalSpecs: specs.skip(1).toList(),
-              modifying: existing != null,
-              isCurrentSession: sameSession,
-              request: MmEngineService.instance.request,
-              verifyModification: () async {
-                await _requireConfirmedStatus();
-                final id = existing!['id'];
-                final current = ((_strategies?['strategies'] as List?) ?? [])
-                    .whereType<Map<String, dynamic>>()
-                    .where((row) => row['id'] == id);
-                if (current.isEmpty ||
-                    current.first['enabled'] != 0 ||
-                    current.first['state'] != 'PAUSED' ||
-                    _orders.any((order) => order['strategy_id'] == id)) {
-                  throw StateError(
-                    'Order state changed. Pause and withdraw it before modifying.',
-                  );
-                }
-              },
-            );
+            if (existing == null) {
+              makerMemory.markMakerSaveUnconfirmed({
+                for (final item in specs) item['strategy_id'] as String,
+              });
+            }
+            try {
+              await saveMmEnginePausedMaker(
+                spec: spec,
+                additionalSpecs: specs.skip(1).toList(),
+                modifying: existing != null,
+                isCurrentSession: sameSession,
+                request: MmEngineService.instance.request,
+                verifyModification: () async {
+                  await _requireConfirmedStatus();
+                  final id = existing!['id'];
+                  final current = ((_strategies?['strategies'] as List?) ?? [])
+                      .whereType<Map<String, dynamic>>()
+                      .where((row) => row['id'] == id);
+                  if (current.isEmpty ||
+                      current.first['enabled'] != 0 ||
+                      current.first['state'] != 'PAUSED' ||
+                      _orders.any((order) => order['strategy_id'] == id)) {
+                    throw StateError(
+                      'Order state changed. Pause and withdraw it before modifying.',
+                    );
+                  }
+                },
+              );
+            } catch (_) {
+              if (existing == null) {
+                throw StateError(
+                  'Saving was not confirmed. One or both paused makers may '
+                  'already exist. Your draft and IDs are kept. Refresh the '
+                  'maker list before trying to save again.',
+                );
+              }
+              rethrow;
+            }
             if (!sameSession()) {
               throw StateError(
                 'Wallet or engine session changed after saving. '
                 'Refresh the maker list before creating another order.',
               );
             }
-            _memory.makerDrafts.remove(draftKey);
+            if (existing == null) makerMemory.confirmMakerSave();
+            makerMemory.makerDrafts.remove(draftKey);
             await _refresh();
             if (!sameSession()) {
               throw StateError(

@@ -60,3 +60,25 @@ engine restart or runtime installation is part of this source change.
 Changed Dart files are formatted and statically analyzed. Changed engine Python
 files are parsed statically. No new tests, local test runs or funded actions were
 performed for this request. Runtime packaging and release are separate steps.
+
+
+## Unconfirmed configuration saves
+
+Before a new-maker save is dispatched, the GUI records its exact strategy IDs,
+request time and raw form input in an in-memory marker bound to that wallet.
+This is uncertainty metadata, not a preview or live approval. The form captures
+its current draft before awaiting any preview/save callback.
+
+A missing/error response gives an explicit warning that one or both paused
+configurations may already exist. Every subsequent Preview/new-maker attempt
+must read a confirmed maker list newer than the write request, within the current
+wallet/process session. If all IDs exist, the previous save is recognized and no
+second write is sent. If only some exist, creation stays blocked for inspection.
+If none exist, the marker is cleared and the user may preview and confirm again
+with the retained draft/IDs. There is no automatic resend.
+
+Normal account/price/preview display memory is still discarded on session changes.
+Unconfirmed IDs/raw inputs remain scoped to their original wallet within the GUI
+process across navigation or engine-session replacement. They do not cross into
+another wallet or grant funds authority. GUI-process restart is outside this
+in-memory draft retention; backend configuration identity/history remains durable.

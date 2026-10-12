@@ -74,7 +74,7 @@ unit/widget fixtures. The Linux smoke runner creates disposable XDG/D-Bus state;
 its default mode does not start KDF. The `--kdf` option is an explicit extra step.
 
 See [maker deletion and opposite creation](docs/MAKER_DELETE_AND_OPPOSITE.md)
-for paired paused saves, per-coin budgets, session fencing and the additive
+for paired paused saves, per-coin budgets, unconfirmed-save ID fencing and the additive
 `maker_delete_pending_guard: 1` / `maker_opposite_pair: 1` engine capabilities.
 
 ## Working rules

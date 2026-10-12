@@ -284,3 +284,11 @@ preserved. It requires the companion engine deletion-guard capability.
 Opposite-pair creation is negotiated independently with `maker_opposite_pair: 1`.
 Older engines retain single-maker creation; the inverse option is disabled with
 an update explanation and cannot issue an unsupported route.
+
+
+Unconfirmed maker configuration writes retain exact IDs/request time/raw draft
+within the original wallet's GUI-process memory. New-maker/Preview attempts must
+reconcile a confirmed post-request maker list before any further save. Existing
+IDs are recognized without a resend; partial presence stays blocked. This narrow
+uncertainty marker survives display-session replacement while account/preview
+snapshots still clear; it is not trading authorization.

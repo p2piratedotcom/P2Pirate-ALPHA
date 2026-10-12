@@ -498,6 +498,7 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
       _submitting = true;
       _error = null;
     });
+    _captureDraft();
     try {
       final saved = widget.onPreviewPair != null
           ? await widget.onPreviewPair!(
