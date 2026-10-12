@@ -15,6 +15,10 @@ The GUI uses `/v1/strategies/delete-group` with a single exact strategy ID and
 session after confirmation and after any awaited status read. It never issues a
 start/resume as recovery from failure. Unconfirmed replies leave the result
 unknown: refresh the list before retrying. The maker may already be paused.
+If the session changes while the deletion request is in flight, the GUI reports
+that the previous session may already have paused or deleted the maker. It does
+not silently report completion, clear the replacement session's selection/draft,
+or resend the request against that session.
 
 Deletion requires capability `maker_delete_pending_guard: 1`. Older engines show
 a disabled Delete control with an update explanation. The companion engine

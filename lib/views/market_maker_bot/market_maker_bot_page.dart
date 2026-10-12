@@ -1004,7 +1004,13 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
             'confirmation': 'PAUSA ED ELIMINA $id',
           },
         );
-        if (!sameSession()) return;
+        if (!sameSession()) {
+          throw StateError(
+            'Wallet or engine session changed after the deletion request. '
+            'The previous session may already have paused or deleted this maker. '
+            'Refresh the maker list before retrying.',
+          );
+        }
         _selectedOrders.remove(id);
         _memory.makerDrafts.remove(id);
       } catch (error) {
