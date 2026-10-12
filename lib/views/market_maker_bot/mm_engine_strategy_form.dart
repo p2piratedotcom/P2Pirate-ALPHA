@@ -37,6 +37,7 @@ class MmEngineStrategyForm extends StatefulWidget {
     this.loadBalance,
     this.onPreview,
     this.onPreviewPair,
+    this.allowOppositePair = false,
     this.draft,
     this.onDraftChanged,
   });
@@ -56,6 +57,7 @@ class MmEngineStrategyForm extends StatefulWidget {
   /// The engine derives the inverse; the form never converts amounts or funds.
   final Future<bool> Function(Map<String, Object?> spec, bool createOpposite)?
   onPreviewPair;
+  final bool allowOppositePair;
   final Map<String, Object?>? draft;
   final ValueChanged<Map<String, Object?>>? onDraftChanged;
 
@@ -200,7 +202,9 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
       _autoQuantity = draft['autoQuantity'] as bool? ?? _autoQuantity;
       _replenish = draft['replenish'] as bool? ?? _replenish;
       if (widget.initialSpec == null) {
-        _createOpposite = draft['createOpposite'] as bool? ?? false;
+        _createOpposite =
+            widget.allowOppositePair &&
+            (draft['createOpposite'] as bool? ?? false);
       }
       for (final pair in [
         (_baseAsset, 'baseAsset'),
@@ -714,16 +718,21 @@ class _MmEngineStrategyFormState extends State<MmEngineStrategyForm> {
                       controlAffinity: ListTileControlAffinity.leading,
                       title: const Text('Create the opposite maker order too'),
                       subtitle: Text(
-                        'Also sell ${_side == 'SELL_ARRR' ? _quoteTicker ?? 'buy coin' : _baseTicker ?? 'base coin'} '
-                        'to buy ${_side == 'SELL_ARRR' ? _baseTicker ?? 'sell coin' : _quoteTicker ?? 'quote coin'}, '
-                        'with premium ${Decimal.tryParse(_premium.text.trim()) == null ? 'of the opposite sign' : '${-Decimal.parse(_premium.text.trim())}%'}.'
-                        '\nBoth orders are saved paused. Preview shows the '
-                        'opposite order’s quantities, price and budget in its sell coin.',
+                        widget.allowOppositePair
+                            ? 'Also sell ${_side == 'SELL_ARRR' ? _quoteTicker ?? 'buy coin' : _baseTicker ?? 'base coin'} '
+                                  'to buy ${_side == 'SELL_ARRR' ? _baseTicker ?? 'sell coin' : _quoteTicker ?? 'quote coin'}, '
+                                  'with premium ${Decimal.tryParse(_premium.text.trim()) == null ? 'of the opposite sign' : '${-Decimal.parse(_premium.text.trim())}%'}.'
+                                  '\nBoth orders are saved paused. Preview shows the '
+                                  'opposite order’s quantities, price and budget in its sell coin.'
+                            : 'Update the engine to create both directions together. '
+                                  'You can still create a single maker order.',
                       ),
                       value: _createOpposite,
-                      onChanged: (value) => setState(() {
-                        _createOpposite = value ?? false;
-                      }),
+                      onChanged: !widget.allowOppositePair
+                          ? null
+                          : (value) => setState(() {
+                              _createOpposite = value ?? false;
+                            }),
                     ),
                   const Text(
                     'The engine will preview exchange depth, balances and hedge '

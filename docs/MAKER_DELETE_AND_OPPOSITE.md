@@ -30,7 +30,10 @@ old publication-intent record into a new uncertain operation.
 ## Create both directions
 
 The new-maker form offers an unchecked “Create the opposite maker order too”
-checkbox. It shows the opposite sell/buy pair and negative original premium
+checkbox. It requires engine capability `maker_opposite_pair: 1`; otherwise
+the checkbox is disabled with an update explanation and no opposite endpoint
+is called. Single-maker creation remains available. It shows the opposite
+sell/buy pair and negative original premium
 (e.g. +2% becomes −2%). This option is absent while modifying a saved maker and
 is retained with the new-maker draft within the same wallet/process session.
 

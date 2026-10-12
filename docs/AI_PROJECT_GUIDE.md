@@ -280,3 +280,7 @@ The new-maker form can preview/save both directions in one paused group,
 with opposite premium and engine-converted sold budgets. Delete archives
 only the selected maker after withdrawal and recovery checks; history is
 preserved. It requires the companion engine deletion-guard capability.
+
+Opposite-pair creation is negotiated independently with `maker_opposite_pair: 1`.
+Older engines retain single-maker creation; the inverse option is disabled with
+an update explanation and cannot issue an unsupported route.

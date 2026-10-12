@@ -752,6 +752,7 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
       barrierDismissible: false,
       builder: (context) => MmEngineStrategyForm(
         allowOptionalHedging: MmEngineService.instance.optionalHedgingSupported,
+        allowOppositePair: MmEngineService.instance.oppositeMakerPairSupported,
         activeTickers: activeTickers,
         venues: _venues,
         strategyId: strategyId,
@@ -808,6 +809,12 @@ class _MarketMakerBotPageState extends State<MarketMakerBotPage> {
           try {
             final specs = <Map<String, Object?>>[spec];
             if (createOpposite) {
+              if (!MmEngineService.instance.oppositeMakerPairSupported) {
+                throw StateError(
+                  'Update the engine before creating the opposite maker pair. '
+                  'Your draft is kept.',
+                );
+              }
               final opposite = await MmEngineService.instance.request(
                 'POST',
                 '/v1/strategies/opposite',
