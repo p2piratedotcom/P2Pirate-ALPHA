@@ -65,6 +65,11 @@ draft retention, async display recovery or maker/rebalance presentation.
   plugins and executables retain identity/digest/size/protocol checks and consent.
 - Preserve GPL source/provenance and separate third-party artwork/binary notices.
 
+Dashboard response application is fenced by current auth wallet, engine profile,
+process revision and page refresh generation; old read failures must not mark a
+replacement wallet stale. See `mm_engine_dashboard_read.dart` and the follow-up
+section of `docs/CODEX_REVIEW_DISPOSITION.md`.
+
 ## Verification references
 
 See [INSTALL.md](INSTALL.md), [integration testing](docs/INTEGRATION_TESTING.md),
