@@ -41,6 +41,8 @@ class MmEngineService {
   bool rebalanceSelectionSupported = false;
   bool rebalanceIdealSupported = false;
   bool optionalHedgingSupported = false;
+  bool safeMakerDeletionSupported = false;
+  bool oppositeMakerPairSupported = false;
   int _sessionRevision = 0;
   int get sessionRevision => _sessionRevision;
 
@@ -241,6 +243,9 @@ class MmEngineService {
       _profile = walletId;
       final capabilities = await request('GET', '/v1/capabilities');
       optionalHedgingSupported = capabilities['optional_hedging'] == 1;
+      safeMakerDeletionSupported =
+          capabilities['maker_delete_pending_guard'] == 1;
+      oppositeMakerPairSupported = capabilities['maker_opposite_pair'] == 1;
       rebalanceSupported = capabilities['rebalance'] == true;
       rebalanceSelectionSupported = capabilities['rebalance_selection'] == 1;
       rebalanceIdealSupported = capabilities['rebalance_ideal'] == true;
@@ -439,6 +444,8 @@ class MmEngineService {
     rebalanceSelectionSupported = false;
     rebalanceIdealSupported = false;
     optionalHedgingSupported = false;
+    safeMakerDeletionSupported = false;
+    oppositeMakerPairSupported = false;
     _process = null;
     _baseUrl = null;
     _token = null;

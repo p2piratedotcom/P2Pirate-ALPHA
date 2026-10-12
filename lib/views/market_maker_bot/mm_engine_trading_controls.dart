@@ -11,6 +11,7 @@ typedef MmEngineControlRequest =
 /// transfer an approval to a replacement engine process.
 Future<void> saveMmEnginePausedMaker({
   required Map<String, Object?> spec,
+  List<Map<String, Object?>> additionalSpecs = const [],
   required bool modifying,
   required bool Function() isCurrentSession,
   required Future<void> Function() verifyModification,
@@ -24,6 +25,12 @@ Future<void> saveMmEnginePausedMaker({
     }
   }
 
+  if (additionalSpecs.length > 1 ||
+      (modifying && additionalSpecs.isNotEmpty) ||
+      (additionalSpecs.isNotEmpty &&
+          additionalSpecs.first['strategy_id'] == spec['strategy_id'])) {
+    throw ArgumentError('Save one maker or two distinct new makers.');
+  }
   requireSession();
   if (modifying) await verifyModification();
   requireSession();
@@ -33,7 +40,7 @@ Future<void> saveMmEnginePausedMaker({
     body: modifying
         ? {'spec': spec, 'confirmation': 'AGGIORNA IN PAUSA'}
         : {
-            'specs': [spec],
+            'specs': [spec, ...additionalSpecs],
             'confirmation': 'SALVA IN PAUSA',
           },
   );

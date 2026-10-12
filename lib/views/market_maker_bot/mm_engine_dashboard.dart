@@ -2,9 +2,12 @@ import 'mm_engine_scrollable_table.dart';
 import 'mm_engine_shared_coverage.dart';
 import 'mm_engine_amount.dart';
 import 'mm_engine_balance_source.dart';
+
 import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
+
 import 'mm_engine_order_note.dart';
+
 import 'package:flutter/services.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_trading_controls.dart';
 import 'package:web_dex/views/market_maker_bot/mm_engine_rebalance_section.dart';
@@ -32,6 +35,7 @@ class MmEngineDashboard extends StatelessWidget {
     this.onSelection,
     this.onStartSelected,
     this.onModify,
+    this.onDelete,
     this.onDetails,
     this.balanceError,
     this.balanceLoading = false,
@@ -71,6 +75,7 @@ class MmEngineDashboard extends StatelessWidget {
   final ValueChanged<String> onVenue;
   final void Function(String, bool) onStrategy;
   final ValueChanged<String>? onModify;
+  final ValueChanged<String>? onDelete;
   final ValueChanged<Map<String, dynamic>>? onDetails;
 
   Widget _table(
@@ -345,6 +350,25 @@ class MmEngineDashboard extends StatelessWidget {
                                 icon: const Icon(Icons.edit_outlined, size: 16),
                                 label: const Text('Modify'),
                               ),
+                            if (row['deletable'] == true && id is String)
+                              Tooltip(
+                                message: onDelete == null
+                                    ? 'Update the engine before deleting maker orders.'
+                                    : 'Withdraw the maker and remove its configuration. History is kept.',
+                                child: OutlinedButton.icon(
+                                  onPressed:
+                                      busy ||
+                                          !statusConfirmed ||
+                                          onDelete == null
+                                      ? null
+                                      : () => onDelete!(id),
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    size: 16,
+                                  ),
+                                  label: const Text('Delete'),
+                                ),
+                              ),
                           ],
                         ),
                         if ('${row['detail'] ?? ''}'.isNotEmpty) ...[
@@ -463,6 +487,14 @@ class MmEngineDashboard extends StatelessWidget {
             : spec['price_mode'] == 'auto'
             ? 'auto'
             : _fixedPrice(spec, sellBase),
+        'deletable':
+            strategy != null &&
+            ![
+              'WRITING',
+              'REVIEW_REQUIRED',
+              'RECOVERING',
+              'DELETED',
+            ].contains(strategy['state']),
         'modifiable':
             strategy != null &&
             strategy['enabled'] == 0 &&
